@@ -1,0 +1,1029 @@
+{
+  "nome": "redeancora_compra",
+  "language": "Basic",
+  "version": "1.0.0.0",
+  "targetPlatform": "Default",
+  "opcoes": {
+    "autor": "Administrador",
+    "versao": "1.0.0.0",
+    "informacoes": "Projeto redeancora_compra criado no VS Code",
+    "codEmpresa": 1,
+    "codFilial": 1,
+    "nomeUsuario": "Administrador",
+    "preScript": "",
+    "identificacaoBancoDados": "1C19CB87-D23E-45E0-88BA-1DE41370DECD"
+  },
+  "virtualFolders": [
+    {
+      "nome": "Unidades (144)",
+      "id": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "pastaId": "",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "data7_modules",
+      "id": "{6F6270C9-EF2F-419E-9AAB-B5A70CA100E6}",
+      "pastaId": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "aberta": "Nao"
+    },
+    {
+      "nome": "application",
+      "id": "{E1A10001-0001-4001-8001-000000000001}",
+      "pastaId": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "services",
+      "id": "{E1A1000E-000E-400E-800E-00000000000E}",
+      "pastaId": "{E1A10001-0001-4001-8001-000000000001}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "bootstrap",
+      "id": "{E1A1000F-000F-400F-800F-00000000000F}",
+      "pastaId": "{E1A10001-0001-4001-8001-000000000001}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "rede_ancora",
+      "id": "{E1A10010-0010-4010-8010-000000000010}",
+      "pastaId": "{E1A1000E-000E-400E-800E-00000000000E}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "dto",
+      "id": "{E1A10013-0013-4013-8013-000000000013}",
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "usuario",
+      "id": "{E1A10011-0011-4011-8011-000000000011}",
+      "pastaId": "{E1A1000E-000E-400E-800E-00000000000E}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "domain",
+      "id": "{B96D4264-2625-41DE-82F1-F08410F0FD4B}",
+      "pastaId": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "value_objects",
+      "id": "{C96D4265-2625-41DE-82F1-F08410F0FD4C}",
+      "pastaId": "{B96D4264-2625-41DE-82F1-F08410F0FD4B}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "infrastructure",
+      "id": "{E1A10002-0002-4002-8002-000000000002}",
+      "pastaId": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "database",
+      "id": "{E1A10003-0003-4003-8003-000000000003}",
+      "pastaId": "{E1A10002-0002-4002-8002-000000000002}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "events",
+      "id": "{E1A10004-0004-4004-8004-000000000004}",
+      "pastaId": "{E1A10002-0002-4002-8002-000000000002}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "presentation",
+      "id": "{E1A10005-0005-4005-8005-000000000005}",
+      "pastaId": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "forms",
+      "id": "{E1A10009-0009-4009-8009-000000000009}",
+      "pastaId": "{E1A10005-0005-4005-8005-000000000005}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "components",
+      "id": "{E1A1000A-000A-400A-800A-00000000000A}",
+      "pastaId": "{E1A10005-0005-4005-8005-000000000005}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "http",
+      "id": "{E1A1000B-000B-400B-800B-00000000000B}",
+      "pastaId": "{E1A10002-0002-4002-8002-000000000002}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "helpers",
+      "id": "{14DEB9B9-71E8-49E7-8CCC-B4CB8EBDB388}",
+      "pastaId": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "migrations",
+      "id": "{8C836D8B-1952-4B72-A6DB-C7E8931C9D1F}",
+      "pastaId": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "framework",
+      "id": "{E1A10006-0006-4006-8006-000000000006}",
+      "pastaId": "{8C836D8B-1952-4B72-A6DB-C7E8931C9D1F}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "rede_ancora",
+      "id": "{E1A10007-0007-4007-8007-000000000007}",
+      "pastaId": "{8C836D8B-1952-4B72-A6DB-C7E8931C9D1F}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "model",
+      "id": "{96D42642-2625-41DE-82F1-F08410F0FD4A}",
+      "pastaId": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "usuario",
+      "id": "{7327A688-26D0-4217-8DF7-AF1385535CDA}",
+      "pastaId": "{96D42642-2625-41DE-82F1-F08410F0FD4A}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "rede_ancora",
+      "id": "{E1A10012-0012-4012-8012-000000000012}",
+      "pastaId": "{96D42642-2625-41DE-82F1-F08410F0FD4A}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "pesquisa_padrao",
+      "id": "{E1A1000D-000D-400D-800D-00000000000D}",
+      "pastaId": "{96D42642-2625-41DE-82F1-F08410F0FD4A}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "forms",
+      "id": "{E2B49F08-6D9A-46E8-A6F0-C6EE8DB97808}",
+      "pastaId": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "assets",
+      "id": "{B77345C7-6B65-4570-B50B-2D6BBEFAE726}",
+      "pastaId": "{E1A10005-0005-4005-8005-000000000005}",
+      "aberta": "Sim"
+    },
+    {
+      "nome": "core_modules",
+      "id": "{521D050F-FD74-4133-A58E-29984C25F400}",
+      "pastaId": "{6F6270C9-EF2F-419E-9AAB-B5A70CA100E6}",
+      "aberta": "Nao"
+    }
+  ],
+  "modulesMetadata": {
+    "app_boot": {
+      "nome": "app_boot",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000F-000F-400F-800F-00000000000F}"
+    },
+    "rede_ancora_api_novos_bootstrap": {
+      "nome": "rede_ancora_api_novos_bootstrap",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000F-000F-400F-800F-00000000000F}"
+    },
+    "rede_ancora_checkout_bootstrap": {
+      "nome": "rede_ancora_checkout_bootstrap",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000F-000F-400F-800F-00000000000F}"
+    },
+    "rede_ancora_dev_harness": {
+      "nome": "rede_ancora_dev_harness",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000F-000F-400F-800F-00000000000F}"
+    },
+    "rede_ancora_empresa_sync_test": {
+      "nome": "rede_ancora_empresa_sync_test",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000F-000F-400F-800F-00000000000F}"
+    },
+    "rede_ancora_produto_sync_bootstrap": {
+      "nome": "rede_ancora_produto_sync_bootstrap",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000F-000F-400F-800F-00000000000F}"
+    },
+    "rede_ancora_smoke_test": {
+      "nome": "rede_ancora_smoke_test",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000F-000F-400F-800F-00000000000F}"
+    },
+    "run_migrations": {
+      "nome": "run_migrations",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000F-000F-400F-800F-00000000000F}"
+    },
+    "rede_ancora_input_aplicar_condicao_pagamento": {
+      "nome": "rede_ancora_input_aplicar_condicao_pagamento",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_atualizar_transportador": {
+      "nome": "rede_ancora_input_atualizar_transportador",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_buscar_produtos": {
+      "nome": "rede_ancora_input_buscar_produtos",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_buscar_produtos_por_lote": {
+      "nome": "rede_ancora_input_buscar_produtos_por_lote",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_confirmar_pedido": {
+      "nome": "rede_ancora_input_confirmar_pedido",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_consultar_detalhe_condicao_pagamento": {
+      "nome": "rede_ancora_input_consultar_detalhe_condicao_pagamento",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_consultar_pagamentos": {
+      "nome": "rede_ancora_input_consultar_pagamentos",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_consultar_precos_estoques_cds": {
+      "nome": "rede_ancora_input_consultar_precos_estoques_cds",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_consultar_similares": {
+      "nome": "rede_ancora_input_consultar_similares",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_criar_transportador": {
+      "nome": "rede_ancora_input_criar_transportador",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_listar_itens_pedido_api": {
+      "nome": "rede_ancora_input_listar_itens_pedido_api",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_listar_pedidos_api": {
+      "nome": "rede_ancora_input_listar_pedidos_api",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_listar_pedidos_programados": {
+      "nome": "rede_ancora_input_listar_pedidos_programados",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_listar_pendencias_api": {
+      "nome": "rede_ancora_input_listar_pendencias_api",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_listar_pendencias_por_pedido_api": {
+      "nome": "rede_ancora_input_listar_pendencias_por_pedido_api",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_listar_produtos_pedido_programado": {
+      "nome": "rede_ancora_input_listar_produtos_pedido_programado",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_input_solicitar_relatorio_pedido_programado": {
+      "nome": "rede_ancora_input_solicitar_relatorio_pedido_programado",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_output_aplicar_condicao_pagamento": {
+      "nome": "rede_ancora_output_aplicar_condicao_pagamento",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_output_confirmar_pedido": {
+      "nome": "rede_ancora_output_confirmar_pedido",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_output_consultar_detalhe_condicao_pagamento": {
+      "nome": "rede_ancora_output_consultar_detalhe_condicao_pagamento",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_output_consultar_pagamentos": {
+      "nome": "rede_ancora_output_consultar_pagamentos",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
+    "rede_ancora_agenda_compras_service": {
+      "nome": "rede_ancora_agenda_compras_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_api_client": {
+      "nome": "rede_ancora_api_client",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_api_config": {
+      "nome": "rede_ancora_api_config",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_autenticacao_service": {
+      "nome": "rede_ancora_autenticacao_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_carrinho_service": {
+      "nome": "rede_ancora_carrinho_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_catalogo_service": {
+      "nome": "rede_ancora_catalogo_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_checkout_service": {
+      "nome": "rede_ancora_checkout_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_empresa_service": {
+      "nome": "rede_ancora_empresa_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_http_client": {
+      "nome": "rede_ancora_http_client",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_integracao_context": {
+      "nome": "rede_ancora_integracao_context",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_json_helper": {
+      "nome": "rede_ancora_json_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_modalidade_service": {
+      "nome": "rede_ancora_modalidade_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_pedido_programado_service": {
+      "nome": "rede_ancora_pedido_programado_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_produto_service": {
+      "nome": "rede_ancora_produto_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_produto_sincronizacao_modo": {
+      "nome": "rede_ancora_produto_sincronizacao_modo",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_produto_sincronizacao_service": {
+      "nome": "rede_ancora_produto_sincronizacao_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_produto_vinculo_origem": {
+      "nome": "rede_ancora_produto_vinculo_origem",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_sales_service": {
+      "nome": "rede_ancora_sales_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_url_helper": {
+      "nome": "rede_ancora_url_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "usuario_service": {
+      "nome": "usuario_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10011-0011-4011-8011-000000000011}"
+    },
+    "base_value_object": {
+      "nome": "base_value_object",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{C96D4265-2625-41DE-82F1-F08410F0FD4C}"
+    },
+    "cnpj_vo": {
+      "nome": "cnpj_vo",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{C96D4265-2625-41DE-82F1-F08410F0FD4C}"
+    },
+    "cpf_vo": {
+      "nome": "cpf_vo",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{C96D4265-2625-41DE-82F1-F08410F0FD4C}"
+    },
+    "email_vo": {
+      "nome": "email_vo",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{C96D4265-2625-41DE-82F1-F08410F0FD4C}"
+    },
+    "barcode_helper": {
+      "nome": "barcode_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{14DEB9B9-71E8-49E7-8CCC-B4CB8EBDB388}"
+    },
+    "crypto_helper": {
+      "nome": "crypto_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{14DEB9B9-71E8-49E7-8CCC-B4CB8EBDB388}"
+    },
+    "date_helper": {
+      "nome": "date_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{14DEB9B9-71E8-49E7-8CCC-B4CB8EBDB388}"
+    },
+    "file_helper": {
+      "nome": "file_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{14DEB9B9-71E8-49E7-8CCC-B4CB8EBDB388}"
+    },
+    "regex_helper": {
+      "nome": "regex_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{14DEB9B9-71E8-49E7-8CCC-B4CB8EBDB388}"
+    },
+    "string_helper": {
+      "nome": "string_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{14DEB9B9-71E8-49E7-8CCC-B4CB8EBDB388}"
+    },
+    "try_parser": {
+      "nome": "try_parser",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{14DEB9B9-71E8-49E7-8CCC-B4CB8EBDB388}"
+    },
+    "uid_helper": {
+      "nome": "uid_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{14DEB9B9-71E8-49E7-8CCC-B4CB8EBDB388}"
+    },
+    "integracao_schema": {
+      "nome": "integracao_schema",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "pesquisa_padrao_repository": {
+      "nome": "pesquisa_padrao_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_autenticacao_repository": {
+      "nome": "rede_ancora_autenticacao_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_carrinho_item_repository": {
+      "nome": "rede_ancora_carrinho_item_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_carrinho_repository": {
+      "nome": "rede_ancora_carrinho_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_catalogo_repository": {
+      "nome": "rede_ancora_catalogo_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_centro_distribuicao_repository": {
+      "nome": "rede_ancora_centro_distribuicao_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_empresa_repository": {
+      "nome": "rede_ancora_empresa_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_modalidade_repository": {
+      "nome": "rede_ancora_modalidade_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_pedido_repository": {
+      "nome": "rede_ancora_pedido_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_produto_imagem_repository": {
+      "nome": "rede_ancora_produto_imagem_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_produto_vinculo_repository": {
+      "nome": "rede_ancora_produto_vinculo_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "sql_helper": {
+      "nome": "sql_helper",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "transactions": {
+      "nome": "transactions",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "usuario_repository": {
+      "nome": "usuario_repository",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "base_listener": {
+      "nome": "base_listener",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10004-0004-4004-8004-000000000004}"
+    },
+    "http_client": {
+      "nome": "http_client",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000B-000B-400B-800B-00000000000B}"
+    },
+    "http_header": {
+      "nome": "http_header",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000B-000B-400B-800B-00000000000B}"
+    },
+    "http_response": {
+      "nome": "http_response",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000B-000B-400B-800B-00000000000B}"
+    },
+    "migration_column": {
+      "nome": "migration_column",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10006-0006-4006-8006-000000000006}"
+    },
+    "migration_columns": {
+      "nome": "migration_columns",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10006-0006-4006-8006-000000000006}"
+    },
+    "migration_controller": {
+      "nome": "migration_controller",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10006-0006-4006-8006-000000000006}"
+    },
+    "migration_service": {
+      "nome": "migration_service",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10006-0006-4006-8006-000000000006}"
+    },
+    "migration_table": {
+      "nome": "migration_table",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10006-0006-4006-8006-000000000006}"
+    },
+    "rede_ancora_migration": {
+      "nome": "rede_ancora_migration",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10007-0007-4007-8007-000000000007}"
+    },
+    "pesquisas_padrao_model": {
+      "nome": "pesquisas_padrao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000D-000D-400D-800D-00000000000D}"
+    },
+    "pesquisa_padrao_model": {
+      "nome": "pesquisa_padrao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A1000D-000D-400D-800D-00000000000D}"
+    },
+    "rede_ancora_autenticacao_model": {
+      "nome": "rede_ancora_autenticacao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_carrinho_item_model": {
+      "nome": "rede_ancora_carrinho_item_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_carrinho_item_solicitacao_model": {
+      "nome": "rede_ancora_carrinho_item_solicitacao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_carrinho_itens_ids_model": {
+      "nome": "rede_ancora_carrinho_itens_ids_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_carrinho_itens_model": {
+      "nome": "rede_ancora_carrinho_itens_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_carrinho_itens_solicitacao_model": {
+      "nome": "rede_ancora_carrinho_itens_solicitacao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_carrinho_model": {
+      "nome": "rede_ancora_carrinho_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_centros_distribuicao_model": {
+      "nome": "rede_ancora_centros_distribuicao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_centro_distribuicao_model": {
+      "nome": "rede_ancora_centro_distribuicao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_condicao_pagamento_model": {
+      "nome": "rede_ancora_checkout_condicao_pagamento_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_condicoes_pagamento_model": {
+      "nome": "rede_ancora_checkout_condicoes_pagamento_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_entregas_sellers_model": {
+      "nome": "rede_ancora_checkout_entregas_sellers_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_entregas_solicitacao_model": {
+      "nome": "rede_ancora_checkout_entregas_solicitacao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_entrega_opcao_model": {
+      "nome": "rede_ancora_checkout_entrega_opcao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_entrega_opcoes_model": {
+      "nome": "rede_ancora_checkout_entrega_opcoes_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_entrega_seller_model": {
+      "nome": "rede_ancora_checkout_entrega_seller_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_entrega_solicitacao_model": {
+      "nome": "rede_ancora_checkout_entrega_solicitacao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_pagamentos_model": {
+      "nome": "rede_ancora_checkout_pagamentos_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_checkout_revisao_model": {
+      "nome": "rede_ancora_checkout_revisao_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_empresa_model": {
+      "nome": "rede_ancora_empresa_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_familias_model": {
+      "nome": "rede_ancora_familias_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_familia_model": {
+      "nome": "rede_ancora_familia_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_linhas_model": {
+      "nome": "rede_ancora_linhas_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_linha_model": {
+      "nome": "rede_ancora_linha_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_logistica_transportadores_model": {
+      "nome": "rede_ancora_logistica_transportadores_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_logistica_transportador_model": {
+      "nome": "rede_ancora_logistica_transportador_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_marcas_model": {
+      "nome": "rede_ancora_marcas_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_marca_model": {
+      "nome": "rede_ancora_marca_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_modalidades_model": {
+      "nome": "rede_ancora_modalidades_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_modalidade_model": {
+      "nome": "rede_ancora_modalidade_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_pedidos_model": {
+      "nome": "rede_ancora_pedidos_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_pedido_model": {
+      "nome": "rede_ancora_pedido_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_cnas_model": {
+      "nome": "rede_ancora_produto_cnas_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_codigos_model": {
+      "nome": "rede_ancora_produto_codigos_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_imagem_model": {
+      "nome": "rede_ancora_produto_imagem_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_imagem_sincronizacao_resultado_model": {
+      "nome": "rede_ancora_produto_imagem_sincronizacao_resultado_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_imagem_tipo": {
+      "nome": "rede_ancora_produto_imagem_tipo",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_imagens_model": {
+      "nome": "rede_ancora_produto_imagens_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_precos_estoque_model": {
+      "nome": "rede_ancora_produto_precos_estoque_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_preco_estoque_model": {
+      "nome": "rede_ancora_produto_preco_estoque_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_sincronizacao_opcoes_model": {
+      "nome": "rede_ancora_produto_sincronizacao_opcoes_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_sincronizacao_resultado_model": {
+      "nome": "rede_ancora_produto_sincronizacao_resultado_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_vinculos_model": {
+      "nome": "rede_ancora_produto_vinculos_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_vinculo_model": {
+      "nome": "rede_ancora_produto_vinculo_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "usuarios_model": {
+      "nome": "usuarios_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{7327A688-26D0-4217-8DF7-AF1385535CDA}"
+    },
+    "usuario_model": {
+      "nome": "usuario_model",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{7327A688-26D0-4217-8DF7-AF1385535CDA}"
+    },
+    "alert_image_base64": {
+      "nome": "alert_image_base64",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{B77345C7-6B65-4570-B50B-2D6BBEFAE726}"
+    },
+    "icon_calculadora_base64": {
+      "nome": "icon_calculadora_base64",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{B77345C7-6B65-4570-B50B-2D6BBEFAE726}"
+    },
+    "icon_hp12c_base64": {
+      "nome": "icon_hp12c_base64",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{B77345C7-6B65-4570-B50B-2D6BBEFAE726}"
+    },
+    "logo_image_base64": {
+      "nome": "logo_image_base64",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{B77345C7-6B65-4570-B50B-2D6BBEFAE726}"
+    },
+    "assets": {
+      "nome": "assets",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10005-0005-4005-8005-000000000005}"
+    },
+    "colors": {
+      "nome": "colors",
+      "aberto": true,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10005-0005-4005-8005-000000000005}"
+    }
+  },
+  "dependencies": {}
+}

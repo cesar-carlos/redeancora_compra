@@ -1,0 +1,18 @@
+# Data7 — artefatos de build e runtime
+.data7/
+data7_modules/
+
+# Projeto compilado (gerado pelo build; fonte em src/**/*.bas)
+redeancora_compra.7Proj
+*.run.7Proj
+
+# Segredos e config local
+.env
+.env.*
+*.local
+
+# SO / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

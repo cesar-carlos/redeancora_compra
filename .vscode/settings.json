@@ -1,0 +1,16 @@
+{
+    "data7.databaseConnectionId": "1C19CB87-D23E-45E0-88BA-1DE41370DECD",
+    "editor.formatOnSave": true,
+    "explorer.compactFolders": false,
+    "vsicons.associations.files": [
+        {
+            "icon": "delphi",
+            "extensions": ["bas", "d7b"],
+            "format": "svg"
+        }
+    ],
+    "material-icon-theme.files.associations": {
+        "bas": "visualstudio",
+        "d7b": "visualstudio"
+    }
+}
