@@ -6,7 +6,7 @@ Namespace rede_ancora_carrinho_itens_solicitacao_model
     Class RedeAncoraCarrinhoItensSolicitacaoModel
         Inherits TTList<RedeAncoraCarrinhoItemSolicitacaoModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

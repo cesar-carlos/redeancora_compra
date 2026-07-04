@@ -10,12 +10,12 @@ Namespace rede_ancora_migration
     Class RedeAncoraMigration
         Private _controller As MigrationController
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
             _controller = New MigrationController()
         End Sub
 
-        Public Sub Run()
+        Sub Run()
             Dim _schema As String = IntegracaoSchema.Nome()
 
             _controller.EnsureSchema(_schema)

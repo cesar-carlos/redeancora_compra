@@ -6,7 +6,7 @@ Namespace rede_ancora_checkout_entrega_opcoes_model
     Class RedeAncoraCheckoutEntregaOpcoesModel
         Inherits TTList<RedeAncoraCheckoutEntregaOpcaoModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

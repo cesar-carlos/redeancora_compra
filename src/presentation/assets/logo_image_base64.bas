@@ -4,7 +4,7 @@ Namespace logo_image_base64
             Value = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
         End Function
         
-        Public Sub Free()
+        Sub Free()
             MyBase.Free()
         End Sub
 

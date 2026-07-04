@@ -2,11 +2,11 @@ Imports migration_columns
 
 Namespace migration_table
     Class MigrationTable
-        Public Schema As String
-        Public Name As String
-        Public Columns As MigrationColumns
+        Schema As String
+        Name As String
+        Columns As MigrationColumns
 
-        Public Sub New(pName As String, pColumns As MigrationColumns, pSchema As String = "")
+        Sub New(pName As String, pColumns As MigrationColumns, pSchema As String = "")
             MyBase.New()
             Name = pName
             Schema = pSchema

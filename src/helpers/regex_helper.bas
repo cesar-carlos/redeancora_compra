@@ -49,7 +49,7 @@ Namespace regex_helper
                 Exit Sub
             End If
 
-            Dim _tested As Boolean = me._regExp.Test("")
+
         End Sub
 
         Private Sub SetPattern(pValue As String)

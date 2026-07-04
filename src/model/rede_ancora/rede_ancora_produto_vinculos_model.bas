@@ -6,7 +6,7 @@ Namespace rede_ancora_produto_vinculos_model
     Class RedeAncoraProdutoVinculosModel
         Inherits TTList<RedeAncoraProdutoVinculoModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

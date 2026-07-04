@@ -5,7 +5,7 @@ Namespace rede_ancora_produto_cnas_model
     Class RedeAncoraProdutoCnasModel
         Inherits TTList<Integer>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

@@ -6,7 +6,7 @@ Namespace rede_ancora_familias_model
     Class RedeAncoraFamiliasModel
         Inherits TTList<RedeAncoraFamiliaModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

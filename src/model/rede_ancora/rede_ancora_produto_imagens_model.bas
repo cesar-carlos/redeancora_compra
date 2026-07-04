@@ -6,7 +6,7 @@ Namespace rede_ancora_produto_imagens_model
     Class RedeAncoraProdutoImagensModel
         Inherits TTList<RedeAncoraProdutoImagemModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

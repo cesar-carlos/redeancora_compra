@@ -6,7 +6,7 @@ Namespace rede_ancora_checkout_entregas_sellers_model
     Class RedeAncoraCheckoutEntregasSellersModel
         Inherits TTList<RedeAncoraCheckoutEntregaSellerModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

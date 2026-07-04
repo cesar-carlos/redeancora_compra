@@ -6,7 +6,7 @@ Namespace rede_ancora_logistica_transportadores_model
     Class RedeAncoraLogisticaTransportadoresModel
         Inherits TTList<RedeAncoraLogisticaTransportadorModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

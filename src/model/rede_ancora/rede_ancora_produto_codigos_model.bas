@@ -5,7 +5,7 @@ Namespace rede_ancora_produto_codigos_model
     Class RedeAncoraProdutoCodigosModel
         Inherits TTList<String>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

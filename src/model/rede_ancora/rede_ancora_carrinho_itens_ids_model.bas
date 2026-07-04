@@ -5,7 +5,7 @@ Namespace rede_ancora_carrinho_itens_ids_model
     Class RedeAncoraCarrinhoItensIdsModel
         Inherits TTList<Integer>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

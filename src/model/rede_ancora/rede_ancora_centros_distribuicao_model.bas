@@ -6,7 +6,7 @@ Namespace rede_ancora_centros_distribuicao_model
     Class RedeAncoraCentrosDistribuicaoModel
         Inherits TTList<RedeAncoraCentroDistribuicaoModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

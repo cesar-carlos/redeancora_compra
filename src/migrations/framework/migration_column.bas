@@ -1,13 +1,13 @@
 Namespace migration_column
     Class MigrationColumn
-        Public Schema As String
-        Public Table As String
-        Public Column As String
-        Public SqlType As String
-        Public Nullable As Boolean
-        Public IsKey As Boolean
+        Schema As String
+        Table As String
+        Column As String
+        SqlType As String
+        Nullable As Boolean
+        IsKey As Boolean
 
-        Public Sub New(pTable As String, pColumn As String, pSqlType As String, pNullable As Boolean = True, pIsKey As Boolean = False, pSchema As String = "")
+        Sub New(pTable As String, pColumn As String, pSqlType As String, pNullable As Boolean = True, pIsKey As Boolean = False, pSchema As String = "")
             MyBase.New()
             Schema = pSchema
             Table = pTable
@@ -17,7 +17,7 @@ Namespace migration_column
             IsKey = pIsKey
         End Sub
 
-        Public Function Copy() As MigrationColumn
+        Function Copy() As MigrationColumn
             Copy = New MigrationColumn(Table, Column, SqlType, Nullable, IsKey, Schema)
         End Function
 

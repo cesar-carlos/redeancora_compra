@@ -5,11 +5,11 @@ Imports sql_helper
 
 Namespace migration_service
     Class MigrationService
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 
-        Public Function SchemaExists(pSchema As String) As Boolean
+        Function SchemaExists(pSchema As String) As Boolean
             Dim _schema As String = SqlHelper.ValidateIdentifier(pSchema)
 
             SchemaExists = SqlHelper.ExecuteScalarBoolean( _
@@ -22,7 +22,7 @@ Namespace migration_service
             "Failed to check schema")
         End Function
 
-        Public Sub CreateSchema(pSchema As String)
+        Sub CreateSchema(pSchema As String)
             Dim _schema As String = SqlHelper.ValidateIdentifier(pSchema)
             Dim _sql As String = ""
 
@@ -35,11 +35,11 @@ Namespace migration_service
             "Create schema " + _schema)
         End Sub
 
-        Public Function TableExists(pTable As String) As Boolean
+        Function TableExists(pTable As String) As Boolean
             TableExists = me.TableExists("", pTable)
         End Function
 
-        Public Function TableExists(pSchema As String, pTable As String) As Boolean
+        Function TableExists(pSchema As String, pTable As String) As Boolean
             Dim _table As String = SqlHelper.ValidateIdentifier(pTable)
             Dim _schema As String = pSchema.Trim()
 
@@ -68,11 +68,11 @@ Namespace migration_service
             "Failed to check table")
         End Function
 
-        Public Function ColumnExists(pTable As String, pColumn As String) As Boolean
+        Function ColumnExists(pTable As String, pColumn As String) As Boolean
             ColumnExists = me.ColumnExists("", pTable, pColumn)
         End Function
 
-        Public Function ColumnExists(pSchema As String, pTable As String, pColumn As String) As Boolean
+        Function ColumnExists(pSchema As String, pTable As String, pColumn As String) As Boolean
             Dim _table As String = SqlHelper.ValidateIdentifier(pTable)
             Dim _column As String = SqlHelper.ValidateIdentifier(pColumn)
             Dim _schema As String = pSchema.Trim()
@@ -108,11 +108,11 @@ Namespace migration_service
             "Failed to check column")
         End Function
 
-        Public Sub CreateColumn(pTable As String, pColumn As String, pSqlType As String)
+        Sub CreateColumn(pTable As String, pColumn As String, pSqlType As String)
             me.CreateColumn("", pTable, pColumn, pSqlType)
         End Sub
 
-        Public Sub CreateColumn(pSchema As String, pTable As String, pColumn As String, pSqlType As String)
+        Sub CreateColumn(pSchema As String, pTable As String, pColumn As String, pSqlType As String)
             Dim _qualifiedTable As String = SqlHelper.QualifiedTable(pSchema, pTable)
             Dim _column As String = SqlHelper.ValidateIdentifier(pColumn)
 
@@ -121,11 +121,11 @@ Namespace migration_service
             "Failed to create column")
         End Sub
 
-        Public Sub CreateColumn(pMigrationColumn As MigrationColumn)
+        Sub CreateColumn(pMigrationColumn As MigrationColumn)
             me.CreateColumn(pMigrationColumn.Schema, pMigrationColumn.Table, pMigrationColumn.Column, pMigrationColumn.SqlType)
         End Sub
 
-        Public Sub DropColumn(pSchema As String, pTable As String, pColumn As String)
+        Sub DropColumn(pSchema As String, pTable As String, pColumn As String)
             Dim _qualifiedTable As String = SqlHelper.QualifiedTable(pSchema, pTable)
             Dim _column As String = SqlHelper.ValidateIdentifier(pColumn)
 
@@ -134,7 +134,7 @@ Namespace migration_service
             "Failed to drop column")
         End Sub
 
-        Public Sub CreateTable(pMigrationTable As MigrationTable)
+        Sub CreateTable(pMigrationTable As MigrationTable)
             If Not pMigrationTable.CanCreate() Then
                 Exit Sub
             End If
@@ -173,7 +173,7 @@ Namespace migration_service
             me.RawCommand(_tableString)
         End Sub
 
-        Public Sub RawCommand(pSql As String)
+        Sub RawCommand(pSql As String)
             SqlHelper.ExecuteNonQuery(pSql, "Failed to execute SQL")
         End Sub
 

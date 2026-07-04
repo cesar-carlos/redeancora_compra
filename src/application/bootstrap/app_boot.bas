@@ -3,7 +3,7 @@ Imports run_migrations
 
 Namespace app_boot
     Class AppBoot
-        Public Shared Sub Run()
+        Shared Sub Run()
             mod_logger.Printe("=== redeancora_compra :: boot ===")
 
             Try
@@ -16,7 +16,7 @@ Namespace app_boot
 
             mod_logger.Printe("=== redeancora_compra :: pronto ===")
         End Sub
-        Public Sub Free()
+        Sub Free()
             MyBase.Free()
         End Sub
 

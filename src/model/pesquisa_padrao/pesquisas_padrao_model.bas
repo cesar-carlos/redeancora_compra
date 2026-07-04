@@ -5,7 +5,7 @@ Namespace pesquisas_padrao_model
     Class PesquisasPadraoModel
         Inherits TTList<PesquisaPadraoModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

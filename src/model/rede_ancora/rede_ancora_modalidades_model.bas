@@ -6,7 +6,7 @@ Namespace rede_ancora_modalidades_model
     Class RedeAncoraModalidadesModel
         Inherits TTList<RedeAncoraModalidadeModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

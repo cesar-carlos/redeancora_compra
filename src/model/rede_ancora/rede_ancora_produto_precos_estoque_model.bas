@@ -6,7 +6,7 @@ Namespace rede_ancora_produto_precos_estoque_model
     Class RedeAncoraProdutoPrecosEstoqueModel
         Inherits TTList<RedeAncoraProdutoPrecoEstoqueModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

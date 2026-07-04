@@ -6,7 +6,7 @@ Namespace rede_ancora_linhas_model
     Class RedeAncoraLinhasModel
         Inherits TTList<RedeAncoraLinhaModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

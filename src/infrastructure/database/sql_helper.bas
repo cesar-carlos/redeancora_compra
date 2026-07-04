@@ -115,7 +115,7 @@ Namespace sql_helper
             Transaction.Instance().Rollback()
             Throw New System.Exception(pMessage + " Code: " + pCode + Char(13) + pException._getMessage())
         End Sub
-        Public Sub Free()
+        Sub Free()
             MyBase.Free()
         End Sub
 

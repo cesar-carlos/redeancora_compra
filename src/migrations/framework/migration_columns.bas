@@ -4,7 +4,7 @@ Namespace migration_columns
     Class MigrationColumns
         Private _list As TObjectList = New TObjectList()
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

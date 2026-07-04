@@ -6,7 +6,7 @@ Namespace migration_controller
     Class MigrationController
         Private _service As MigrationService
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
             _service = New MigrationService()
         End Sub

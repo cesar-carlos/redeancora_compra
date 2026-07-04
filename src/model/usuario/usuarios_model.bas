@@ -5,7 +5,7 @@ Namespace usuarios_model
     Class UsuariosModel
         Inherits TTList<UsuarioModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

@@ -6,7 +6,7 @@ Namespace rede_ancora_marcas_model
     Class RedeAncoraMarcasModel
         Inherits TTList<RedeAncoraMarcaModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

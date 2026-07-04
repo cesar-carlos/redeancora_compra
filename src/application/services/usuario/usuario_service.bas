@@ -81,7 +81,7 @@ Namespace usuario_service
         Private _redeAncoraPedidoProgramadoService As RedeAncoraPedidoProgramadoService
         Private _redeAncoraAgendaComprasService As RedeAncoraAgendaComprasService
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
             me._repository = New UsuarioRepository()
             me._redeAncoraAutenticacaoService = New RedeAncoraAutenticacaoService()

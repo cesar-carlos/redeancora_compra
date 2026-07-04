@@ -6,7 +6,7 @@ Namespace rede_ancora_checkout_condicoes_pagamento_model
     Class RedeAncoraCheckoutCondicoesPagamentoModel
         Inherits TTList<RedeAncoraCheckoutCondicaoPagamentoModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 

@@ -6,7 +6,7 @@ Namespace rede_ancora_pedidos_model
     Class RedeAncoraPedidosModel
         Inherits TTList<RedeAncoraPedidoModel>
 
-        Public Sub New()
+        Sub New()
             MyBase.New()
         End Sub
 
