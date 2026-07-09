@@ -47,8 +47,8 @@ Namespace rede_ancora_api_client
         End Function
 
         Private Function Executar(pMethod As String, pUrl As String, pBody As String) As HttpResponse
-            Dim _client As HttpClient = NULL
-            Dim _response As HttpResponse = NULL
+            Dim _client As HttpClient = Null
+            Dim _response As HttpResponse = Null
             Dim _tentativa429 As Integer = 0
             Dim _tentativa500 As Integer = 0
             Dim _tentativa504 As Integer = 0
@@ -62,7 +62,7 @@ Namespace rede_ancora_api_client
                 me.LogarRequisicao(pMethod, pUrl, pBody)
                 _response = me.Enviar(_client, pMethod, pUrl, pBody)
                 _client.Free()
-                _client = NULL
+                _client = Null
                 me.LogarResposta(pMethod, pUrl, _response)
 
                 If _response.StatusCode = 401 Then
@@ -73,19 +73,19 @@ Namespace rede_ancora_api_client
                     me.AguardarBackoff429(_tentativa429)
                     _tentativa429 = _tentativa429 + 1
                     _response.Free()
-                    _response = NULL
+                    _response = Null
                     _tentarNovamente = True
                 ElseIf _response.StatusCode = 500 And _tentativa500 < 1 Then
                     me.AguardarSegundos(30)
                     _tentativa500 = _tentativa500 + 1
                     _response.Free()
-                    _response = NULL
+                    _response = Null
                     _tentarNovamente = True
                 ElseIf _response.StatusCode = 504 And _tentativa504 < 2 Then
                     me.AguardarSegundos(30)
                     _tentativa504 = _tentativa504 + 1
                     _response.Free()
-                    _response = NULL
+                    _response = Null
                     _tentarNovamente = True
                 End If
             Wend
@@ -181,13 +181,13 @@ Namespace rede_ancora_api_client
             If Not me.Disposed Then
                 If Assigned(me._auth) Then
                     me._auth.Free()
-                    me._auth = NULL
+                    me._auth = Null
                 End If
 
                 If Assigned(me._authService) Then
                     If Not me._authServiceExterno Then
                         me._authService.Free()
-                        me._authService = NULL
+                        me._authService = Null
                     End If
                 End If
 

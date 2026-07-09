@@ -98,9 +98,9 @@ Namespace rede_ancora_api_config
 
             MyBase.Free()
         End Sub
-       Sub New()
-          MyBase.New()
-       End Sub
+        Sub New()
+            MyBase.New()
+        End Sub
 
     End Class
 End Namespace
