@@ -1,0 +1,17 @@
+---
+description: Dependências entre camadas src/ (helpers, domain, model, infrastructure)
+globs: "src/**/*.bas"
+alwaysApply: false
+---
+
+# Camadas `src/`
+
+- `helpers/` não importa `model/` nem `application/`.
+- `domain/` importa só `helpers/` e `mod_tobject`.
+- `model/` é domínio em memória — **sem** SQL/banco.
+- `infrastructure/database/` (repositórios) importa `model/` e `helpers/`.
+- `application/` orquestra repositórios e casos de uso.
+- `presentation/` é UI; telas em `presentation/forms/` (ainda pendente).
+- Módulos compartilhados: `data7_modules/` (`mod_tobject`, `mod_tlist`, logger). Não editar só para “passar” de um lint snapshot.
+
+Bootstraps de teste (`RedeAncoraSmokeTest`, `RedeAncoraProdutoSyncBootstrap`): instância `New` → usar → `Free`. Config: `RedeAncoraApiConfig` com `Private Dim` no namespace.

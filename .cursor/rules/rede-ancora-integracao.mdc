@@ -1,0 +1,30 @@
+---
+description: API Rede Âncora — JSON misto, parser, SQL texto e autenticação X-API-KEY
+globs:
+  - src/application/services/rede_ancora/**/*.bas
+  - src/infrastructure/http/**/*.bas
+  - src/infrastructure/database/**/*.bas
+  - src/application/bootstrap/**/*.bas
+alwaysApply: false
+---
+
+# Integração Rede Âncora
+
+## Autenticação (produção)
+
+Só header `X-API-KEY` (SSO). Não implementar login/senha/JWT/refresh. Gravar `ChaveApi` em `Integracao.RedeAncoraAutenticacao`; `RedeAncoraApiClient` chama `GarantirChaveApi` antes das requests.
+
+Tabela: `CodUsuario`, `Email`, `ChaveApi`, `Ativo`, `IdUsuarioApi`, `NomeUsuario`, `CodSeller` — sem colunas JWT.
+
+`POST /auth/login`, `/auth/refresh`, `/auth/me` são só Swagger local.
+
+## JSON — tipos mistos
+
+Getters tipados (`GetInteger`/`GetBoolean`/`GetString`) disparam `EVariantTypeCastError` (OleStr → Int64) **não** capturável por `Try/Catch`. `GetString` também falha se o valor for objeto/array.
+
+Usar `RedeAncoraJsonHelper` (`ObterInteiroJson`, `ObterFilhoJson`, `ObterObjetoJson`/`ObterArrayJson` via `ObterBlocoJson` no `ToString()`). `/profile`: `user` e `company` são **objeto**.
+
+## Conversão e SQL
+
+- Texto de API: `Parser.StringToInteger` / `StringToDouble` / `StringToFloat` (`try_parser.bas`). Nunca `Cdbl`/`CInt` em input externo.
+- Literais SQL com aspas simples dentro de string dupla quebram o parser. `SqlHelper.SqlText("valor")` — inclusive em `EXEC(...)`.

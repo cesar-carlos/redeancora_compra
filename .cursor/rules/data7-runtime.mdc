@@ -1,0 +1,49 @@
+---
+description: Bugs de runtime Data7 (Access violation, Const, Assigned, WinHTTP)
+globs: "**/*.bas"
+alwaysApply: true
+---
+
+# Data7 — bugs de runtime
+
+## Campos `Private Shared`
+
+**Proibido** em classe — Access violation. `Private Shared Sub`/`Function` **puros** (sem estado) são seguros.
+
+```basic
+' ❌ crash
+Private Shared _habilitado As Boolean
+
+' ✅
+Private Shared Function Pattern() As String
+```
+
+Não acesse membro `Private Shared` com prefixo da classe (`TTable._tplReady`). Use `_tplReady`. Público qualificado (`TTable.IsReady()`) é ok.
+
+## `Const` tipado
+
+Evitar `Const`. Se usar, **sem** `As Tipo`. Preferir `Dim` local ou `Private Dim` no namespace.
+
+```basic
+' ❌ Const COD As Integer = 1
+' ✅ Const COD = 1
+' ✅ Dim _cod As Integer = 1
+```
+
+## Estado
+
+- Instância + `TTObject`: `Private` + `New` → usar → `Free` → `NULL` na local.
+- Config estática: `Private Dim` no **namespace** (padrão `RedeAncoraApiConfig` / `mod_logger`).
+- Em `Catch`, liberar o que o `Try` criou antes de relançar.
+
+## `Assigned` + `And`
+
+Data7 **não** faz short-circuit. Aninhar `If`; nunca `If Assigned(pObj) And pObj.Campo`.
+
+## WinHTTP
+
+`CreateObject("WinHttp.WinHttpRequest.5.1")`. **Não** usar `_http.Option(n) = value` (AV). Seguro: `Open`, `SetRequestHeader`, `SetTimeouts`, `SetProxy`, `Send`, `Status`, `ResponseText`.
+
+## `Shared Function` dentro de `Try`
+
+Não atribuir ao nome da função (`Foo = x`) dentro de `Try/Catch` — bug do compilador nativo. Use `Return x` ou variável temporária depois do `End Try`.

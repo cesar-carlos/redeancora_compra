@@ -9,29 +9,29 @@ Namespace pesquisa_padrao_repository
 
         Private Function SqlSelectColumns() As String
             SqlSelectColumns = $"t.CodTabela, " +_
-            $"       t.NomeSchema, " +_
-            $"       t.Nome NomeTabela, " +_
-            $"       pp.CodPesquisaPadrao"
+                $"       t.NomeSchema, " +_
+                $"       t.Nome NomeTabela, " +_
+                $"       pp.CodPesquisaPadrao"
         End Function
 
         Private Function SqlFromWhere() As String
             SqlFromWhere = $"FROM Tabela t " +_
-            $"INNER JOIN PesquisaPadrao pp ON " +_
-            $"   pp.CodTabela = t.CodTabela " +_
-            $"WHERE LOWER(t.Nome) LIKE LOWER(:NomeTabela) " +_
-            $"  AND COALESCE(t.NomeSchema, " + SqlHelper.SqlText("dbo") + ") LIKE :NomeSchema"
+                $"INNER JOIN PesquisaPadrao pp ON " +_
+                $"   pp.CodTabela = t.CodTabela " +_
+                $"WHERE LOWER(t.Nome) LIKE LOWER(:NomeTabela) " +_
+                $"  AND COALESCE(t.NomeSchema, " + SqlHelper.SqlText("dbo") + ") LIKE :NomeSchema"
         End Function
 
         Private Function SqlSelectByTableName() As String
             SqlSelectByTableName = $"SELECT TOP (1) " +_
-            $"       {me.SqlSelectColumns()} " +_
-            $"{me.SqlFromWhere()}"
+                $"       {me.SqlSelectColumns()} " +_
+                $"{me.SqlFromWhere()}"
         End Function
 
         Private Function SqlListByTableName() As String
             SqlListByTableName = $"SELECT " +_
-            $"       {me.SqlSelectColumns()} " +_
-            $"{me.SqlFromWhere()}"
+                $"       {me.SqlSelectColumns()} " +_
+                $"{me.SqlFromWhere()}"
         End Function
 
         Private Function ResolveSchemaName(pSchemaName As String) As String

@@ -1,0 +1,19 @@
+---
+description: Usar o MCP Data7 DevStudio para linguagem, linter e System Library
+alwaysApply: true
+---
+
+# MCP Data7 DevStudio
+
+Linguagem, System Library, linter e açúcares vêm do MCP **`user-data7`** (extensão Data7 DevStudio). **Não** usar o MCP `user-se7e` neste projeto — é SQL de outro produto.
+
+Antes de gerar ou alterar `.bas`:
+
+1. Convenções: resource `data7://idioms`
+2. API nativa: `data7_search_symbol` → `data7_describe_symbol` (não carregar `Forms` inteiro)
+3. Exemplo: `data7_get_official_example` ou `data7_get_canonical_example`
+4. Depois de escrever: `data7_lint_bas` e, se houver açúcar, `data7_transpile_bas`
+
+`data7_lint_project` é snapshot avulso: sem `data7_modules/` (ex.: `mod_tobject`, `mod_tlist`) acusa `unknown-type` falso. Prefira lint no editor ou inclua esses módulos no snapshot.
+
+Fonte: `src/**/*.bas` + `data7.json`. **Não editar** `.data7/run/*.7Proj` nem o `.7Proj` gerado. Após mudanças: **Ctrl+Shift+B**.

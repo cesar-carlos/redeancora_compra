@@ -11,11 +11,11 @@ Namespace usuario_repository
             Dim _dot As String = SqlHelper.SqlText(".")
 
             SqlSystemVersion = "(SELECT TOP 1 " +_
-            "CONVERT(VARCHAR(2), Versao) + " + _dot + " + " +_
-            "CONVERT(VARCHAR(2), MenorVersao) + " + _dot + " + " +_
-            "CONVERT(VARCHAR(5), ReleaseDaVersao) + " + _dot + " + " +_
-            "CONVERT(VARCHAR(5), BuilderDaVersao) " +_
-            "FROM HistoricoAtualizacaoVersao ORDER BY id DESC)"
+                "CONVERT(VARCHAR(2), Versao) + " + _dot + " + " +_
+                "CONVERT(VARCHAR(2), MenorVersao) + " + _dot + " + " +_
+                "CONVERT(VARCHAR(5), ReleaseDaVersao) + " + _dot + " + " +_
+                "CONVERT(VARCHAR(5), BuilderDaVersao) " +_
+                "FROM HistoricoAtualizacaoVersao ORDER BY id DESC)"
         End Function
 
         Private Function SqlDatabaseType() As String
@@ -25,13 +25,13 @@ Namespace usuario_repository
         Private Function SqlUsuarioSubquery(pFilterByUserId As Boolean) As String
             Dim _sql As String
             _sql = $"(SELECT " +_
-            $"CodUsuario, " +_
-            $"NomeLegivel NomeUsuario, " +_
-            $"Senha, " +_
-            $"{me.SqlSystemVersion()} VersaoSistema, " +_
-            $"{me.SqlDatabaseType()} Base, " +_
-            $"(SELECT CodContaFinanceira FROM CaixaOperador WHERE CodUsuario = Usuario.CodUsuario) CodContaFinanceira " +_
-            $"FROM Usuario"
+                $"CodUsuario, " +_
+                $"NomeLegivel NomeUsuario, " +_
+                $"Senha, " +_
+                $"{me.SqlSystemVersion()} VersaoSistema, " +_
+                $"{me.SqlDatabaseType()} Base, " +_
+                $"(SELECT CodContaFinanceira FROM CaixaOperador WHERE CodUsuario = Usuario.CodUsuario) CodContaFinanceira " +_
+                $"FROM Usuario"
             If pFilterByUserId Then
                 _sql = _sql + $" WHERE CodUsuario = :CodUsuario"
             End If
@@ -42,23 +42,23 @@ Namespace usuario_repository
         Private Function SqlSelectUsuarios(pFilterByUserId As Boolean) As String
             Dim _sql As String
             _sql = $"SELECT " +_
-            $"(SELECT TOP 1 CodEmpresa FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario) CodEmpresa, " +_
-            $"(SELECT TOP 1 CodFilial FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario) CodFilial, " +_
-            $"(SELECT TOP 1 CONVERT(VARCHAR(50), CodSessaoConexao) FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario ORDER BY CodSessaoConexao DESC) SessionId, " +_
-            $"Sub.CodUsuario, " +_
-            $"Sub.NomeUsuario, " +_
-            $"Sub.Senha, " +_
-            $"Sub.CodContaFinanceira, " +_
-            $"(SELECT TOP 1 CodPeriodoCaixa FROM PeriodoCaixa WHERE CodContaFinanceira = Sub.CodContaFinanceira ORDER BY CodPeriodoCaixa DESC) CodPeriodoCaixa, " +_
-            $"(SELECT TOP 1 CASE WHEN DataAbertura IS NOT NULL AND DataFechamento IS NULL THEN " + SqlHelper.SqlText("Aberto") + " ELSE " + SqlHelper.SqlText("Fechado") + " END " +_
-            $" FROM PeriodoCaixa WHERE CodContaFinanceira = Sub.CodContaFinanceira ORDER BY CodPeriodoCaixa DESC) StatusPeriodoCaixa, " +_
-            $"COALESCE((SELECT TOP 1 CodSetorEstoque FROM CaixaOperador WHERE CodUsuario = Sub.CodUsuario), 0) CodSetorEstoque, " +_
-            $"COALESCE((SELECT TOP 1 CodSetorConferencia FROM CaixaOperador WHERE CodUsuario = Sub.CodUsuario), 0) CodSetorConferencia, " +_
-            $"(SELECT TOP 1 EstacaoTrabalho FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario) MachineName, " +_
-            $"(SELECT TOP 1 NomeUsuario FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario) UserName, " +_
-            $"Sub.VersaoSistema, " +_
-            $"Sub.Base " +_
-            $"FROM {me.SqlUsuarioSubquery(pFilterByUserId)}"
+                $"(SELECT TOP 1 CodEmpresa FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario) CodEmpresa, " +_
+                $"(SELECT TOP 1 CodFilial FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario) CodFilial, " +_
+                $"(SELECT TOP 1 CONVERT(VARCHAR(50), CodSessaoConexao) FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario ORDER BY CodSessaoConexao DESC) SessionId, " +_
+                $"Sub.CodUsuario, " +_
+                $"Sub.NomeUsuario, " +_
+                $"Sub.Senha, " +_
+                $"Sub.CodContaFinanceira, " +_
+                $"(SELECT TOP 1 CodPeriodoCaixa FROM PeriodoCaixa WHERE CodContaFinanceira = Sub.CodContaFinanceira ORDER BY CodPeriodoCaixa DESC) CodPeriodoCaixa, " +_
+                $"(SELECT TOP 1 CASE WHEN DataAbertura IS NOT NULL AND DataFechamento IS NULL THEN " + SqlHelper.SqlText("Aberto") + " ELSE " + SqlHelper.SqlText("Fechado") + " END " +_
+                $" FROM PeriodoCaixa WHERE CodContaFinanceira = Sub.CodContaFinanceira ORDER BY CodPeriodoCaixa DESC) StatusPeriodoCaixa, " +_
+                $"COALESCE((SELECT TOP 1 CodSetorEstoque FROM CaixaOperador WHERE CodUsuario = Sub.CodUsuario), 0) CodSetorEstoque, " +_
+                $"COALESCE((SELECT TOP 1 CodSetorConferencia FROM CaixaOperador WHERE CodUsuario = Sub.CodUsuario), 0) CodSetorConferencia, " +_
+                $"(SELECT TOP 1 EstacaoTrabalho FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario) MachineName, " +_
+                $"(SELECT TOP 1 NomeUsuario FROM SessaoConexao WHERE CodUsuario = Sub.CodUsuario) UserName, " +_
+                $"Sub.VersaoSistema, " +_
+                $"Sub.Base " +_
+                $"FROM {me.SqlUsuarioSubquery(pFilterByUserId)}"
             If pFilterByUserId Then
                 _sql = _sql + $" WHERE Sub.CodUsuario = :CodUsuario"
             End If
@@ -67,16 +67,16 @@ Namespace usuario_repository
 
         Private Function SqlLoggedUsuario() As String
             SqlLoggedUsuario = $"SELECT " +_
-            $"{me.SqlSystemVersion()} VersaoSistema, " +_
-            $"{me.SqlDatabaseType()} Base, " +_
-            $"(SELECT TOP 1 CodContaFinanceira FROM PeriodoCaixa WHERE CodPeriodoCaixa = :CodPeriodoCaixa) CodContaFinanceira, " +_
-            $"(SELECT TOP 1 Senha FROM Usuario WHERE CodUsuario = :CodUsuario) Senha, " +_
-            $"(SELECT TOP 1 CASE WHEN pc.DataAbertura IS NOT NULL AND pc.DataFechamento IS NULL THEN " + SqlHelper.SqlText("Aberto") + " ELSE " + SqlHelper.SqlText("Fechado") + " END " +_
-            $" FROM PeriodoCaixa pc WHERE CodPeriodoCaixa = :CodPeriodoCaixa) StatusPeriodoCaixa, " +_
-            $"COALESCE((SELECT TOP 1 CodSetorEstoque FROM CaixaOperador WHERE CodUsuario = :CodUsuario), 0) CodSetorEstoque, " +_
-            $"COALESCE((SELECT TOP 1 CodSetorConferencia FROM CaixaOperador WHERE CodUsuario = :CodUsuario), 0) CodSetorConferencia, " +_
-            $"(SELECT TOP 1 CONVERT(VARCHAR(50), CodSessaoConexao) FROM SessaoConexao WHERE CodUsuario = :CodUsuario ORDER BY CodSessaoConexao DESC) SessionId, " +_
-            $"(SELECT TOP 1 EstacaoTrabalho FROM SessaoConexao WHERE CodUsuario = :CodUsuario ORDER BY CodSessaoConexao DESC) EstacaoTrabalho"
+                $"{me.SqlSystemVersion()} VersaoSistema, " +_
+                $"{me.SqlDatabaseType()} Base, " +_
+                $"(SELECT TOP 1 CodContaFinanceira FROM PeriodoCaixa WHERE CodPeriodoCaixa = :CodPeriodoCaixa) CodContaFinanceira, " +_
+                $"(SELECT TOP 1 Senha FROM Usuario WHERE CodUsuario = :CodUsuario) Senha, " +_
+                $"(SELECT TOP 1 CASE WHEN pc.DataAbertura IS NOT NULL AND pc.DataFechamento IS NULL THEN " + SqlHelper.SqlText("Aberto") + " ELSE " + SqlHelper.SqlText("Fechado") + " END " +_
+                $" FROM PeriodoCaixa pc WHERE CodPeriodoCaixa = :CodPeriodoCaixa) StatusPeriodoCaixa, " +_
+                $"COALESCE((SELECT TOP 1 CodSetorEstoque FROM CaixaOperador WHERE CodUsuario = :CodUsuario), 0) CodSetorEstoque, " +_
+                $"COALESCE((SELECT TOP 1 CodSetorConferencia FROM CaixaOperador WHERE CodUsuario = :CodUsuario), 0) CodSetorConferencia, " +_
+                $"(SELECT TOP 1 CONVERT(VARCHAR(50), CodSessaoConexao) FROM SessaoConexao WHERE CodUsuario = :CodUsuario ORDER BY CodSessaoConexao DESC) SessionId, " +_
+                $"(SELECT TOP 1 EstacaoTrabalho FROM SessaoConexao WHERE CodUsuario = :CodUsuario ORDER BY CodSessaoConexao DESC) EstacaoTrabalho"
         End Function
 
         Private Sub MapUsuario(pQuery As SQL.Command, pItem As UsuarioModel)
@@ -117,11 +117,11 @@ Namespace usuario_repository
 
         Function GetLoggedUsuario() As UsuarioModel
             Dim _item As New UsuarioModel
-            Dim _query As SQL.Command = NULL
+            Dim _query As SQL.Command = Null
 
             Try
                 _query = SqlHelper.OpenQuery(me.SqlLoggedUsuario())
-                _query.Param("CodPeriodoCaixa").AsInteger = data7.CodPeriodoCaixa
+                _query.Param("CodPeriodoCaixa").AsInteger = data7.CodPeriodoCaixa()
                 _query.Param("CodUsuario").AsInteger = data7.CodUsuario
                 _query.Open()
                 me.MapLoggedUsuario(_query, _item)
@@ -134,7 +134,7 @@ Namespace usuario_repository
         End Function
 
         Function TryGetByUserId(pUserId As Integer, pItem As UsuarioModel) As Boolean
-            Dim _query As SQL.Command = NULL
+            Dim _query As SQL.Command = Null
 
             Try
                 _query = SqlHelper.OpenQuery(me.SqlSelectUsuarios(True))
@@ -167,7 +167,7 @@ Namespace usuario_repository
 
         Function GetAll() As UsuariosModel
             Dim _items As New UsuariosModel
-            Dim _query As SQL.Command = NULL
+            Dim _query As SQL.Command = Null
 
             Try
                 _query = SqlHelper.OpenQuery(me.SqlSelectUsuarios(False))
@@ -205,9 +205,9 @@ Namespace usuario_repository
                     Throw New System.Exception("Error freeing UsuarioRepository: " + Char(13) + ex._getMessage())
                 End Try
             End Sub
-       Sub New()
-          MyBase.New()
-       End Sub
+            Sub New()
+                MyBase.New()
+            End Sub
 
         End Class
     End Namespace

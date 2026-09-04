@@ -12,7 +12,7 @@ Namespace pesquisas_padrao_model
         Function FindByTableCode(pTableCode As Integer) As PesquisaPadraoModel
             Dim _i As Integer
             For _i = 0 To me.Length - 1
-                If me.Take(_i).TableCode = pTableCode Then
+                If PesquisaPadraoModel(me.Take(_i)).TableCode = pTableCode Then
                     FindByTableCode = me.Take(_i)
                     Exit Function
                 End If

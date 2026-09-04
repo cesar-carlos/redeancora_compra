@@ -1,0 +1,39 @@
+---
+description: Idioma Data7 Basic deste projeto (coleções, Namespace, NULL, strings)
+globs: "**/*.bas"
+alwaysApply: false
+---
+
+# Data7 Basic — idioma deste repo
+
+## Namespace e Imports
+
+- `Namespace` sem pontos: `pesquisa_padrao_model`, nunca `pesquisa.padrao`.
+- Nunca `Imports` do próprio namespace. Ciclo A↔B: qualificar (`mod_outro.Tipo`) em vez de importar.
+- Arquivo ≈ namespace. `Principal.bas` é global (sem Namespace).
+
+## Coleções
+
+Listas de domínio **já** são `Class X Inherits TTList<T>` + `Imports mod_tlist` — manter. Não reescrever para `Dim x[] As T`.
+
+Código **novo** local: `Dim items[] As T = [...]` + `For Each` / `.Filter`. `x[] As T` sem `=` só declara tipo; `= []` ou `Return []` instancia `New TTList_T()`.
+
+`StringList` + `Imports Collections` só para interop ERP (não modelo de domínio).
+
+Enum rico novo: `Enun X / End Enun` (não classe `TEnum` na mão).
+
+## NULL vs Unassigned
+
+- Objetos: `= NULL` / `<> NULL` / `Assigned`.
+- `Variant`: **não** aceita `NULL` — use `Unassigned`. Quick Fix do linter.
+
+## Strings, exceção, memória
+
+- Concatenar com `&`, nunca `"texto " + numero`. Logs: `CStr` / `Parser.IntegerToString`. Evitar `+_`.
+- `Throw New System.Exception(...)` está em uso; construtor nativo é `Create`. Inner: `Throw New Exception(msg, ex)` (não inventar `Sub New`).
+- `Free()`: liberar filhos **antes** de `MyBase.Free()`.
+- Não usar identificadores `__nome` (reservados ao transpiler).
+
+## Telas (`presentation/forms`)
+
+Form privado + `_build` + `Align` (`alTop`/`alBottom` antes de `alClient`) + `Show`/`Free`. Evento: `botao.OnClick = me._handler` (sem `()`). Detalhe: `data7://language/construindo-telas` e `data7_list_controls`.

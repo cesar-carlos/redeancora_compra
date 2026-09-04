@@ -366,7 +366,7 @@
     },
     "rede_ancora_api_client": {
       "nome": "rede_ancora_api_client",
-      "aberto": true,
+      "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
     },
@@ -636,7 +636,7 @@
     },
     "usuario_repository": {
       "nome": "usuario_repository",
-      "aberto": true,
+      "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
     },

@@ -14,39 +14,39 @@ Namespace rede_ancora_autenticacao_repository
 
         Private Function SqlSelectPorCodUsuario() As String
             SqlSelectPorCodUsuario = $"SELECT CodUsuario, " +_
-            $"       Email, " +_
-            $"       ChaveApi, " +_
-            $"       Ativo, " +_
-            $"       IdUsuarioApi, " +_
-            $"       NomeUsuario, " +_
-            $"       CodSeller " +_
-            $"FROM {me.Tabela()} " +_
-            $"WHERE CodUsuario = :CodUsuario"
+                $"       Email, " +_
+                $"       ChaveApi, " +_
+                $"       Ativo, " +_
+                $"       IdUsuarioApi, " +_
+                $"       NomeUsuario, " +_
+                $"       CodSeller " +_
+                $"FROM {me.Tabela()} " +_
+                $"WHERE CodUsuario = :CodUsuario"
         End Function
 
         Private Function SqlExistePorCodUsuario() As String
             SqlExistePorCodUsuario = "SELECT CASE " +_
-            "           WHEN COUNT(CodUsuario) > 0 THEN " + SqlHelper.SqlText("true") + " " +_
-            "           ELSE " + SqlHelper.SqlText("false") + " " +_
-            "       END result " +_
-            "FROM " + me.Tabela() + " " +_
-            "WHERE CodUsuario = :CodUsuario"
+                "           WHEN COUNT(CodUsuario) > 0 THEN " + SqlHelper.SqlText("true") + " " +_
+                "           ELSE " + SqlHelper.SqlText("false") + " " +_
+                "       END result " +_
+                "FROM " + me.Tabela() + " " +_
+                "WHERE CodUsuario = :CodUsuario"
         End Function
 
         Private Function SqlInsert() As String
             SqlInsert = $"INSERT INTO {me.Tabela()} (CodUsuario, Email, ChaveApi, Ativo, IdUsuarioApi, NomeUsuario, CodSeller) " +_
-            $"VALUES (:CodUsuario, :Email, :ChaveApi, :Ativo, :IdUsuarioApi, :NomeUsuario, :CodSeller)"
+                $"VALUES (:CodUsuario, :Email, :ChaveApi, :Ativo, :IdUsuarioApi, :NomeUsuario, :CodSeller)"
         End Function
 
         Private Function SqlUpdate() As String
             SqlUpdate = $"UPDATE {me.Tabela()} " +_
-            $"SET Email = :Email, " +_
-            $"    ChaveApi = :ChaveApi, " +_
-            $"    Ativo = :Ativo, " +_
-            $"    IdUsuarioApi = :IdUsuarioApi, " +_
-            $"    NomeUsuario = :NomeUsuario, " +_
-            $"    CodSeller = :CodSeller " +_
-            $"WHERE CodUsuario = :CodUsuario"
+                $"SET Email = :Email, " +_
+                $"    ChaveApi = :ChaveApi, " +_
+                $"    Ativo = :Ativo, " +_
+                $"    IdUsuarioApi = :IdUsuarioApi, " +_
+                $"    NomeUsuario = :NomeUsuario, " +_
+                $"    CodSeller = :CodSeller " +_
+                $"WHERE CodUsuario = :CodUsuario"
         End Function
 
         Private Sub Mapear(pQuery As SQL.Command, pItem As RedeAncoraAutenticacaoModel)
