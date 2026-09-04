@@ -331,6 +331,44 @@ _model.SetCpfResponsavel(pCpf)         ' Cpf.Create — opcional
 | `crypto_helper` | `CryptoHelper` | Wrapper de `Data7.Criptografar`/`Descriptografar` |
 | `uid_helper` | `UidHelper` | Geração de identificadores criptografados (`BuildUid`, `BuildTimeUid`) |
 | `barcode_helper` | `BarCodeHelper` | Heurística de código de barras vs. código interno |
+| `diag_stack` | `DiagStack` | Breadcrumb de erro. **Kill switch único:** `_habilitado` no topo de `diag_stack.bas` (`False` = produção). |
+
+### DiagStack — localizar AV / NULL
+
+`Exception.StackTrace` nativo vem **vazio** em Access Violation. `Throw ex` no Catch só aponta a linha do rethrow. Endereço `FFFFFFD0` / `SysWinRTL.bpl` = chamada virtual em objeto nil (ex.: `Shared Function` em classe com Self nil, como `SqlHelper.ValidateIdentifier`).
+
+`DiagStack` é um **breadcrumb** (`StringList` no namespace): o último `Push` sem `Pop` é o ponto que estourou. Não substitua isso por dezenas de `Logger` / `Printe("boot:")` em cada linha — esses logs temporários não localizam AV e poluem o log do ERP.
+
+**API** (`src/helpers/diag_stack.bas`): `Push`, `Pop`, `Snapshot`, `DumpOnError`, `Trace`, `DefinirHabilitado`, `Habilitado`, `Clear`.
+
+**Kill switch (único, produção):** no topo de `src/helpers/diag_stack.bas`:
+
+```basic
+Private Dim _habilitado As Boolean = False
+```
+
+`False` torna no-op `Push`, `Pop`, `Snapshot`, `DumpOnError` e `Trace` (silencia todos os `boot:`). Não existe segunda flag. Runtime opcional: `DiagStack.DefinirHabilitado(False)` (limpa frames). **Proibido** `Print`/`Printe` de diagnóstico; só `mod_logger` via DiagStack. Mensagens reais de falha (`Falha no boot…`) e status operacional (`Migrations … concluidas`) ficam fora do switch.
+
+Breadcrumb extra **obrigatoriamente** por `DiagStack.Trace("boot: …")` — nunca `mod_logger` direto, senão a flag não silencia.
+
+**Padrão** — `Push` imediatamente antes da chamada de risco, `Pop` só após sucesso. O Catch do fluxo raiz (`AppBoot.Run`) chama `DumpOnError` e relança:
+
+```basic
+DiagStack.Push("Classe.Metodo risco")
+_query.Open()
+DiagStack.Pop()
+```
+
+```basic
+Catch ex As Exception
+    DiagStack.DumpOnError(ex)
+    Throw ex
+End Try
+```
+
+**Instrumentar só o que pode estourar:** SQL `Open` e getters de Field; `New` sem `TTObject`; métodos `Shared` em classe; COM/WinHTTP; objeto `Assigned` seguido de acesso a membro; JSON `GetInteger` / getters tipados; `Take` em lista nil.
+
+**Não instrumentar:** cada `Trim` / iteração de loop / linha segura. Data7 não faz short-circuit em `Assigned And` — aninhar `If`.
 
 ### Model
 
@@ -385,14 +423,14 @@ Tabelas criadas em `Integracao`:
 | Tabela | Uso |
 |--------|-----|
 | `RedeAncoraAutenticacao` | `ChaveApi` manual por `CodUsuario`; `Email`, `IdUsuarioApi`, `NomeUsuario`, `CodSeller` via profile |
-| `RedeAncoraEmpresa` | Profile do franqueado (`GET /profile`), `CodEmpresaAncora` (API `company.id`), `IdCarrinhoAtual` |
+| `RedeAncoraEmpresa` | Profile do franqueado (`GET /profile`), `CodEmpresaAncora` (API `company.id`), `IdCarrinhoAtual` (cache local por `CodUsuario` de integração — **não** prova de cart exclusivo na API) |
 | `RedeAncoraCentroDistribuicao` | CDs (`warehouses`) por usuário |
 | `RedeAncoraModalidade` | Cache de `GET /modalities` |
 | `RedeAncoraMarca`, `RedeAncoraLinha`, `RedeAncoraFamilia` | Catálogo de apoio para filtros e vínculo |
 | `RedeAncoraProdutoVinculo` | Catálogo Âncora: **PK `Cna`**; `CodProduto` opcional (FK ERP); `CodLinha`, `CodFamilia` |
 | `RedeAncoraProdutoImagem` | Imagens por CNA: **PK `(Cna, Item, TipoImagem)`**; `Item` VARCHAR(5) (`00001`…); `Url`, `DataAtualizacao` |
-| `RedeAncoraCarrinho` | Cabeçalho (`PK CodCarrinho`, `IdCarrinho` UUID da API, totais). Sem `CodUsuario` — vínculo com o usuário via `RedeAncoraEmpresa.IdCarrinhoAtual` |
-| `RedeAncoraCarrinhoItem` | Linhas (`PK CodCarrinho + Item`). `Item` = sequencial local (`00001`…); `IdItemApi` = `item_id` da API. Demais campos: CNA, CD, condição de pagamento, produto, modalidade, quantidade, preços. **Auditoria ERP (NOT NULL, defaults vazios):** `CodUsuario`, `NomeUsuario` (30), `DataLancamento` (DATE), `HoraLancamento` (8), `EstacaoTrabalho` — preenchidos em `AdicionarItens` para `IdItemApi` novo; sem lançamento ERP → `0`/`""`/`1900-01-01` |
+| `RedeAncoraCarrinho` | Cabeçalho (`PK CodCarrinho`, `IdCarrinho` UUID da API, totais). **Sem `CodUsuario`** — o cart na API é da chave/franqueado (compartilhado); `IdCarrinhoAtual` é só cache local |
+| `RedeAncoraCarrinhoItem` | Linhas (`PK CodCarrinho + Item`). `Item` = sequencial local (`00001`…); `IdItemApi` = `item_id` da API. Demais campos: CNA, CD, condição de pagamento, produto, modalidade, quantidade, preços. **Auditoria ERP (quem lançou, não dono do cart):** `CodUsuario`, `NomeUsuario` (30), `DataLancamento` (DATE), `HoraLancamento` (8), `EstacaoTrabalho` — preenchidos em `AdicionarItens` para `IdItemApi` novo; sem lançamento ERP → `0`/`""`/`1900-01-01` |
 | `RedeAncoraPedido` | Pedidos confirmados (`IdPedidoApi`, `IdCarrinho`, totais) |
 
 
@@ -424,5 +462,6 @@ Para compilar e sincronizar o `.7Proj`:
 
 
 - [Integração B2B — Carrinho e Pedido](./integracao-carrinho-pedido.md) (fluxo API + status de implementação)
+- DiagStack: seção [DiagStack — localizar AV / NULL](#diagstack--localizar-av--null) neste arquivo; regra Cursor `.cursor/rules/data7-diag-stack.mdc`
 - Documentação API: https://app.redeancora.com.br/b2b/api/docs/api/integration
 

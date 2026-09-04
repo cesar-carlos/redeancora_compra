@@ -1,0 +1,33 @@
+---
+description: DiagStack — breadcrumb só em pontos que podem AV/NULL
+globs: "**/*.bas"
+alwaysApply: true
+---
+
+# DiagStack — rastreio de AV/NULL
+
+Não é stack nativa. Em Access Violation o `Exception.StackTrace` vem vazio; `Throw ex` no Catch só aponta a linha do rethrow. `FFFFFFD0` / `SysWinRTL.bpl` = chamada virtual em nil. Use `DiagStack` em vez de 20 `Logger` no boot.
+
+## Kill switch (único)
+
+Arquivo: `src/helpers/diag_stack.bas`, variável `_habilitado` no topo do namespace.
+
+- **Produção:** `_habilitado = False` — no-op em `Push`/`Pop`/`Snapshot`/`DumpOnError`/`Trace` (silencia também `boot:`).
+- Runtime: `DiagStack.DefinirHabilitado(False)` (limpa frames). **Não** inventar segunda flag.
+- **Proibido** `Print` / `Printe` de diagnóstico — só `mod_logger` via DiagStack.
+
+## Instrumentar só risco de AV/NULL
+
+SQL `Open` / getters de Field; `New` sem `TTObject`; `Shared` em classe (Self nil — ex. `SqlHelper.ValidateIdentifier`); COM/WinHTTP; objeto depois `Assigned` + membro; JSON `GetInteger`; lista `Take` em nil.
+
+```basic
+DiagStack.Push("SqlHelper.OpenQuery")
+_query.Open()
+DiagStack.Pop()
+```
+
+Breadcrumb extra: `DiagStack.Trace("boot: ...")` — **nunca** `Logger` direto. Fluxo raiz (`AppBoot.Run`): `DumpOnError(ex)` no Catch, depois `Throw ex`. `Pop` só após sucesso.
+
+## Não instrumentar
+
+Cada `Trim` / iteração de loop / linha segura. `Assigned And` não faz short-circuit — aninhar `If`.

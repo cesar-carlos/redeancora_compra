@@ -119,7 +119,12 @@ Namespace rede_ancora_produto_sincronizacao_service
             _opcoes.TamanhoChunk = pTamanhoChunk
             _opcoes.DesativarAusentes = pDesativarAusentes
             _opcoes.Modo = pModo
-            _opcoes.UsarProdutosCadastrados = Not Assigned(pCnas) Or pCnas.Length <= 0
+            _opcoes.UsarProdutosCadastrados = True
+            If Assigned(pCnas) Then
+                If pCnas.Length > 0 Then
+                    _opcoes.UsarProdutosCadastrados = False
+                End If
+            End If
             CriarOpcoesLegado = _opcoes
         End Function
 
@@ -532,9 +537,11 @@ Namespace rede_ancora_produto_sincronizacao_service
                     _itemJson.Free()
                 End If
 
-                If pUsarTransacaoInterna And Assigned(_tx) Then
-                    _tx.Rollback()
-                    _tx.OnAutoCommit()
+                If pUsarTransacaoInterna Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                        _tx.OnAutoCommit()
+                    End If
                 End If
 
                 Throw ex

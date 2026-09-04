@@ -200,7 +200,11 @@ Namespace rede_ancora_produto_sync_bootstrap
         Private Sub ResolverCentroDistribuicao(pCentros As RedeAncoraCentrosDistribuicaoModel, ByRef pCodCentro As Integer, ByRef pCodEstado As Integer)
             Dim _i As Integer
 
-            If Not Assigned(pCentros) Or pCentros.Length <= 0 Then
+            If Not Assigned(pCentros) Then
+                Throw New System.Exception("Nenhum centro de distribuicao encontrado. Execute InicializarRedeAncora antes do sync.")
+            End If
+
+            If pCentros.Length <= 0 Then
                 Throw New System.Exception("Nenhum centro de distribuicao encontrado. Execute InicializarRedeAncora antes do sync.")
             End If
 

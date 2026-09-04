@@ -49,48 +49,67 @@ Namespace rede_ancora_api_client
         Private Function Executar(pMethod As String, pUrl As String, pBody As String) As HttpResponse
             Dim _client As HttpClient = Null
             Dim _response As HttpResponse = Null
+            Dim _result As HttpResponse = Null
             Dim _tentativa429 As Integer = 0
             Dim _tentativa500 As Integer = 0
             Dim _tentativa504 As Integer = 0
             Dim _tentarNovamente As Boolean = True
 
-            me.GarantirAutenticacao()
+            Try
+                me.GarantirAutenticacao()
 
-            While _tentarNovamente
-                _tentarNovamente = False
-                _client = RedeAncoraHttpClient.Criar(me._auth)
-                me.LogarRequisicao(pMethod, pUrl, pBody)
-                _response = me.Enviar(_client, pMethod, pUrl, pBody)
-                _client.Free()
-                _client = Null
-                me.LogarResposta(pMethod, pUrl, _response)
+                While _tentarNovamente
+                    _tentarNovamente = False
+                    _client = RedeAncoraHttpClient.Criar(me._auth)
+                    me.LogarRequisicao(pMethod, pUrl, pBody)
+                    _response = me.Enviar(_client, pMethod, pUrl, pBody)
+                    _client.Free()
+                    _client = Null
+                    me.LogarResposta(pMethod, pUrl, _response)
 
-                If _response.StatusCode = 401 Then
-                    Dim _mensagem As String = "Chave API Rede Ancora invalida ou sem permissao (HTTP 401)."
-                    _response.Free()
-                    Throw New System.Exception(_mensagem)
-                ElseIf _response.StatusCode = 429 And _tentativa429 < 3 Then
-                    me.AguardarBackoff429(_tentativa429)
-                    _tentativa429 = _tentativa429 + 1
-                    _response.Free()
-                    _response = Null
-                    _tentarNovamente = True
-                ElseIf _response.StatusCode = 500 And _tentativa500 < 1 Then
-                    me.AguardarSegundos(30)
-                    _tentativa500 = _tentativa500 + 1
-                    _response.Free()
-                    _response = Null
-                    _tentarNovamente = True
-                ElseIf _response.StatusCode = 504 And _tentativa504 < 2 Then
-                    me.AguardarSegundos(30)
-                    _tentativa504 = _tentativa504 + 1
-                    _response.Free()
-                    _response = Null
-                    _tentarNovamente = True
+                    If _response.StatusCode = 401 Then
+                        Dim _mensagem As String = "Chave API Rede Ancora invalida ou sem permissao (HTTP 401)."
+                        _response.Free()
+                        _response = Null
+                        Throw New System.Exception(_mensagem)
+                    ElseIf _response.StatusCode = 429 And _tentativa429 < 3 Then
+                        me.AguardarBackoff429(_tentativa429)
+                        _tentativa429 = _tentativa429 + 1
+                        _response.Free()
+                        _response = Null
+                        _tentarNovamente = True
+                    ElseIf _response.StatusCode = 500 And _tentativa500 < 1 Then
+                        me.AguardarSegundos(30)
+                        _tentativa500 = _tentativa500 + 1
+                        _response.Free()
+                        _response = Null
+                        _tentarNovamente = True
+                    ElseIf _response.StatusCode = 504 And _tentativa504 < 2 Then
+                        me.AguardarSegundos(30)
+                        _tentativa504 = _tentativa504 + 1
+                        _response.Free()
+                        _response = Null
+                        _tentarNovamente = True
+                    End If
+                Wend
+
+                _result = _response
+                _response = Null
+            Catch ex As Exception
+                If Assigned(_client) Then
+                    _client.Free()
+                    _client = Null
                 End If
-            Wend
 
-            Executar = _response
+                If Assigned(_response) Then
+                    _response.Free()
+                    _response = Null
+                End If
+
+                Throw ex
+            End Try
+
+            Executar = _result
         End Function
 
         Private Sub LogarRequisicao(pMethod As String, pUrl As String, pBody As String)

@@ -697,7 +697,11 @@ Namespace rede_ancora_produto_service
                 _json = New TJSONObject(_body)
                 _data = RedeAncoraJsonHelper.ObterDataArray(_json)
 
-                If Not Assigned(_data) Or _data.Length() <= 0 Then
+                If Not Assigned(_data) Then
+                    Throw New System.Exception("Nenhum produto encontrado na Rede Ancora para cadastro")
+                End If
+
+                If _data.Length() <= 0 Then
                     Throw New System.Exception("Nenhum produto encontrado na Rede Ancora para cadastro")
                 End If
 
@@ -1183,7 +1187,12 @@ Namespace rede_ancora_produto_service
             Dim _sequenciaTecnica As Integer = 0
             Dim _url As String = ""
             Dim _tecnicas As TJSONArray = NULL
+            Dim _wrapper As TJSONObject = NULL
+            Dim _tecnicasBlob As String = ""
+            Dim _elem As String = ""
+            Dim _quote As String = CStr(Chr(34))
             Dim _i As Integer
+            Dim _mapped As RedeAncoraProdutoImagensModel = NULL
 
             Try
                 _url = RedeAncoraJsonHelper.ObterTextoJson(pItemJson, "imagemReal")
@@ -1194,24 +1203,48 @@ Namespace rede_ancora_produto_service
 
                 _tecnicas = RedeAncoraJsonHelper.ObterArrayJson(pItemJson, "imagensTecnicas")
                 If Assigned(_tecnicas) Then
-                    For _i = 0 To _tecnicas.Length() - 1
-                        _url = _tecnicas.GetString(_i)
+                    _tecnicasBlob = _tecnicas.ToString()
+                    _tecnicas.Free()
+                    _tecnicas = NULL
+
+                    ' teto de seguranca (10000) contra loop infinito se ExtrairElementoArrayJson nao devolver vazio
+                    For _i = 0 To 9999
+                        _elem = RedeAncoraJsonHelper.ExtrairElementoArrayJson(_tecnicasBlob, _i)
+
+                        If _elem = "" Then
+                            Exit For
+                        End If
+
+                        _wrapper = New TJSONObject("{" + _quote + "v" + _quote + ":" + _elem + "}")
+                        _url = RedeAncoraJsonHelper.ObterTextoJson(_wrapper, "v")
+                        _wrapper.Free()
+                        _wrapper = NULL
                         me.AdicionarImagemUrl(_result, pCna, RedeAncoraProdutoImagemTipo.Tecnica(), _sequenciaTecnica, _url)
                     Next
+                End If
 
+                _mapped = _result
+                _result = NULL
+            Catch ex As Exception
+                If Assigned(_wrapper) Then
+                    _wrapper.Free()
+                    _wrapper = NULL
+                End If
+
+                If Assigned(_tecnicas) Then
                     _tecnicas.Free()
                     _tecnicas = NULL
                 End If
 
-                MapearImagensProdutoDeJson = _result
-            Catch ex As Exception
-                If Assigned(_tecnicas) Then
-                    _tecnicas.Free()
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = NULL
                 End If
 
-                _result.Free()
                 Throw New System.Exception("Erro ao mapear imagens do produto Rede Ancora: " + ex._getMessage())
             End Try
+
+            MapearImagensProdutoDeJson = _mapped
         End Function
 
         Private Sub AdicionarImagemUrl(pImagens As RedeAncoraProdutoImagensModel, pCna As Integer, pTipoImagem As String, ByRef pSequencia As Integer, pUrl As String)

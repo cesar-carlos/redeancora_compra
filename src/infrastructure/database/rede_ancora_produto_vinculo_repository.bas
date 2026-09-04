@@ -442,8 +442,10 @@ Namespace rede_ancora_produto_vinculo_repository
             Catch ex As Exception
                 SqlHelper.ReleaseQuery(_query)
 
-                If pUsarTransacao And Assigned(_tx) Then
-                    _tx.Rollback()
+                If pUsarTransacao Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                    End If
                 End If
 
                 Throw New System.Exception("Erro ao desativar Integracao.RedeAncoraProdutoVinculo por Cna: " + Char(13) + ex._getMessage())
@@ -476,8 +478,10 @@ Namespace rede_ancora_produto_vinculo_repository
             Catch ex As Exception
                 SqlHelper.ReleaseQuery(_query)
 
-                If pUsarTransacao And Assigned(_tx) Then
-                    _tx.Rollback()
+                If pUsarTransacao Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                    End If
                 End If
 
                 Throw New System.Exception("Erro ao inserir Integracao.RedeAncoraProdutoVinculo: " + Char(13) + ex._getMessage())
@@ -509,8 +513,10 @@ Namespace rede_ancora_produto_vinculo_repository
             Catch ex As Exception
                 SqlHelper.ReleaseQuery(_query)
 
-                If pUsarTransacao And Assigned(_tx) Then
-                    _tx.Rollback()
+                If pUsarTransacao Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                    End If
                 End If
 
                 Throw New System.Exception("Erro ao atualizar Integracao.RedeAncoraProdutoVinculo: " + Char(13) + ex._getMessage())
@@ -541,8 +547,10 @@ Namespace rede_ancora_produto_vinculo_repository
             Catch ex As Exception
                 SqlHelper.ReleaseQuery(_query)
 
-                If pUsarTransacao And Assigned(_tx) Then
-                    _tx.Rollback()
+                If pUsarTransacao Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                    End If
                 End If
 
                 Throw New System.Exception("Erro ao atualizar metadados API em Integracao.RedeAncoraProdutoVinculo: " + Char(13) + ex._getMessage())

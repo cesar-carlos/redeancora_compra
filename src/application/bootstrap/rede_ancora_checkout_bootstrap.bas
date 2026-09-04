@@ -480,7 +480,12 @@ Namespace rede_ancora_checkout_bootstrap
                 Exit Sub
             End If
 
-            If Not Assigned(pItensIdsTeste) Or pItensIdsTeste.Length <= 0 Then
+            If Not Assigned(pItensIdsTeste) Then
+                mod_logger.Printe("Passo 13: nenhum item de teste para remover (cart_id=" + pIdCarrinhoSessao + ")")
+                Exit Sub
+            End If
+
+            If pItensIdsTeste.Length <= 0 Then
                 mod_logger.Printe("Passo 13: nenhum item de teste para remover (cart_id=" + pIdCarrinhoSessao + ")")
                 Exit Sub
             End If
@@ -548,7 +553,11 @@ Namespace rede_ancora_checkout_bootstrap
         Private Sub ResolverCentroDistribuicao(pCentros As RedeAncoraCentrosDistribuicaoModel, ByRef pCodCentro As Integer, ByRef pCodEstado As Integer)
             Dim _i As Integer = 0
 
-            If Not Assigned(pCentros) Or pCentros.Length <= 0 Then
+            If Not Assigned(pCentros) Then
+                Throw New System.Exception("Nenhum centro de distribuicao encontrado. Execute InicializarRedeAncora antes do teste.")
+            End If
+
+            If pCentros.Length <= 0 Then
                 Throw New System.Exception("Nenhum centro de distribuicao encontrado. Execute InicializarRedeAncora antes do teste.")
             End If
 
@@ -592,7 +601,11 @@ Namespace rede_ancora_checkout_bootstrap
                 Exit Function
             End If
 
-            If Not Assigned(pProdutos) Or pProdutos.Length <= 0 Then
+            If Not Assigned(pProdutos) Then
+                Throw New System.Exception("Nenhum produto sincronizado em Integracao.RedeAncoraProdutoVinculo. Execute o sync antes ou use DefinirCna.")
+            End If
+
+            If pProdutos.Length <= 0 Then
                 Throw New System.Exception("Nenhum produto sincronizado em Integracao.RedeAncoraProdutoVinculo. Execute o sync antes ou use DefinirCna.")
             End If
 
@@ -775,7 +788,12 @@ Namespace rede_ancora_checkout_bootstrap
                 Exit Function
             End If
 
-            If Not Assigned(pCarrinho.Itens) Or pCarrinho.Itens.Length <= 0 Then
+            If Not Assigned(pCarrinho.Itens) Then
+                ExtrairItensIdsOpcional = _result
+                Exit Function
+            End If
+
+            If pCarrinho.Itens.Length <= 0 Then
                 ExtrairItensIdsOpcional = _result
                 Exit Function
             End If
@@ -792,7 +810,12 @@ Namespace rede_ancora_checkout_bootstrap
             Dim _i As Integer = 0
             Dim _idItem As Integer = 0
 
-            If Not Assigned(pItensDepois) Or pItensDepois.Length <= 0 Then
+            If Not Assigned(pItensDepois) Then
+                FiltrarItensIdsNovos = _result
+                Exit Function
+            End If
+
+            If pItensDepois.Length <= 0 Then
                 FiltrarItensIdsNovos = _result
                 Exit Function
             End If
@@ -830,11 +853,12 @@ Namespace rede_ancora_checkout_bootstrap
 
             _result = me.ExtrairItensIdsOpcional(pCarrinho)
 
-            If Not Assigned(_result) Or _result.Length <= 0 Then
-                If Assigned(_result) Then
-                    _result.Free()
-                End If
+            If Not Assigned(_result) Then
+                Throw New System.Exception("Carrinho sem itens apos adicionar produto")
+            End If
 
+            If _result.Length <= 0 Then
+                _result.Free()
                 Throw New System.Exception("Carrinho sem itens apos adicionar produto")
             End If
 
@@ -848,14 +872,26 @@ Namespace rede_ancora_checkout_bootstrap
             Dim _opcao As RedeAncoraCheckoutEntregaOpcaoModel = Null
             Dim _entrega As RedeAncoraCheckoutEntregaSolicitacaoModel = Null
 
-            If Not Assigned(pRevisao) Or Not Assigned(pRevisao.EntregasSellers) Or pRevisao.EntregasSellers.Length <= 0 Then
+            If Not Assigned(pRevisao) Then
+                Throw New System.Exception("Review sem opcoes de entrega (carriers)")
+            End If
+
+            If Not Assigned(pRevisao.EntregasSellers) Then
+                Throw New System.Exception("Review sem opcoes de entrega (carriers)")
+            End If
+
+            If pRevisao.EntregasSellers.Length <= 0 Then
                 Throw New System.Exception("Review sem opcoes de entrega (carriers)")
             End If
 
             For _i = 0 To pRevisao.EntregasSellers.Length - 1
                 _seller = pRevisao.EntregasSellers.Take(_i)
 
-                If Not Assigned(_seller.Opcoes) Or _seller.Opcoes.Length <= 0 Then
+                If Not Assigned(_seller.Opcoes) Then
+                    Throw New System.Exception("Seller " + Parser.IntegerToString(_seller.CodCentroDistribuicao) + " sem carrier disponivel")
+                End If
+
+                If _seller.Opcoes.Length <= 0 Then
                     Throw New System.Exception("Seller " + Parser.IntegerToString(_seller.CodCentroDistribuicao) + " sem carrier disponivel")
                 End If
 
@@ -866,7 +902,11 @@ Namespace rede_ancora_checkout_bootstrap
                 _entrega.ExigeTransportador = _opcao.ExigeTransportador
 
                 If _opcao.ExigeTransportadorSim() Then
-                    If Not Assigned(pTransportadores) Or pTransportadores.Length <= 0 Then
+                    If Not Assigned(pTransportadores) Then
+                        Throw New System.Exception("Carrier exige transportador, mas GET /logistics/haulers nao retornou registros")
+                    End If
+
+                    If pTransportadores.Length <= 0 Then
                         Throw New System.Exception("Carrier exige transportador, mas GET /logistics/haulers nao retornou registros")
                     End If
 
@@ -974,7 +1014,11 @@ Namespace rede_ancora_checkout_bootstrap
             Dim _i As Integer = 0
             Dim _msg As String = ""
 
-            If Not Assigned(pLista) Or pLista.Length <= 0 Then
+            If Not Assigned(pLista) Then
+                Exit Sub
+            End If
+
+            If pLista.Length <= 0 Then
                 Exit Sub
             End If
 

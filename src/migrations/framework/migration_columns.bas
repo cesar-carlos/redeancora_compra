@@ -1,37 +1,61 @@
 Imports migration_column
+Imports mod_tlist
 
 Namespace migration_columns
     Class MigrationColumns
-        Private _list As TObjectList = New TObjectList()
+        Private _list[] As MigrationColumn
 
         Sub New()
             MyBase.New()
+            _list = []
         End Sub
 
         Sub Add(pColumn As MigrationColumn)
-            _list.Add(pColumn)
+            If Assigned(pColumn) Then
+                If Assigned(_list) Then
+                    _list.Push(pColumn)
+                End If
+            End If
         End Sub
 
         Function GetAt(pIndex As Integer) As MigrationColumn
-            GetAt = MigrationColumn(_list[pIndex])
+            GetAt = Null
+            If Assigned(_list) Then
+                GetAt = _list.Take(pIndex)
+            End If
         End Function
 
         Function KeyColumns() As MigrationColumns
             Dim _i As Integer
             Dim _keyColumns As New MigrationColumns()
-            For _i = 0 To _list.Count - 1
-                If MigrationColumn(_list[_i]).IsKey Then
-                    _keyColumns.Add(MigrationColumn(_list[_i]).Copy())
-                End If
-            Next
+            Dim _column As MigrationColumn = Null
+
+            If Assigned(_list) Then
+                For _i = 0 To _list.Length - 1
+                    _column = _list.Take(_i)
+                    If Assigned(_column) Then
+                        If _column.IsKey Then
+                            _keyColumns.Add(_column.Copy())
+                        End If
+                    End If
+                Next
+            End If
+
             KeyColumns = _keyColumns
         End Function
 
         Function Count() As Integer
-            Count = _list.Count
+            Count = 0
+            If Assigned(_list) Then
+                Count = _list.Length
+            End If
         End Function
 
         Sub Free()
+            If Assigned(_list) Then
+                _list.Free()
+                _list = Null
+            End If
             MyBase.Free()
         End Sub
     End Class

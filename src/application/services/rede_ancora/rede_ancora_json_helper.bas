@@ -11,7 +11,7 @@ Namespace rede_ancora_json_helper
         End Function
 
         Private Shared Function MontarMarcadorJson(pKey As String) As String
-            Dim _quote As String = RedeAncoraJsonHelper.AspasJson()
+            Dim _quote As String = AspasJson()
 
             MontarMarcadorJson = _quote + pKey + _quote + ":"
         End Function
@@ -19,7 +19,7 @@ Namespace rede_ancora_json_helper
         ' Localiza a posicao (1-based) do primeiro caractere nao-branco apos o marcador "key":
         ' Retorna 0 se a chave nao existir no blob.
         Private Shared Function LocalizarInicioValor(pBlob As String, pKey As String) As Integer
-            Dim _marker As String = RedeAncoraJsonHelper.MontarMarcadorJson(pKey)
+            Dim _marker As String = MontarMarcadorJson(pKey)
             Dim _blobLen As Integer = pBlob.Length
             Dim _markerLen As Integer = _marker.Length
             Dim _pos As Integer = 0
@@ -55,7 +55,7 @@ Namespace rede_ancora_json_helper
 
         ' Mesmo que LocalizarInicioValor, mas comeca a busca em pFromPos (1-based).
         Private Shared Function LocalizarInicioValorApartir(pBlob As String, pKey As String, pFromPos As Integer) As Integer
-            Dim _marker As String = RedeAncoraJsonHelper.MontarMarcadorJson(pKey)
+            Dim _marker As String = MontarMarcadorJson(pKey)
             Dim _blobLen As Integer = pBlob.Length
             Dim _markerLen As Integer = _marker.Length
             Dim _pos As Integer = 0
@@ -97,7 +97,7 @@ Namespace rede_ancora_json_helper
         ' tipados do TJSONObject (evita EVariantTypeCastError com tipos mistos da API).
         Shared Function ObterBlocoJson(pJson As TJSONObject, pKey As String) As String
             Dim _blob As String = pJson.ToString()
-            Dim _quote As String = RedeAncoraJsonHelper.AspasJson()
+            Dim _quote As String = AspasJson()
             Dim _start As Integer = 0
             Dim _searchFrom As Integer = 1
             Dim _ch As String = ""
@@ -111,7 +111,7 @@ Namespace rede_ancora_json_helper
             ObterBlocoJson = ""
 
             While _searchFrom > 0 And _searchFrom <= _blobLen
-                _start = RedeAncoraJsonHelper.LocalizarInicioValorApartir(_blob, pKey, _searchFrom)
+                _start = LocalizarInicioValorApartir(_blob, pKey, _searchFrom)
 
                 If _start <= 0 Then
                     Exit Function
@@ -174,7 +174,7 @@ Namespace rede_ancora_json_helper
         Shared Function ExtrairElementoArrayJson(pArrayBlob As String, pIndex As Integer) As String
             Dim _blob As String = pArrayBlob.Trim()
             Dim _blobLen As Integer = _blob.Length
-            Dim _quote As String = RedeAncoraJsonHelper.AspasJson()
+            Dim _quote As String = AspasJson()
             Dim _pos As Integer = 2
             Dim _elemStart As Integer = 0
             Dim _elemIndex As Integer = 0
@@ -257,7 +257,7 @@ Namespace rede_ancora_json_helper
         Shared Function ExtrairObjetoFilhoJson(pObjectBlob As String, pIndex As Integer) As String
             Dim _blob As String = pObjectBlob.Trim()
             Dim _blobLen As Integer = _blob.Length
-            Dim _quote As String = RedeAncoraJsonHelper.AspasJson()
+            Dim _quote As String = AspasJson()
             Dim _pos As Integer = 2
             Dim _valueStart As Integer = 0
             Dim _objIndex As Integer = 0
@@ -399,8 +399,8 @@ Namespace rede_ancora_json_helper
         ' getters tipados do TJSONObject (evita EVariantTypeCastError).
         Shared Function ObterTextoJson(pJson As TJSONObject, pKey As String) As String
             Dim _blob As String = pJson.ToString()
-            Dim _quote As String = RedeAncoraJsonHelper.AspasJson()
-            Dim _start As Integer = RedeAncoraJsonHelper.LocalizarInicioValor(_blob, pKey)
+            Dim _quote As String = AspasJson()
+            Dim _start As Integer = LocalizarInicioValor(_blob, pKey)
             Dim _tail As String = ""
             Dim _ch As String = ""
             Dim _i As Integer = 0

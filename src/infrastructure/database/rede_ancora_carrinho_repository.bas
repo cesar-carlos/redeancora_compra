@@ -228,8 +228,10 @@ Namespace rede_ancora_carrinho_repository
             Catch ex As Exception
                 SqlHelper.ReleaseQuery(_query)
 
-                If pUsarTransacao And Assigned(_tx) Then
-                    _tx.Rollback()
+                If pUsarTransacao Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                    End If
                 End If
 
                 Throw New System.Exception("Erro ao inserir Integracao.RedeAncoraCarrinho: " + Char(13) + ex._getMessage())
@@ -267,8 +269,10 @@ Namespace rede_ancora_carrinho_repository
             Catch ex As Exception
                 SqlHelper.ReleaseQuery(_query)
 
-                If pUsarTransacao And Assigned(_tx) Then
-                    _tx.Rollback()
+                If pUsarTransacao Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                    End If
                 End If
 
                 Throw New System.Exception("Erro ao atualizar Integracao.RedeAncoraCarrinho: " + Char(13) + ex._getMessage())

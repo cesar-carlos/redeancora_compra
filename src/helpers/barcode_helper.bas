@@ -23,12 +23,12 @@ Namespace barcode_helper
             End If
 
             If pValue.Contains(_subtractDelimiter) Then
-                IsBarCode = BarCodeHelper.SplitSegmentAt(pValue, _subtractDelimiter).Length > _maxInternalCodeLength
+                IsBarCode = SplitSegmentAt(pValue, _subtractDelimiter).Length > _maxInternalCodeLength
                 Exit Function
             End If
 
             If pValue.Contains(_multiplyDelimiter) Then
-                IsBarCode = BarCodeHelper.SplitSegmentAt(pValue, _multiplyDelimiter).Length > _maxInternalCodeLength
+                IsBarCode = SplitSegmentAt(pValue, _multiplyDelimiter).Length > _maxInternalCodeLength
             End If
         End Function
 

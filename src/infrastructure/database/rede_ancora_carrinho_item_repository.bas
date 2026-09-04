@@ -188,8 +188,10 @@ Namespace rede_ancora_carrinho_item_repository
                 SqlHelper.ReleaseQuery(_deleteQuery)
                 SqlHelper.ReleaseQuery(_insertQuery)
 
-                If pUsarTransacao And Assigned(_tx) Then
-                    _tx.Rollback()
+                If pUsarTransacao Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                    End If
                 End If
 
                 Throw New System.Exception("Erro ao substituir Integracao.RedeAncoraCarrinhoItem: " + Char(13) + ex._getMessage())

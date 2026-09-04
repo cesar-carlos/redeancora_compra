@@ -2,6 +2,7 @@ Imports migration_column
 Imports migration_columns
 Imports migration_table
 Imports sql_helper
+Imports diag_stack
 
 Namespace migration_service
     Class MigrationService
@@ -10,22 +11,39 @@ Namespace migration_service
         End Sub
 
         Function SchemaExists(pSchema As String) As Boolean
-            Dim _schema As String = SqlHelper.ValidateIdentifier(pSchema)
+            Dim _schema As String = ""
+            Dim _quoted As String = ""
+            Dim _sql As String = ""
+            Dim _existe As Boolean = False
 
-            SchemaExists = SqlHelper.ExecuteScalarBoolean( _
-            "SELECT CASE WHEN COUNT(name) > 0 THEN " + SqlHelper.SqlText("true") + " " + _
-            "           ELSE " + SqlHelper.SqlText("false") + " " + _
-            "      END result " + _
-            "FROM sys.schemas " + _
-            "WHERE name = " + SqlHelper.SqlText(_schema), _
-            "result", _
-            "Failed to check schema")
+            ' Do not call SqlHelper.ValidateIdentifier here: first Shared
+            ' method on SqlHelper was a nil-VMT (FFFFFFD0) after this log.
+            DiagStack.Trace("boot: SchemaExists validate")
+            _schema = Trim(pSchema)
+            DiagStack.Trace("boot: SchemaExists trimmed")
+            If _schema = "" Then
+                Throw New System.Exception("Invalid SQL identifier: empty value")
+            End If
+            DiagStack.Trace("boot: SchemaExists named")
+            DiagStack.Push("SchemaExists")
+            DiagStack.Trace("boot: SchemaExists stacked")
+            DiagStack.Trace("boot: SchemaExists sql-build")
+            _quoted = Chr(39) + _schema + Chr(39)
+            DiagStack.Trace("boot: SchemaExists quoted")
+            _sql = "SELECT 1 AS Qtd FROM sys.schemas WHERE name = " + _quoted
+            DiagStack.Trace("boot: SchemaExists sql-built")
+            DiagStack.Trace("boot: SchemaExists execute")
+            _existe = SqlHelper.ExecuteExists(_sql, "Failed to check schema")
+            DiagStack.Trace("boot: SchemaExists executed")
+            DiagStack.Pop()
+            SchemaExists = _existe
         End Function
 
         Sub CreateSchema(pSchema As String)
             Dim _schema As String = SqlHelper.ValidateIdentifier(pSchema)
             Dim _sql As String = ""
 
+            DiagStack.Push("CreateSchema")
             _sql = "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = " + SqlHelper.SqlText(_schema) + ") "
             _sql = _sql + "EXEC(" + SqlHelper.SqlText("CREATE SCHEMA " + _schema) + ")"
 
@@ -33,6 +51,7 @@ Namespace migration_service
             _sql, _
             "Failed to create schema", _
             "Create schema " + _schema)
+            DiagStack.Pop()
         End Sub
 
         Function TableExists(pTable As String) As Boolean
@@ -44,27 +63,18 @@ Namespace migration_service
             Dim _schema As String = pSchema.Trim()
 
             If _schema = "" Then
-                TableExists = SqlHelper.ExecuteScalarBoolean( _
-                "SELECT CASE WHEN count(NAME) > 0 THEN " + SqlHelper.SqlText("true") + " " + _
-                "           ELSE " + SqlHelper.SqlText("false") + " " + _
-                "      END result " + _
-                "FROM SYSOBJECTS " + _
-                "WHERE NAME = " + SqlHelper.SqlText(_table), _
-                "result", _
+                TableExists = SqlHelper.ExecuteExists( _
+                "SELECT 1 AS Qtd FROM SYSOBJECTS WHERE NAME = " + SqlHelper.SqlText(_table), _
                 "Failed to check table")
                 Exit Function
             End If
 
             _schema = SqlHelper.ValidateIdentifier(_schema)
 
-            TableExists = SqlHelper.ExecuteScalarBoolean( _
-            "SELECT CASE WHEN COUNT(t.name) > 0 THEN " + SqlHelper.SqlText("true") + " " + _
-            "           ELSE " + SqlHelper.SqlText("false") + " " + _
-            "      END result " + _
-            "FROM sys.tables t " + _
+            TableExists = SqlHelper.ExecuteExists( _
+            "SELECT 1 AS Qtd FROM sys.tables t " + _
             "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " + _
             "WHERE s.name = " + SqlHelper.SqlText(_schema) + " AND t.name = " + SqlHelper.SqlText(_table), _
-            "result", _
             "Failed to check table")
         End Function
 
@@ -78,33 +88,23 @@ Namespace migration_service
             Dim _schema As String = pSchema.Trim()
 
             If _schema = "" Then
-                ColumnExists = SqlHelper.ExecuteScalarBoolean( _
-                "IF EXISTS(SELECT * " + _
-                "          FROM dbo.syscolumns " + _
-                "          WHERE Id = object_id(" + SqlHelper.SqlText(_table) + ") " + _
-                "            AND NAME = " + SqlHelper.SqlText(_column) + ") " + _
-                "SELECT " + SqlHelper.SqlText("true") + " Result " + _
-                "ELSE " + _
-                "SELECT " + SqlHelper.SqlText("false") + " Result", _
-                "result", _
+                ColumnExists = SqlHelper.ExecuteExists( _
+                "SELECT 1 AS Qtd FROM dbo.syscolumns " + _
+                "WHERE Id = object_id(" + SqlHelper.SqlText(_table) + ") " + _
+                "  AND NAME = " + SqlHelper.SqlText(_column), _
                 "Failed to check column")
                 Exit Function
             End If
 
             _schema = SqlHelper.ValidateIdentifier(_schema)
 
-            ColumnExists = SqlHelper.ExecuteScalarBoolean( _
-            "IF EXISTS(SELECT 1 " + _
-            "          FROM sys.columns c " + _
-            "          INNER JOIN sys.tables t ON c.object_id = t.object_id " + _
-            "          INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " + _
-            "          WHERE s.name = " + SqlHelper.SqlText(_schema) + " " + _
-            "            AND t.name = " + SqlHelper.SqlText(_table) + " " + _
-            "            AND c.name = " + SqlHelper.SqlText(_column) + ") " + _
-            "SELECT " + SqlHelper.SqlText("true") + " Result " + _
-            "ELSE " + _
-            "SELECT " + SqlHelper.SqlText("false") + " Result", _
-            "result", _
+            ColumnExists = SqlHelper.ExecuteExists( _
+            "SELECT 1 AS Qtd FROM sys.columns c " + _
+            "INNER JOIN sys.tables t ON c.object_id = t.object_id " + _
+            "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " + _
+            "WHERE s.name = " + SqlHelper.SqlText(_schema) + " " + _
+            "  AND t.name = " + SqlHelper.SqlText(_table) + " " + _
+            "  AND c.name = " + SqlHelper.SqlText(_column), _
             "Failed to check column")
         End Function
 
@@ -145,12 +145,14 @@ Namespace migration_service
 
             For _i = 0 To pMigrationTable.Columns.Count() - 1
                 Dim _column As MigrationColumn = pMigrationTable.Columns.GetAt(_i)
-                _tableString += SqlHelper.ValidateIdentifier(_column.Column) + " " + _column.SqlType + " "
-                If Not _column.Nullable Then
-                    _tableString += "NOT NULL "
-                End If
-                If _i < pMigrationTable.Columns.Count() - 1 Then
-                    _tableString += ","
+                If Assigned(_column) Then
+                    _tableString += SqlHelper.ValidateIdentifier(_column.Column) + " " + _column.SqlType + " "
+                    If Not _column.Nullable Then
+                        _tableString += "NOT NULL "
+                    End If
+                    If _i < pMigrationTable.Columns.Count() - 1 Then
+                        _tableString += ","
+                    End If
                 End If
             Next
 
@@ -159,10 +161,13 @@ Namespace migration_service
                 _tableString += ", PRIMARY KEY ("
 
                 For _i = 0 To _keyColumns.Count() - 1
-                    If _i > 0 Then
-                        _tableString += ","
+                    Dim _keyColumn As MigrationColumn = _keyColumns.GetAt(_i)
+                    If Assigned(_keyColumn) Then
+                        If _i > 0 Then
+                            _tableString += ","
+                        End If
+                        _tableString += SqlHelper.ValidateIdentifier(_keyColumn.Column)
                     End If
-                    _tableString += SqlHelper.ValidateIdentifier(_keyColumns.GetAt(_i).Column)
                 Next
 
                 _tableString += ")"

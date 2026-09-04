@@ -248,10 +248,14 @@ Namespace rede_ancora_api_novos_bootstrap
                         _carrinho.Free()
                         _carrinho = Null
 
-                        If _carrinhoId <> "" And Assigned(_itensReorder) And _itensReorder.Length > 0 Then
-                            mod_logger.Printe("Limpeza reorder: removendo " + Parser.IntegerToString(_itensReorder.Length) + " item(ns) | cart_id=" + _carrinhoId)
-                            pSvc.RemoverItensRedeAncoraCarrinhoEmLote(_carrinhoId, _itensReorder)
-                            mod_logger.Printe("Limpeza reorder: itens removidos (POST /checkout/bulk/items/delete)")
+                        If _carrinhoId <> "" Then
+                            If Assigned(_itensReorder) Then
+                                If _itensReorder.Length > 0 Then
+                                    mod_logger.Printe("Limpeza reorder: removendo " + Parser.IntegerToString(_itensReorder.Length) + " item(ns) | cart_id=" + _carrinhoId)
+                                    pSvc.RemoverItensRedeAncoraCarrinhoEmLote(_carrinhoId, _itensReorder)
+                                    mod_logger.Printe("Limpeza reorder: itens removidos (POST /checkout/bulk/items/delete)")
+                                End If
+                            End If
                         End If
 
                         If Assigned(_itensReorder) Then

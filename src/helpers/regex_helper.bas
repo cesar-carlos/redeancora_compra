@@ -310,10 +310,10 @@ Namespace regex_helper
                 _regex = New Regex(pGlobal, pIgnoreCase, pPattern)
                 pMatched = _regex.Test(pValue)
                 _regex.Free()
-                TryIsMatch = True
+                Return True
             Catch ex As Exception
-                Regex.SafeFree(_regex)
-                Regex.LogFailure("TryIsMatch", ex)
+                SafeFree(_regex)
+                LogFailure("TryIsMatch", ex)
                 Return False
             End Try
         End Function
@@ -335,10 +335,10 @@ Namespace regex_helper
                 _regex = New Regex(pGlobal, pIgnoreCase, pPattern)
                 pResult = _regex.Replace(pText, pNewValue)
                 _regex.Free()
-                TryReplaceText = True
+                Return True
             Catch ex As Exception
-                Regex.SafeFree(_regex)
-                Regex.LogFailure("TryReplaceText", ex)
+                SafeFree(_regex)
+                LogFailure("TryReplaceText", ex)
                 Return False
             End Try
         End Function
@@ -355,16 +355,20 @@ Namespace regex_helper
 
         Shared Function IsFullTextMatch(pPattern As String, pValue As String, pGlobal As Boolean = True, pIgnoreCase As Boolean = True) As Boolean
             Dim _regex As Regex = Null
+            Dim _matched As Boolean = False
 
             Try
                 _regex = New Regex(pGlobal, pIgnoreCase, pPattern)
-                IsFullTextMatch = _regex.IsFullMatch(pValue)
+                _matched = _regex.IsFullMatch(pValue)
                 _regex.Free()
+                _regex = Null
             Catch ex As Exception
-                Regex.SafeFree(_regex)
-                Regex.LogFailure("IsFullTextMatch", ex)
+                SafeFree(_regex)
+                LogFailure("IsFullTextMatch", ex)
                 Throw New System.Exception("Invalid regex pattern: " + pPattern)
             End Try
+
+            IsFullTextMatch = _matched
         End Function
 
         Overrides Sub Dispose()

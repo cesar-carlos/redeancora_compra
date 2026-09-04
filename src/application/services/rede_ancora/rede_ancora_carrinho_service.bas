@@ -406,28 +406,48 @@ Namespace rede_ancora_carrinho_service
         Private Function TryConsultarCarrinho(pCodUsuario As Integer, pIdCarrinho As String) As RedeAncoraCarrinhoModel
             Dim _api As RedeAncoraApiClient = Null
             Dim _response As HttpResponse = Null
-
-            TryConsultarCarrinho = Null
+            Dim _result As RedeAncoraCarrinhoModel = Null
+            Dim _status As Integer = 0
 
             Try
                 _api = New RedeAncoraApiClient(pCodUsuario, me._authService)
                 _response = _api.GetRequest(RedeAncoraApiConfig.IntegrationUrl("/checkout/" + pIdCarrinho))
+                _status = _response.StatusCode
 
                 If _response.IsSuccess Then
-                    TryConsultarCarrinho = me.ProcessarRespostaCarrinho(pCodUsuario, _response, Null)
+                    If _response.Body.Trim() <> "" Then
+                        _result = me.ProcessarRespostaCarrinho(pCodUsuario, _response, Null)
+                    End If
+                Else
+                    If _status <> 404 Then
+                        Throw New System.Exception(me.MontarErroHttp("GET checkout", _response))
+                    End If
                 End If
 
                 _response.Free()
+                _response = Null
                 _api.Free()
+                _api = Null
             Catch ex As Exception
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = Null
+                End If
+
                 If Assigned(_response) Then
                     _response.Free()
+                    _response = Null
                 End If
 
                 If Assigned(_api) Then
                     _api.Free()
+                    _api = Null
                 End If
+
+                Throw New System.Exception("Erro ao consultar carrinho Rede Ancora: " + ex._getMessage())
             End Try
+
+            TryConsultarCarrinho = _result
         End Function
 
         Private Function ExecutarConsultaCarrinho(pCodUsuario As Integer, pUrl As String) As RedeAncoraCarrinhoModel
@@ -470,40 +490,69 @@ Namespace rede_ancora_carrinho_service
             Dim _data As TJSONObject = Null
             Dim _carrinho As RedeAncoraCarrinhoModel = Null
             Dim _existentes As RedeAncoraCarrinhoItensModel = Null
+            Dim _result As RedeAncoraCarrinhoModel = Null
             Dim _i As Integer
 
-            _json = pResponse.BodyAsJsonObject()
+            Try
+                _json = pResponse.BodyAsJsonObject()
 
-            If Not Assigned(_json) Then
-                Throw New System.Exception("Resposta checkout sem JSON valido")
-            End If
+                If Not Assigned(_json) Then
+                    Throw New System.Exception("Resposta checkout sem JSON valido")
+                End If
 
-            _data = RedeAncoraJsonHelper.ObterDataObjeto(_json)
+                _data = RedeAncoraJsonHelper.ObterDataObjeto(_json)
 
-            If Not Assigned(_data) Then
+                If Not Assigned(_data) Then
+                    Throw New System.Exception("Resposta checkout sem objeto data")
+                End If
+
+                _carrinho = New RedeAncoraCarrinhoModel()
+                me.MapearCarrinho(_data, _carrinho, _carrinho.Itens, pItensSolicitacao)
+                _carrinho.CodCarrinho = me.ResolverCodCarrinhoLocal(_carrinho.IdCarrinho)
+
+                For _i = 0 To _carrinho.Itens.Length - 1
+                    _carrinho.Itens.Take(_i).CodCarrinho = _carrinho.CodCarrinho
+                Next
+
+                _existentes = me._itemRepository.ListarPorCarrinho(_carrinho.CodCarrinho)
+                me.AplicarAuditoriaLancamento(_carrinho.Itens, _existentes, Assigned(pItensSolicitacao))
+                _existentes.Free()
+                _existentes = Null
+
+                me.PersistirCarrinhoLocal(_carrinho, _carrinho.Itens)
+                me.AtualizarIdCarrinhoEmpresa(pCodUsuario, _carrinho.IdCarrinho)
+
+                _data.Free()
+                _data = Null
                 _json.Free()
-                Throw New System.Exception("Resposta checkout sem objeto data")
-            End If
+                _json = Null
+                _result = _carrinho
+                _carrinho = Null
+            Catch ex As Exception
+                If Assigned(_existentes) Then
+                    _existentes.Free()
+                    _existentes = Null
+                End If
 
-            _carrinho = New RedeAncoraCarrinhoModel()
-            me.MapearCarrinho(_data, _carrinho, _carrinho.Itens, pItensSolicitacao)
-            _carrinho.CodCarrinho = me.ResolverCodCarrinhoLocal(_carrinho.IdCarrinho)
+                If Assigned(_carrinho) Then
+                    _carrinho.Free()
+                    _carrinho = Null
+                End If
 
-            For _i = 0 To _carrinho.Itens.Length - 1
-                _carrinho.Itens.Take(_i).CodCarrinho = _carrinho.CodCarrinho
-            Next
+                If Assigned(_data) Then
+                    _data.Free()
+                    _data = Null
+                End If
 
-            _existentes = me._itemRepository.ListarPorCarrinho(_carrinho.CodCarrinho)
-            me.AplicarAuditoriaLancamento(_carrinho.Itens, _existentes, Assigned(pItensSolicitacao))
-            _existentes.Free()
-            _existentes = Null
+                If Assigned(_json) Then
+                    _json.Free()
+                    _json = Null
+                End If
 
-            me.PersistirCarrinhoLocal(_carrinho, _carrinho.Itens)
-            me.AtualizarIdCarrinhoEmpresa(pCodUsuario, _carrinho.IdCarrinho)
+                Throw New System.Exception("Erro ao processar resposta checkout Rede Ancora: " + ex._getMessage())
+            End Try
 
-            _data.Free()
-            _json.Free()
-            ProcessarRespostaCarrinho = _carrinho
+            ProcessarRespostaCarrinho = _result
         End Function
 
         Private Sub PersistirCarrinhoLocal(pCarrinho As RedeAncoraCarrinhoModel, pItens As RedeAncoraCarrinhoItensModel)
@@ -523,51 +572,72 @@ Namespace rede_ancora_carrinho_service
         Private Sub MapearCarrinho(pData As TJSONObject, pCarrinho As RedeAncoraCarrinhoModel, pItens As RedeAncoraCarrinhoItensModel, pItensSolicitacao As RedeAncoraCarrinhoItensSolicitacaoModel)
             Dim _totals As TJSONObject = Null
             Dim _items As TJSONArray = Null
+            Dim _itemJson As TJSONObject = Null
             Dim _i As Integer
             Dim _sequenciaItem As Integer = 0
+            Dim _itemsBlob As String = ""
+            Dim _elem As String = ""
 
-            pCarrinho.IdCarrinho = RedeAncoraJsonHelper.ObterTextoJson(pData, "cart_id")
-            pCarrinho.Convertido = RedeAncoraJsonHelper.SimNao(RedeAncoraJsonHelper.ObterBooleanJson(pData, "converted"))
-            pCarrinho.Canal = RedeAncoraJsonHelper.ObterTextoJson(pData, "channel")
-            pCarrinho.QtdItens = RedeAncoraJsonHelper.ObterInteiroJson(pData, "items_count")
-            pCarrinho.QtdItensTotal = RedeAncoraJsonHelper.ObterInteiroJson(pData, "items_qty_sum")
-            pCarrinho.DataAtualizacao = DateTime()
+            Try
+                pCarrinho.IdCarrinho = RedeAncoraJsonHelper.ObterTextoJson(pData, "cart_id")
+                pCarrinho.Convertido = RedeAncoraJsonHelper.SimNao(RedeAncoraJsonHelper.ObterBooleanJson(pData, "converted"))
+                pCarrinho.Canal = RedeAncoraJsonHelper.ObterTextoJson(pData, "channel")
+                pCarrinho.QtdItens = RedeAncoraJsonHelper.ObterInteiroJson(pData, "items_count")
+                pCarrinho.QtdItensTotal = RedeAncoraJsonHelper.ObterInteiroJson(pData, "items_qty_sum")
+                pCarrinho.DataAtualizacao = DateTime()
 
-            _totals = RedeAncoraJsonHelper.ObterObjetoJson(pData, "totals")
-            If Assigned(_totals) Then
-                pCarrinho.Subtotal = RedeAncoraJsonHelper.ObterDecimalJson(_totals, "subtotal")
-                pCarrinho.Impostos = RedeAncoraJsonHelper.ObterDecimalJson(_totals, "taxes")
-                pCarrinho.Total = RedeAncoraJsonHelper.ObterDecimalJson(_totals, "total")
-                _totals.Free()
-            End If
+                _totals = RedeAncoraJsonHelper.ObterObjetoJson(pData, "totals")
+                If Assigned(_totals) Then
+                    pCarrinho.Subtotal = RedeAncoraJsonHelper.ObterDecimalJson(_totals, "subtotal")
+                    pCarrinho.Impostos = RedeAncoraJsonHelper.ObterDecimalJson(_totals, "taxes")
+                    pCarrinho.Total = RedeAncoraJsonHelper.ObterDecimalJson(_totals, "total")
+                    _totals.Free()
+                    _totals = Null
+                End If
 
-            _items = RedeAncoraJsonHelper.ObterArrayJson(pData, "items")
-            If Assigned(_items) Then
-                Dim _itemsBlob As String = _items.ToString()
-                Dim _elem As String = ""
-                Dim _itemJson As TJSONObject = Null
+                _items = RedeAncoraJsonHelper.ObterArrayJson(pData, "items")
+                If Assigned(_items) Then
+                    _itemsBlob = _items.ToString()
+                    _items.Free()
+                    _items = Null
 
-                _items.Free()
-                _items = Null
+                    ' teto de seguranca (10000) contra loop infinito se ExtrairElementoArrayJson nao devolver vazio
+                    For _i = 0 To 9999
+                        _elem = RedeAncoraJsonHelper.ExtrairElementoArrayJson(_itemsBlob, _i)
 
-                For _i = 0 To 999
-                    _elem = RedeAncoraJsonHelper.ExtrairElementoArrayJson(_itemsBlob, _i)
+                        If _elem = "" Then
+                            Exit For
+                        End If
 
-                    If _elem = "" Then
-                        Exit For
-                    End If
+                        If Mid(_elem.Trim(), 1, 1) = "{" Then
+                            _itemJson = New TJSONObject(_elem)
+                            _sequenciaItem = _sequenciaItem + 1
+                            Dim _item As RedeAncoraCarrinhoItemModel = me.MapearItemCarrinho(_itemJson, me.FormatarItemSequencial(_sequenciaItem))
+                            me.AplicarCodProdutoItem(_item, pItensSolicitacao)
+                            pItens.Push(_item)
+                            _itemJson.Free()
+                            _itemJson = Null
+                        End If
+                    Next
+                End If
+            Catch ex As Exception
+                If Assigned(_itemJson) Then
+                    _itemJson.Free()
+                    _itemJson = Null
+                End If
 
-                    If Mid(_elem.Trim(), 1, 1) = "{" Then
-                        _itemJson = New TJSONObject(_elem)
-                        _sequenciaItem = _sequenciaItem + 1
-                        Dim _item As RedeAncoraCarrinhoItemModel = me.MapearItemCarrinho(_itemJson, me.FormatarItemSequencial(_sequenciaItem))
-                        me.AplicarCodProdutoItem(_item, pItensSolicitacao)
-                        pItens.Push(_item)
-                        _itemJson.Free()
-                        _itemJson = Null
-                    End If
-                Next
-            End If
+                If Assigned(_items) Then
+                    _items.Free()
+                    _items = Null
+                End If
+
+                If Assigned(_totals) Then
+                    _totals.Free()
+                    _totals = Null
+                End If
+
+                Throw New System.Exception("Erro ao mapear carrinho Rede Ancora: " + ex._getMessage())
+            End Try
         End Sub
 
         Private Function MapearItemCarrinho(pJson As TJSONObject, pItem As String) As RedeAncoraCarrinhoItemModel

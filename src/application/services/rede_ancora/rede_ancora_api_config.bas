@@ -2,7 +2,7 @@ Imports mod_tobject
 
 Namespace rede_ancora_api_config
     Private Dim _usarStaging As Boolean
-    Private Dim _desabilitarLogHttpCorpos As Boolean
+    Private Dim _logarHttpCorpos As Boolean
     Private Dim _desabilitarValidarProdutoAntesCarrinho As Boolean
     Private Dim _tamanhoChunkSincronizacaoProdutos As Integer
 
@@ -34,15 +34,11 @@ Namespace rede_ancora_api_config
         End Sub
 
         Shared Function LogHttpBodies() As Boolean
-            LogHttpBodies = Not _desabilitarLogHttpCorpos
+            LogHttpBodies = _logarHttpCorpos
         End Function
 
         Shared Sub DefinirLogHttpBodies(pLogarCorpos As Boolean)
-            If pLogarCorpos Then
-                _desabilitarLogHttpCorpos = False
-            Else
-                _desabilitarLogHttpCorpos = True
-            End If
+            _logarHttpCorpos = pLogarCorpos
         End Sub
 
         Shared Function ValidarProdutoAntesCarrinho() As Boolean

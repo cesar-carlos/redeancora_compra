@@ -82,7 +82,13 @@ Namespace base_listener
         End Sub
 
         Function IsRunning() As Boolean
-            IsRunning = Assigned(me._timer) And me._timer.Enabled
+            IsRunning = False
+
+            If Assigned(me._timer) Then
+                If me._timer.Enabled Then
+                    IsRunning = True
+                End If
+            End If
         End Function
 
         Private Sub OnTimer(Sender As TObject)

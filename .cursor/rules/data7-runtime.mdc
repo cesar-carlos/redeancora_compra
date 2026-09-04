@@ -47,3 +47,7 @@ Data7 **não** faz short-circuit. Aninhar `If`; nunca `If Assigned(pObj) And pOb
 ## `Shared Function` dentro de `Try`
 
 Não atribuir ao nome da função (`Foo = x`) dentro de `Try/Catch` — bug do compilador nativo. Use `Return x` ou variável temporária depois do `End Try`.
+
+## Diagnóstico de AV
+
+Não espalhar `Logger` em cada linha. Instrumentar só pontos que podem AV/NULL com `DiagStack` (regra `data7-diag-stack`). **Kill switch único:** `_habilitado = False` no topo de `src/helpers/diag_stack.bas` (desliga Push/Pop/Snapshot/DumpOnError/Trace, inclusive `boot:`). Não criar outra flag. Breadcrumbs: `DiagStack.Trace`, nunca `Logger`/`Printe` direto.

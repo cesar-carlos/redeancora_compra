@@ -40,6 +40,28 @@ Accept: application/json
 
 ---
 
+## Carrinho compartilhado (regra de produto)
+
+O checkout da API é por **cliente/chave (franqueado)** — o header `X-API-KEY` — **não** por usuário Data7.
+
+| Implicação | Detalhe |
+|------------|---------|
+| Um `cart_id` por chave | Vários operadores ERP com a mesma `X-API-KEY` veem e alteram o **mesmo** carrinho |
+| `IdCarrinhoAtual` | Cache local em `RedeAncoraEmpresa` por `CodUsuario` de integração — **não** prova de carrinho exclusivo por usuário na API |
+| Cabeçalho `Integracao.RedeAncoraCarrinho` | **Não** tem `CodUsuario` |
+| `CodUsuario` no **item** | Auditoria (quem lançou no ERP) — **não** dono do cart na API |
+
+**Proibido** em produção e em homologação compartilhada (mesma chave que a loja):
+
+- `DELETE /checkout/{cartId}` — wipe da loja (todos os itens de todos os operadores).
+- “Esvaziar o carrinho” ou apagar itens de outros operadores sem confirmação multi-usuário.
+
+Remover na API: só `item_id` da sessão / próprios (`DELETE .../items/{itemId}` ou `POST .../bulk/items/delete` com a lista da sessão).
+
+Harness: `DefinirDeletarCarrinhoAoFinal` **não** é `DeletarCarrinho`. Padrão `False`. Nunca wipe do cart no bootstrap. Limpeza de reorder (`DefinirTestarReorder`) também pode afetar itens pré-existentes no mesmo cart. Ver [Limpeza do carrinho em produção](#limpeza-do-carrinho-em-produção).
+
+---
+
 ## Classificação oficial dos endpoints
 
 > Baseado em [API B2B - Endpoints Essenciais e Recomendados](https://redeancora.atlassian.net/wiki/spaces/ADSP/pages/408780804) — ERPs homologados **devem** implementar os essenciais.
@@ -114,6 +136,8 @@ RedeAncoraEmpresa.IdCarrinhoAtual  →  RedeAncoraCarrinho.IdCarrinho (UUID)
 RedeAncoraCarrinho.CodCarrinho     →  RedeAncoraCarrinhoItem.CodCarrinho
 ```
 
+`IdCarrinhoAtual` é **cache local** por `CodUsuario` de integração. O `cart_id` na API é da chave/franqueado (compartilhado). Ver [Carrinho compartilhado](#carrinho-compartilhado-regra-de-produto).
+
 | Tabela | PK | Colunas principais |
 |--------|-----|-------------------|
 | `RedeAncoraCarrinho` | `CodCarrinho` | `IdCarrinho`, `Convertido`, `Canal`, `QtdItens`, `QtdItensTotal`, `Subtotal`, `Impostos`, `Total`, `DataAtualizacao` |
@@ -156,6 +180,7 @@ Regras:
 - Só itens com **`IdItemApi` novo** (ausente no snapshot local anterior) recebem auditoria.
 - Sync posterior (`GET /checkout`, `PATCH`, pagamentos) **preserva** auditoria existente por `IdItemApi`.
 - Itens do portal/reorder sem lançamento ERP ficam com defaults no banco (`CodUsuario=0`, strings vazias, `DataLancamento=1900-01-01`); em memória use `PossuiAuditoriaLancamento()` (`CodUsuario > 0`).
+- `CodUsuario` no item é **quem lançou** no ERP — não identifica dono do cart na API (o cart é da chave).
 - Colunas nullable da API (`CodCentroDistribuicao`, `CodProduto`, `PrecoUnitario`, etc.) continuam com `0`/`""` → `NULL` na gravação (`SqlCampoInteiroOuNull`, `SqlCampoTextoOuNull`, `SqlCampoDecimalOuNull`).
 
 ### Pendências de produto (fora da API)
@@ -344,7 +369,7 @@ X-API-KEY: {sua_chave_api}
 | `company[0].warehouse_preferencial` | CD padrão (`empresa` = seller) |
 | `warehouses[].empresa` | ID do seller/CD para `POST .../items` |
 | `warehouses[].preferential` | `1` = CD preferencial |
-| `user[0].current_cart_id` | Carrinho ativo (se existir) |
+| `user[0].current_cart_id` | Carrinho ativo da chave/franqueado (compartilhado; se existir) |
 | `is_blocked` | Se `true`, interromper fluxo de compra |
 | `balance.current_balance` | Saldo de crédito disponível |
 
@@ -567,11 +592,13 @@ Content-Type: application/json
 
 ## Fase 5 — Carrinho de compras
 
+> O `cart_id` é da **chave/franqueado**, não do operador Data7. Ver [Carrinho compartilhado](#carrinho-compartilhado-regra-de-produto).
+
 ### Passo 5.1 — Criar ou recuperar carrinho
 
 **Endpoint:** `GET /api/integration/v1/checkout`
 
-Instancia um novo carrinho **ou** recupera o carrinho ativo do cliente.
+Instancia um novo carrinho **ou** recupera o carrinho ativo do **franqueado** (mesma `X-API-KEY`). Vários operadores ERP com essa chave compartilham o mesmo `cart_id`.
 
 ```http
 GET https://app.redeancora.com.br/b2b/api/integration/v1/checkout
@@ -759,11 +786,15 @@ Content-Type: application/json
 }
 ```
 
+> Remover só `item_id` da sessão / próprios. **Não** usar estas operações para “esvaziar o carrinho” em produção ou homologação compartilhada sem confirmação multi-usuário.
+
 ---
 
 ### Passo 5.6 — Deletar carrinho inteiro
 
 **Endpoint:** `DELETE /api/integration/v1/checkout/{cartId}`
+
+> **Proibido** em produção e em homologação compartilhada: wipe da loja (todos os itens de todos os operadores). Usar só em ambiente isolado (chave exclusiva). No ERP/harness, remover por `item_id` — nunca este endpoint.
 
 ```http
 DELETE https://app.redeancora.com.br/b2b/api/integration/v1/checkout/23fc1cc0-bf2d-4803-8233-0c6555be58b5
@@ -1092,7 +1123,7 @@ Consultas à API de vendas sem persistência local adicional. Retorno JSON bruto
 13. Salvar orders[].id no sistema local
 ```
 
-> **Sobre o Passo 6 — `GET /checkout` vs `GET /checkout/{cartId}`:** O endpoint sem `cartId` (`GET /checkout`) cria ou recupera o carrinho ativo do usuário. O endpoint com `cartId` consulta um carrinho específico. Para integração, recomenda-se verificar se `profile.user[0].current_cart_id` existe e está válido antes de chamar `GET /checkout`. Em caso de `404`, chame `GET /checkout` para obter um novo `cart_id`.
+> **Sobre o Passo 6 — `GET /checkout` vs `GET /checkout/{cartId}`:** O endpoint sem `cartId` (`GET /checkout`) cria ou recupera o carrinho ativo do **franqueado/chave** (compartilhado entre operadores com a mesma `X-API-KEY`). O endpoint com `cartId` consulta um carrinho específico. Para integração, recomenda-se verificar se `profile.user[0].current_cart_id` existe e está válido antes de chamar `GET /checkout`. Em caso de `404`, chame `GET /checkout` para obter um novo `cart_id`.
 
 ---
 
@@ -1223,6 +1254,8 @@ A maioria dos erros retorna o seguinte envelope JSON:
 | Carrinho não encontrado | 404 | Recriar com `GET /checkout` |
 
 **`DELETE /checkout/{cartId}`**
+
+> **Proibido** em produção / homologação compartilhada (wipe da loja). Ver [Carrinho compartilhado](#carrinho-compartilhado-regra-de-produto).
 
 | Situação | HTTP | Ação |
 |---|---|---|
@@ -1377,20 +1410,22 @@ Para fechar pedido real: staging + `DefinirConfirmarPedido(True)` no harness (in
 
 Para testar apenas os endpoints novos (Sales, ScheduledOrder, Agenda, Haulers leitura): `DefinirCenario(RedeAncoraDevHarness.CenarioNovos())`.
 
-Opcional no bootstrap `rede_ancora_api_novos_bootstrap`: `DefinirTestarHaulersCrud(True)` (cria/atualiza/exclui transportador de teste) e `DefinirTestarReorder(True)` (reorder + limpeza dos itens do carrinho gerado). **Não** testa `CancelarPedidoApi` (destrutivo).
+Opcional no bootstrap `rede_ancora_api_novos_bootstrap`: `DefinirTestarHaulersCrud(True)` (cria/atualiza/exclui transportador de teste) e `DefinirTestarReorder(True)` (reorder + limpeza dos itens do carrinho gerado). **Não** testa `CancelarPedidoApi` (destrutivo). A limpeza de reorder age no **mesmo** cart compartilhado e **pode** afetar itens pré-existentes.
 
 ### Limpeza do carrinho em produção
 
+O `cart_id` é da chave/franqueado — ver [Carrinho compartilhado](#carrinho-compartilhado-regra-de-produto). `DefinirDeletarCarrinhoAoFinal` **não** é `DeletarCarrinho` (`DELETE /checkout/{cartId}`). Padrão **`False`**. O bootstrap **nunca** faz wipe do cart.
+
 O `rede_ancora_checkout_bootstrap` usa por padrão `ConfirmarPedido=False` e **`DeletarCarrinhoAoFinal=False`** (seguro em ambiente compartilhado):
 
-1. **Antes do teste:** **não** remove carrinho pré-existente (`IdCarrinhoAtual` do profile permanece intacto).
+1. **Antes do teste:** **não** remove carrinho pré-existente (`IdCarrinhoAtual` do profile permanece intacto). **Nunca** wipe no bootstrap.
 2. **Durante o teste:** registra `cart_id` da sessão e diff de `item_id`s antes/depois do `POST /checkout/items`.
 3. **Ao final (passo 13, só se `DefinirDeletarCarrinhoAoFinal(True)`):** `POST /checkout/{cartId}/bulk/items/delete` com **apenas** os `item_id`s adicionados nesta sessão — **nunca** `DELETE /checkout/{cartId}` inteiro.
 4. **Em caso de erro:** mesma limpeza parcial (itens de teste), se `cart_id` da sessão ainda coincidir.
 
 Nunca usar `ConfirmarPedido=True` com `DeletarCarrinhoAoFinal=True` em produção — o bootstrap bloqueia essa combinação.
 
-Para limpeza automática em ambiente de teste isolado (API key exclusiva): `DefinirDeletarCarrinhoAoFinal(True)`.
+Para limpeza automática em ambiente de teste isolado (API key exclusiva): `DefinirDeletarCarrinhoAoFinal(True)` — remove só `item_id`s da sessão, não o cart.
 
 ### Checklist pós-deploy
 
@@ -1400,7 +1435,7 @@ Para limpeza automática em ambiente de teste isolado (API key exclusiva): `Defi
 | Adicionar ao carrinho | Sem Access violation no mapeamento JSON |
 | Review + payments | Totais e `item_id` corretos nos logs |
 | Carrinho de teste | Itens desta sessão removidos no passo 13 **somente** com `DefinirDeletarCarrinhoAoFinal(True)`; carrinho pré-existente **não** é apagado |
-| Produção sem sujeira | `DeletarCarrinhoAoFinal=False` (padrão); `ConfirmarPedido=False` |
+| Produção sem sujeira | `DeletarCarrinhoAoFinal=False` (padrão); `ConfirmarPedido=False`; **nunca** `DELETE /checkout/{cartId}` |
 | `Principal.bas` em produção | Só migrations, sem chamadas API automáticas |
 
 ### Ajustes finos comuns

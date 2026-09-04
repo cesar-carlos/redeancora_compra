@@ -490,49 +490,69 @@ Namespace rede_ancora_checkout_service
             Dim _payload As String = ""
             Dim _pedidos As RedeAncoraPedidosModel = NULL
             Dim _output As New RedeAncoraOutputConfirmarPedido()
+            Dim _result As RedeAncoraOutputConfirmarPedido = NULL
 
             Try
                 me._empresaService.ValidarPodeOperar(pInput.CodUsuario)
                 me._empresaService.ValidarPermissoes(pInput.CodUsuario, "orders")
-                pInput.Entregas.ValidarTodos()
 
-                _payload = me.MontarPayloadConfirmarPedido(pInput.Entregas, pInput.ItensIds)
+                If me.CarrinhoLocalJaConvertido(pInput.IdCarrinho) Then
+                    _pedidos = me._pedidoRepository.ListarPorIdCarrinho(pInput.CodUsuario, pInput.IdCarrinho)
+                    _output.Pedidos = _pedidos
+                    _result = _output
+                    _output = NULL
+                    _pedidos = NULL
+                Else
+                    pInput.Entregas.ValidarTodos()
 
-                _api = New RedeAncoraApiClient(pInput.CodUsuario, me._authService)
-                _response = _api.PostJson(RedeAncoraApiConfig.IntegrationUrl("/checkout/" + pInput.IdCarrinho + "/order"), _payload)
+                    _payload = me.MontarPayloadConfirmarPedido(pInput.Entregas, pInput.ItensIds)
 
-                If Not _response.IsSuccess Then
-                    Throw New System.Exception(me.MontarErroHttp("POST /checkout/order", _response))
+                    _api = New RedeAncoraApiClient(pInput.CodUsuario, me._authService)
+                    _response = _api.PostJson(RedeAncoraApiConfig.IntegrationUrl("/checkout/" + pInput.IdCarrinho + "/order"), _payload)
+
+                    If Not _response.IsSuccess Then
+                        Throw New System.Exception(me.MontarErroHttp("POST /checkout/order", _response))
+                    End If
+
+                    _pedidos = me.MapearPedidos(pInput.CodUsuario, pInput.IdCarrinho, _response)
+                    me._pedidoRepository.SalvarVarios(_pedidos)
+                    me.MarcarCarrinhoConvertido(pInput.IdCarrinho)
+                    me.LimparIdCarrinhoEmpresa(pInput.CodUsuario)
+
+                    _output.Pedidos = _pedidos
+                    _result = _output
+                    _output = NULL
+                    _pedidos = NULL
+                    _response.Free()
+                    _response = NULL
+                    _api.Free()
+                    _api = NULL
                 End If
-
-                _pedidos = me.MapearPedidos(pInput.CodUsuario, pInput.IdCarrinho, _response)
-                me._pedidoRepository.SalvarVarios(_pedidos)
-                me.MarcarCarrinhoConvertido(pInput.IdCarrinho)
-                me.LimparIdCarrinhoEmpresa(pInput.CodUsuario)
-
-                _output.Pedidos = _pedidos
-                ConfirmarPedido = _output
-                _response.Free()
-                _api.Free()
             Catch ex As Exception
                 If Assigned(_output) Then
                     _output.Free()
+                    _output = NULL
                 End If
 
                 If Assigned(_pedidos) Then
                     _pedidos.Free()
+                    _pedidos = NULL
                 End If
 
                 If Assigned(_response) Then
                     _response.Free()
+                    _response = NULL
                 End If
 
                 If Assigned(_api) Then
                     _api.Free()
+                    _api = NULL
                 End If
 
                 Throw New System.Exception("Erro ao confirmar pedido Rede Ancora: " + ex._getMessage())
             End Try
+
+            ConfirmarPedido = _result
         End Function
 
         Function ListarPedidosLocal(pCodUsuario As Integer) As RedeAncoraPedidosModel
@@ -866,59 +886,115 @@ Namespace rede_ancora_checkout_service
             Dim _json As TJSONObject = NULL
             Dim _data As TJSONObject = NULL
             Dim _orders As TJSONArray = NULL
-            Dim _result As New RedeAncoraPedidosModel()
+            Dim _result As RedeAncoraPedidosModel = NULL
+            Dim _orderJson As TJSONObject = NULL
+            Dim _items As TJSONArray = NULL
+            Dim _itemJson As TJSONObject = NULL
+            Dim _pedido As RedeAncoraPedidoModel = NULL
             Dim _i As Integer
+            Dim _j As Integer
+            Dim _qty As Integer = 0
+            Dim _unitPrice As Double = 0
+            Dim _unitTaxes As Double = 0
 
-            _json = pResponse.BodyAsJsonObject()
-            _data = RedeAncoraJsonHelper.ObterDataObjeto(_json)
+            Try
+                _result = New RedeAncoraPedidosModel()
+                _json = pResponse.BodyAsJsonObject()
+                _data = RedeAncoraJsonHelper.ObterDataObjeto(_json)
 
-            If Not Assigned(_data) Then
-                _json.Free()
-                Throw New System.Exception("Resposta /checkout/order sem objeto data")
-            End If
-
-            _orders = RedeAncoraJsonHelper.ObterArrayJson(_data, "orders")
-
-            If Not Assigned(_orders) Then
-                _data.Free()
-                _json.Free()
-                Throw New System.Exception("Resposta /checkout/order sem array orders")
-            End If
-
-            For _i = 0 To _orders.Length() - 1
-                Dim _orderJson As TJSONObject = _orders.GetJSONObject(_i)
-                Dim _pedido As New RedeAncoraPedidoModel()
-                Dim _items As TJSONArray = NULL
-                Dim _j As Integer
-
-                _pedido.CodUsuario = pCodUsuario
-                _pedido.IdPedidoApi = RedeAncoraJsonHelper.ObterInteiroJson(_orderJson, "id")
-                _pedido.IdCarrinho = pIdCarrinho
-                _pedido.DataPedido = DateTime()
-                _pedido.ValorTotal = 0
-
-                _items = RedeAncoraJsonHelper.ObterArrayJson(_orderJson, "items")
-                If Assigned(_items) Then
-                    For _j = 0 To _items.Length() - 1
-                        Dim _itemJson As TJSONObject = _items.GetJSONObject(_j)
-                        Dim _qty As Integer = RedeAncoraJsonHelper.ObterInteiroJson(_itemJson, "qty")
-                        Dim _unitPrice As Double = RedeAncoraJsonHelper.ObterDecimalJson(_itemJson, "unit_price")
-                        Dim _unitTaxes As Double = RedeAncoraJsonHelper.ObterDecimalJson(_itemJson, "unit_taxes")
-
-                        _pedido.ValorTotal = _pedido.ValorTotal + ((_unitPrice + _unitTaxes) * _qty)
-                        _itemJson.Free()
-                    Next
-
-                    _items.Free()
+                If Not Assigned(_data) Then
+                    Throw New System.Exception("Resposta /checkout/order sem objeto data")
                 End If
 
-                _result.Push(_pedido)
-                _orderJson.Free()
-            Next
+                _orders = RedeAncoraJsonHelper.ObterArrayJson(_data, "orders")
 
-            _orders.Free()
-            _data.Free()
-            _json.Free()
+                If Not Assigned(_orders) Then
+                    Throw New System.Exception("Resposta /checkout/order sem array orders")
+                End If
+
+                For _i = 0 To _orders.Length() - 1
+                    _pedido = New RedeAncoraPedidoModel()
+
+                    _orderJson = _orders.GetJSONObject(_i)
+                    _pedido.CodUsuario = pCodUsuario
+                    _pedido.IdPedidoApi = RedeAncoraJsonHelper.ObterInteiroJson(_orderJson, "id")
+                    _pedido.IdCarrinho = pIdCarrinho
+                    _pedido.DataPedido = DateTime()
+                    _pedido.ValorTotal = 0
+
+                    _items = RedeAncoraJsonHelper.ObterArrayJson(_orderJson, "items")
+                    If Assigned(_items) Then
+                        For _j = 0 To _items.Length() - 1
+                            _itemJson = _items.GetJSONObject(_j)
+                            _qty = RedeAncoraJsonHelper.ObterInteiroJson(_itemJson, "qty")
+                            _unitPrice = RedeAncoraJsonHelper.ObterDecimalJson(_itemJson, "unit_price")
+                            _unitTaxes = RedeAncoraJsonHelper.ObterDecimalJson(_itemJson, "unit_taxes")
+
+                            _pedido.ValorTotal = _pedido.ValorTotal + ((_unitPrice + _unitTaxes) * _qty)
+                            _itemJson.Free()
+                            _itemJson = NULL
+                        Next
+
+                        _items.Free()
+                        _items = NULL
+                    End If
+
+                    _result.Push(_pedido)
+                    _pedido = NULL
+                    _orderJson.Free()
+                    _orderJson = NULL
+                Next
+
+                _orders.Free()
+                _orders = NULL
+                _data.Free()
+                _data = NULL
+                _json.Free()
+                _json = NULL
+            Catch ex As Exception
+                If Assigned(_itemJson) Then
+                    _itemJson.Free()
+                    _itemJson = NULL
+                End If
+
+                If Assigned(_items) Then
+                    _items.Free()
+                    _items = NULL
+                End If
+
+                If Assigned(_orderJson) Then
+                    _orderJson.Free()
+                    _orderJson = NULL
+                End If
+
+                If Assigned(_pedido) Then
+                    _pedido.Free()
+                    _pedido = NULL
+                End If
+
+                If Assigned(_orders) Then
+                    _orders.Free()
+                    _orders = NULL
+                End If
+
+                If Assigned(_data) Then
+                    _data.Free()
+                    _data = NULL
+                End If
+
+                If Assigned(_json) Then
+                    _json.Free()
+                    _json = NULL
+                End If
+
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = NULL
+                End If
+
+                Throw New System.Exception("Erro ao mapear pedidos Rede Ancora: " + ex._getMessage())
+            End Try
+
             MapearPedidos = _result
         End Function
 
@@ -1046,6 +1122,37 @@ Namespace rede_ancora_checkout_service
 
             _itemsJson = _itemsJson + "]"
             MontarArrayEntregasJson = _itemsJson
+        End Function
+
+        Private Function CarrinhoLocalJaConvertido(pIdCarrinho As String) As Boolean
+            Dim _carrinho As RedeAncoraCarrinhoModel = NULL
+            Dim _convertido As Boolean = False
+
+            If pIdCarrinho.Trim() = "" Then
+                CarrinhoLocalJaConvertido = False
+                Exit Function
+            End If
+
+            Try
+                _carrinho = New RedeAncoraCarrinhoModel()
+                If me._carrinhoRepository.TryObterPorIdCarrinho(pIdCarrinho, _carrinho) Then
+                    If _carrinho.Convertido = "S" Then
+                        _convertido = True
+                    End If
+                End If
+
+                _carrinho.Free()
+                _carrinho = NULL
+            Catch ex As Exception
+                If Assigned(_carrinho) Then
+                    _carrinho.Free()
+                    _carrinho = NULL
+                End If
+
+                Throw ex
+            End Try
+
+            CarrinhoLocalJaConvertido = _convertido
         End Function
 
         Private Sub MarcarCarrinhoConvertido(pIdCarrinho As String)

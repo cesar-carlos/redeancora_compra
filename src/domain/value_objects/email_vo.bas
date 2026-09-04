@@ -37,7 +37,7 @@ Namespace email_vo
         End Function
 
         Shared Function IsValidEmail(pValue As String) As Boolean
-            IsValidEmail = Regex.IsFullTextMatch(Email.Pattern(), pValue.Trim(), False, False)
+            IsValidEmail = Regex.IsFullTextMatch(Pattern(), pValue.Trim(), False, False)
         End Function
 
         Overrides Function IsValid() As Boolean

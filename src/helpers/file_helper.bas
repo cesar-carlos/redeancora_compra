@@ -62,11 +62,11 @@ Namespace file_helper
             Dim _i As Integer
 
             For _i = 0 To pSegmentLimit - 1
-                If Not FileHelper.HasPathSegmentAt(pPath, _delimiter, _i) Then
+                If Not HasPathSegmentAt(pPath, _delimiter, _i) Then
                     Exit For
                 End If
 
-                _segment = FileHelper.PathSegmentAt(pPath, _delimiter, _i)
+                _segment = PathSegmentAt(pPath, _delimiter, _i)
 
                 If _i = 0 Then
                     _path = _segment
@@ -83,7 +83,7 @@ Namespace file_helper
             Dim _delimiter As String = "\"
             Dim _count As Integer = 0
 
-            While FileHelper.HasPathSegmentAt(pPath, _delimiter, _count)
+            While HasPathSegmentAt(pPath, _delimiter, _count)
                 _count = _count + 1
                 Wend
 
@@ -98,8 +98,8 @@ Namespace file_helper
                     Exit Function
                 End If
 
-                Dim _segmentCount As Integer = FileHelper.CountPathSegments(pPath) - 1
-                DirectoryNameOf = FileHelper.JoinPathSegments(pPath, _segmentCount)
+                Dim _segmentCount As Integer = CountPathSegments(pPath) - 1
+                DirectoryNameOf = JoinPathSegments(pPath, _segmentCount)
             End Function
 
             Private Shared Function EnsureDirectoryPath(pSubDirectory As String) As String
@@ -114,11 +114,11 @@ Namespace file_helper
             End Function
 
             Shared Function GetExecutableDirectory() As String
-                GetExecutableDirectory = FileHelper.DirectoryNameOf(Data7.NomeArquivoExecutavel())
+                GetExecutableDirectory = DirectoryNameOf(Data7.NomeArquivoExecutavel())
             End Function
 
             Shared Function GetData7RootDirectory() As String
-                GetData7RootDirectory = FileHelper.JoinPathSegments(Data7.NomeArquivoExecutavel(), 2)
+                GetData7RootDirectory = JoinPathSegments(Data7.NomeArquivoExecutavel(), 2)
             End Function
 
             Shared Function CreateDirectory(pPath As String) As Boolean
@@ -151,15 +151,15 @@ Namespace file_helper
             End Function
 
             Shared Function DefaultDataPath() As String
-                DefaultDataPath = FileHelper.EnsureDirectoryPath("FileData")
+                DefaultDataPath = EnsureDirectoryPath("FileData")
             End Function
 
             Shared Function DefaultErrorPath() As String
-                DefaultErrorPath = FileHelper.EnsureDirectoryPath("FileError")
+                DefaultErrorPath = EnsureDirectoryPath("FileError")
             End Function
 
             Shared Function DefaultTmpPath() As String
-                DefaultTmpPath = FileHelper.EnsureDirectoryPath("tmp")
+                DefaultTmpPath = EnsureDirectoryPath("tmp")
             End Function
 
             Shared Function CopyFile(pSource As String, pDestination As String) As Boolean
@@ -184,7 +184,7 @@ Namespace file_helper
                 Try
                     Dim _files As StringList = New StringList()
                     File.GetFiles(_files, pDirectory, pFormat)
-                    ListFiles = _files
+                    Return _files
                 Catch ex As Exception
                     Return New StringList()
                 End Try

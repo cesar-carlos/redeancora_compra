@@ -255,53 +255,68 @@ Namespace rede_ancora_empresa_service
         End Sub
 
         Private Function MontarMotivosBloqueio(pJson As TJSONObject) As String
-            Dim _reasons As TJSONArray = me.ObterArrayJson(pJson, "blocked_reason")
-            Dim _result As String = ""
-            Dim _i As Integer
-
-            MontarMotivosBloqueio = ""
-
-            If Not Assigned(_reasons) Then
-                Exit Function
-            End If
-
-            For _i = 0 To _reasons.Length() - 1
-                Dim _reason As String = _reasons.GetString(_i)
-
-                If _result <> "" Then
-                    _result = _result + "; "
-                End If
-
-                _result = _result + CStr(_reason)
-            Next
-
-            _reasons.Free()
-            MontarMotivosBloqueio = _result
+            MontarMotivosBloqueio = me.ConcatenarTextosArrayJson(pJson, "blocked_reason", "; ")
         End Function
 
         Private Function MontarPermissoes(pJson As TJSONObject) As String
-            Dim _permissions As TJSONArray = me.ObterArrayJson(pJson, "permissions")
+            MontarPermissoes = me.ConcatenarTextosArrayJson(pJson, "permissions", ",")
+        End Function
+
+        Private Function ConcatenarTextosArrayJson(pJson As TJSONObject, pKey As String, pSeparador As String) As String
+            Dim _arr As TJSONArray = Null
+            Dim _blob As String = ""
+            Dim _elem As String = ""
+            Dim _wrapper As TJSONObject = Null
+            Dim _texto As String = ""
             Dim _result As String = ""
+            Dim _quote As String = CStr(Chr(34))
             Dim _i As Integer
 
-            MontarPermissoes = ""
+            Try
+                _arr = RedeAncoraJsonHelper.ObterArrayJson(pJson, pKey)
 
-            If Not Assigned(_permissions) Then
-                Exit Function
-            End If
+                If Assigned(_arr) Then
+                    _blob = _arr.ToString()
+                    _arr.Free()
+                    _arr = Null
 
-            For _i = 0 To _permissions.Length() - 1
-                Dim _permission As String = _permissions.GetString(_i)
+                    ' teto de seguranca (10000) contra loop infinito se ExtrairElementoArrayJson nao devolver vazio
+                    For _i = 0 To 9999
+                        _elem = RedeAncoraJsonHelper.ExtrairElementoArrayJson(_blob, _i)
 
-                If _result <> "" Then
-                    _result = _result + ","
+                        If _elem = "" Then
+                            Exit For
+                        End If
+
+                        _wrapper = New TJSONObject("{" + _quote + "v" + _quote + ":" + _elem + "}")
+                        _texto = RedeAncoraJsonHelper.ObterTextoJson(_wrapper, "v")
+                        _wrapper.Free()
+                        _wrapper = Null
+
+                        If _texto <> "" Then
+                            If _result <> "" Then
+                                _result = _result + pSeparador
+                            End If
+
+                            _result = _result + CStr(_texto)
+                        End If
+                    Next
+                End If
+            Catch ex As Exception
+                If Assigned(_wrapper) Then
+                    _wrapper.Free()
+                    _wrapper = Null
                 End If
 
-                _result = _result + CStr(_permission)
-            Next
+                If Assigned(_arr) Then
+                    _arr.Free()
+                    _arr = Null
+                End If
 
-            _permissions.Free()
-            MontarPermissoes = _result
+                Throw New System.Exception("Erro ao ler array JSON " + pKey + ": " + ex._getMessage())
+            End Try
+
+            ConcatenarTextosArrayJson = _result
         End Function
 
         Private Function ObterArrayJson(pJson As TJSONObject, pKey As String) As TJSONArray

@@ -57,7 +57,7 @@ Namespace string_helper
             Dim _result As String = ""
 
             While _index > 0
-                _result = _result + StringHelper.CharAt(pValue, _index)
+                _result = _result + CharAt(pValue, _index)
                 _index = _index - 1
                 Wend
 
@@ -112,7 +112,7 @@ Namespace string_helper
                     End If
 
                     For _i = pStart To pValue.Length
-                        _result = _result + StringHelper.CharAt(pValue, _i)
+                        _result = _result + CharAt(pValue, _i)
 
                         If _i = pEnd Then
                             Exit For
@@ -138,7 +138,7 @@ Namespace string_helper
                     End If
 
                     For _i = pStart To _endIndex
-                        _result = _result + StringHelper.CharAt(pValue, _i)
+                        _result = _result + CharAt(pValue, _i)
                     Next
 
                     SubString = _result
@@ -163,7 +163,7 @@ Namespace string_helper
                         Exit Function
                     End If
 
-                    FillCharacterLeft = StringHelper.BuildPadding(pCharacter, _fillLength) + pValue
+                    FillCharacterLeft = BuildPadding(pCharacter, _fillLength) + pValue
                 End Function
 
                 Shared Function FillCharacterRight(pValue As String, pCharacter As String, pLength As Integer) As String
@@ -179,7 +179,7 @@ Namespace string_helper
                         Exit Function
                     End If
 
-                    FillCharacterRight = pValue + StringHelper.BuildPadding(pCharacter, _fillLength)
+                    FillCharacterRight = pValue + BuildPadding(pCharacter, _fillLength)
                 End Function
 
                 Shared Function RemoveLeftCharacter(pValue As String, pCharacter As String) As String
@@ -199,8 +199,7 @@ Namespace string_helper
 
                     Try
                         If Not pValue.Contains(pDelimiter) Then
-                            SplitToList = _result
-                            Exit Function
+                            Return _result
                         End If
 
                         While _remaining.Contains(pDelimiter)
@@ -210,7 +209,7 @@ Namespace string_helper
                             Wend
 
                             _result.Add(_remaining.Trim())
-                            SplitToList = _result
+                            Return _result
                         Catch ex As Exception
                             Return _result
                         End Try
@@ -249,11 +248,10 @@ Namespace string_helper
                     Shared Function SplitAndFirst(pDelimiter As String, pValue As String) As String
                         Try
                             If Not pValue.Contains(pDelimiter) Then
-                                SplitAndFirst = pValue
-                                Exit Function
+                                Return pValue
                             End If
 
-                            SplitAndFirst = pValue.Split(pDelimiter)[0].Trim()
+                            Return pValue.Split(pDelimiter)[0].Trim()
                         Catch ex As Exception
                             Return pValue
                         End Try

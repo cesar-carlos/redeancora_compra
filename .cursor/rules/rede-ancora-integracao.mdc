@@ -18,6 +18,12 @@ Tabela: `CodUsuario`, `Email`, `ChaveApi`, `Ativo`, `IdUsuarioApi`, `NomeUsuario
 
 `POST /auth/login`, `/auth/refresh`, `/auth/me` são só Swagger local.
 
+## Carrinho compartilhado
+
+Checkout da API é por `X-API-KEY` (franqueado), **não** por usuário Data7. Vários operadores com a mesma chave veem e alteram o **mesmo** `cart_id`. `IdCarrinhoAtual` é cache local; `CodUsuario` no item é auditoria, não dono do cart.
+
+**Não** sugerir `DELETE /checkout/{cartId}` (wipe da loja) em produção/homologação compartilhada. Remover item: só `item_id` da sessão/próprios. `DefinirDeletarCarrinhoAoFinal` (padrão `False`) **não** é `DeletarCarrinho`; nunca wipe no bootstrap.
+
 ## JSON — tipos mistos
 
 Getters tipados (`GetInteger`/`GetBoolean`/`GetString`) disparam `EVariantTypeCastError` (OleStr → Int64) **não** capturável por `Try/Catch`. `GetString` também falha se o valor for objeto/array.

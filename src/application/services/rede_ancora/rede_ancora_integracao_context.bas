@@ -17,11 +17,12 @@ Namespace rede_ancora_integracao_context
                     Throw New System.Exception("Usuario ERP nao autenticado. Efetue login antes de operar a integracao Rede Ancora.")
                 End If
 
-                ObterUsuarioLogado = _usuario
                 _repo.Free()
+                _repo = Null
             Catch ex As Exception
                 If Assigned(_usuario) Then
                     _usuario.Free()
+                    _usuario = Null
                 End If
 
                 If Assigned(_repo) Then
@@ -30,16 +31,19 @@ Namespace rede_ancora_integracao_context
 
                 Throw ex
             End Try
+
+            ObterUsuarioLogado = _usuario
         End Function
 
         Shared Function ObterCodUsuarioLogado() As Integer
             Dim _usuario As UsuarioModel = Null
-            ObterCodUsuarioLogado = 0
+            Dim _codUsuario As Integer = 0
 
             Try
                 _usuario = RedeAncoraIntegracaoContext.ObterUsuarioLogado()
-                ObterCodUsuarioLogado = _usuario.UserId
+                _codUsuario = _usuario.UserId
                 _usuario.Free()
+                _usuario = Null
             Catch ex As Exception
                 If Assigned(_usuario) Then
                     _usuario.Free()
@@ -47,6 +51,8 @@ Namespace rede_ancora_integracao_context
 
                 Throw ex
             End Try
+
+            ObterCodUsuarioLogado = _codUsuario
         End Function
 
         Sub New()

@@ -70,6 +70,17 @@ Namespace rede_ancora_pedido_repository
             End Try
         End Function
 
+        Private Function SqlSelectPorIdCarrinho() As String
+            SqlSelectPorIdCarrinho = $"SELECT CodUsuario, " +_
+            $"       IdPedidoApi, " +_
+            $"       IdCarrinho, " +_
+            $"       DataPedido, " +_
+            $"       ValorTotal " +_
+            $"FROM {me.Tabela()} " +_
+            $"WHERE CodUsuario = :CodUsuario AND IdCarrinho = :IdCarrinho " +_
+            $"ORDER BY DataPedido DESC, IdPedidoApi DESC"
+        End Function
+
         Function ListarPorCodUsuario(pCodUsuario As Integer) As RedeAncoraPedidosModel
             Dim _result As New RedeAncoraPedidosModel()
             Dim _query As SQL.Command = NULL
@@ -93,6 +104,41 @@ Namespace rede_ancora_pedido_repository
                 SqlHelper.ReleaseQuery(_query)
                 SqlHelper.HandleQueryError(ex, "Erro ao listar Integracao.RedeAncoraPedido", "9142")
             End Try
+        End Function
+
+        Function ListarPorIdCarrinho(pCodUsuario As Integer, pIdCarrinho As String) As RedeAncoraPedidosModel
+            Dim _result As New RedeAncoraPedidosModel()
+            Dim _query As SQL.Command = NULL
+            Dim _listed As RedeAncoraPedidosModel = NULL
+
+            Try
+                _query = SqlHelper.OpenQuery(me.SqlSelectPorIdCarrinho())
+                _query.Param("CodUsuario").AsInteger = pCodUsuario
+                _query.Param("IdCarrinho").AsString = pIdCarrinho
+                _query.Open()
+
+                While Not _query.EOF
+                    Dim _item As New RedeAncoraPedidoModel()
+                    me.Mapear(_query, _item)
+                    _result.Push(_item)
+                    _query.Next()
+                Wend
+
+                SqlHelper.ReleaseQuery(_query)
+                _query = NULL
+                _listed = _result
+                _result = NULL
+            Catch ex As Exception
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = NULL
+                End If
+
+                SqlHelper.ReleaseQuery(_query)
+                SqlHelper.HandleQueryError(ex, "Erro ao listar Integracao.RedeAncoraPedido por IdCarrinho", "9143")
+            End Try
+
+            ListarPorIdCarrinho = _listed
         End Function
 
         Sub Inserir(pModel As RedeAncoraPedidoModel)

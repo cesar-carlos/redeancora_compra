@@ -14,12 +14,12 @@ Namespace rede_ancora_url_helper
             For _i = 1 To Len(pValor)
                 _ch = Mid(pValor, _i, 1)
 
-                If RedeAncoraUrlHelper.IsCaractereSeguroQuery(_ch) Then
+                If IsCaractereSeguroQuery(_ch) Then
                     _result = _result + _ch
                 ElseIf _ch = " " Then
                     _result = _result + "%20"
                 Else
-                    _code = RedeAncoraUrlHelper.CodigoDoCaractere(_ch)
+                    _code = CodigoDoCaractere(_ch)
 
                     If _code < 0 Then
                         _result = _result + _ch

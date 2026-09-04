@@ -51,7 +51,7 @@ Namespace try_parser
 
             While _i <= _len
                 _ch = Mid(_text, _i, 1)
-                _digit = Parser.DigitValue(_ch)
+                _digit = DigitValue(_ch)
 
                 If _digit < 0 Then
                     Exit While
@@ -69,7 +69,7 @@ Namespace try_parser
 
                     While _i <= _len
                         _ch = Mid(_text, _i, 1)
-                        _digit = Parser.DigitValue(_ch)
+                        _digit = DigitValue(_ch)
 
                         If _digit < 0 Then
                             Exit While
@@ -86,17 +86,17 @@ Namespace try_parser
         End Function
 
         Shared Function StringToDouble(value As String) As Double
-            StringToDouble = Parser.ParseDoubleRaw(value).RoundTo(-4)
+            StringToDouble = ParseDoubleRaw(value).RoundTo(-4)
         End Function
 
         Shared Function StringToFloat(value As String) As Decimal
-            StringToFloat = Parser.ParseDoubleRaw(value).RoundTo(-11)
+            StringToFloat = ParseDoubleRaw(value).RoundTo(-11)
         End Function
 
         Shared Function StringToDate(pValue As String) As TDateTime
             Try
                 Dim _value As TDateTime = StrToDateTime(pValue)
-                StringToDate = _value
+                Return _value
             Catch ex As Exception
                 Return StrToDateTime("01/01/1900 00:00:00")
             End Try
@@ -120,7 +120,7 @@ Namespace try_parser
         Shared Function IntegerToString(value As Integer) As String
             Try
                 Dim _value As String = value.toString()
-                IntegerToString = _value
+                Return _value
             Catch ex As Exception
                 Return ""
             End Try

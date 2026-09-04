@@ -1,6 +1,7 @@
 Imports migration_service
 Imports migration_column
 Imports migration_table
+Imports diag_stack
 
 Namespace migration_controller
     Class MigrationController
@@ -20,9 +21,14 @@ Namespace migration_controller
                 Exit Sub
             End If
 
+            DiagStack.Push("MigrationController.EnsureSchema")
+            DiagStack.Trace("boot: SchemaExists start")
             If Not _service.SchemaExists(pSchema) Then
+                DiagStack.Trace("boot: CreateSchema start")
                 _service.CreateSchema(pSchema)
+                DiagStack.Trace("boot: CreateSchema ok")
             End If
+            DiagStack.Pop()
         End Sub
 
         Function TableExists(pTable As String) As Boolean
@@ -78,7 +84,10 @@ Namespace migration_controller
         End Sub
 
         Sub Free()
-            _service.Free()
+            If Assigned(_service) Then
+                _service.Free()
+                _service = NULL
+            End If
             MyBase.Free()
         End Sub
     End Class

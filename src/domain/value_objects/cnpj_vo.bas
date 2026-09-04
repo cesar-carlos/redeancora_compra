@@ -39,7 +39,7 @@ Namespace cnpj_vo
         Shared Function IsValidCnpj(pValue As String) As Boolean
             Dim _cnpj As String = Cnpj.OnlyDigits(pValue)
 
-            If Not Regex.IsFullTextMatch(Cnpj.Pattern(), _cnpj, False, False) Then
+            If Not Regex.IsFullTextMatch(Pattern(), _cnpj, False, False) Then
                 IsValidCnpj = False
                 Exit Function
             End If
@@ -49,7 +49,7 @@ Namespace cnpj_vo
                 Exit Function
             End If
 
-            IsValidCnpj = Cnpj.ValidateCheckDigits(_cnpj)
+            IsValidCnpj = ValidateCheckDigits(_cnpj)
         End Function
 
         Private Shared Function ValidateCheckDigits(pCnpj As String) As Boolean

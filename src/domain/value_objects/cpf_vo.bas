@@ -39,7 +39,7 @@ Namespace cpf_vo
         Shared Function IsValidCpf(pValue As String) As Boolean
             Dim _cpf As String = Cpf.OnlyDigits(pValue)
 
-            If Not Regex.IsFullTextMatch(Cpf.Pattern(), _cpf, False, False) Then
+            If Not Regex.IsFullTextMatch(Pattern(), _cpf, False, False) Then
                 IsValidCpf = False
                 Exit Function
             End If
@@ -49,7 +49,7 @@ Namespace cpf_vo
                 Exit Function
             End If
 
-            IsValidCpf = Cpf.ValidateCheckDigits(_cpf)
+            IsValidCpf = ValidateCheckDigits(_cpf)
         End Function
 
         Private Shared Function ValidateCheckDigits(pCpf As String) As Boolean
