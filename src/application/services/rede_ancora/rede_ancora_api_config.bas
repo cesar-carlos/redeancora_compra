@@ -1,10 +1,10 @@
 Imports mod_tobject
 
 Namespace rede_ancora_api_config
-    Private Dim _usarStaging As Boolean
-    Private Dim _logarHttpCorpos As Boolean
-    Private Dim _desabilitarValidarProdutoAntesCarrinho As Boolean
-    Private Dim _tamanhoChunkSincronizacaoProdutos As Integer
+    Private Dim _usarStaging As Boolean = False
+    Private Dim _logarHttpCorpos As Boolean = False
+    Private Dim _desabilitarValidarProdutoAntesCarrinho As Boolean = False
+    Private Dim _tamanhoChunkSincronizacaoProdutos As Integer = 100
 
     Class RedeAncoraApiConfig
         Inherits TTObject

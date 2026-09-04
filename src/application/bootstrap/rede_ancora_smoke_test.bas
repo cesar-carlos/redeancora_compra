@@ -1,5 +1,6 @@
 Imports mod_logger
 Imports mod_tobject
+Imports diag_stack
 Imports rede_ancora_autenticacao_service
 Imports rede_ancora_autenticacao_model
 Imports rede_ancora_integracao_context
@@ -54,15 +55,30 @@ Namespace rede_ancora_smoke_test
                 _authService.Free()
                 _authService = NULL
             Catch ex As Exception
+                Dim _detalhe As String = DiagStack.FormatException(ex)
+
+                DiagStack.DumpOnError(ex)
+                mod_logger.Erro("Smoke Catch: " + _detalhe)
+
                 If Assigned(_authService) Then
                     _authService.Free()
                 End If
 
-                Throw New System.Exception("Rede Ancora smoke test falhou: " + ex._getMessage())
+                Throw New System.Exception("Rede Ancora smoke test falhou: " + _detalhe)
             End Try
         End Sub
 
+        Overrides Sub Dispose()
+            If Not me.Disposed Then
+                me.Disposed = True
+            End If
+        End Sub
+
         Sub Free()
+            If Not me.Disposed Then
+                me.Dispose()
+            End If
+
             MyBase.Free()
         End Sub
     End Class

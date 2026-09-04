@@ -233,8 +233,18 @@ Namespace rede_ancora_produto_sync_bootstrap
             End If
         End Sub
 
+        Overrides Sub Dispose()
+            If Not me.Disposed Then
+                me.LimparCnas()
+                me.Disposed = True
+            End If
+        End Sub
+
         Sub Free()
-            me.LimparCnas()
+            If Not me.Disposed Then
+                me.Dispose()
+            End If
+
             MyBase.Free()
         End Sub
         Sub New()

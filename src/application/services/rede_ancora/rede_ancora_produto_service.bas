@@ -24,6 +24,8 @@ Imports rede_ancora_produto_imagem_sincronizacao_resultado_model
 Imports string_helper
 Imports try_parser
 Imports http_response
+Imports mod_logger
+Imports diag_stack
 
 Namespace rede_ancora_produto_service
     Class RedeAncoraProdutoService
@@ -128,6 +130,12 @@ Namespace rede_ancora_produto_service
             Dim _api As RedeAncoraApiClient = NULL
             Dim _response As HttpResponse = NULL
             Dim _url As String = ""
+            Dim _body As String = ""
+            Dim _status As Integer = 0
+            Dim _bytes As Integer = 0
+            Dim _snippet As String = ""
+            Dim _ok As Boolean = False
+            Dim _result As String = ""
 
             Try
                 If pCodCentroDistribuicao <= 0 Then
@@ -146,22 +154,48 @@ Namespace rede_ancora_produto_service
                     Throw New System.Exception("Tamanho de pagina invalido para full-search")
                 End If
 
-                _url = RedeAncoraApiConfig.IntegrationUrl("/products/full-search?empresa=" + Parser.IntegerToString(pCodCentroDistribuicao) + "&fields=details")
+                _url = RedeAncoraApiConfig.IntegrationUrl("/products/full-search?empresa=" & Parser.IntegerToString(pCodCentroDistribuicao) & "&fields=details")
                 _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "family", Parser.IntegerToString(pCodFamilia))
                 _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "page", Parser.IntegerToString(pPagina))
                 _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "page_size", Parser.IntegerToString(pTamanhoPagina))
 
+                mod_logger.Info("sync-full: before HTTP familia=" & Parser.IntegerToString(pCodFamilia) & " pagina=" & Parser.IntegerToString(pPagina) & " page_size=" & Parser.IntegerToString(pTamanhoPagina))
                 _api = New RedeAncoraApiClient(pCodUsuario, me._authService)
+                DiagStack.Push("full-search.GetRequest")
                 _response = _api.GetRequest(_url)
+                DiagStack.Pop()
 
-                If Not _response.IsSuccess Then
-                    Throw New System.Exception("GET /products/full-search Rede Ancora falhou. HTTP " + _response.StatusCode.ToString() + ": " + _response.Body)
+                If Assigned(_response) Then
+                    _status = _response.StatusCode
+                    _body = _response.Body
+                    _bytes = Len(_body)
+                    If _bytes <= 80 Then
+                        _snippet = _body
+                    Else
+                        _snippet = Mid(_body, 1, 80) & "..."
+                    End If
                 End If
 
-                BuscarProdutoFullSearchPorFamilia = _response.Body
+                mod_logger.Info("GET /products/full-search HTTP " & Parser.IntegerToString(_status) & " bytes=" & Parser.IntegerToString(_bytes) & " body=" & _snippet)
+                mod_logger.Info("sync-full: after HTTP familia=" & Parser.IntegerToString(pCodFamilia) & " pagina=" & Parser.IntegerToString(pPagina))
+
+                If Not Assigned(_response) Then
+                    Throw New System.Exception("GET /products/full-search resposta nula")
+                End If
+
+                _ok = _response.IsSuccess
+                If Not _ok Then
+                    Throw New System.Exception("GET /products/full-search Rede Ancora falhou. HTTP " & Parser.IntegerToString(_status) & ": " & _snippet)
+                End If
+
                 _response.Free()
+                _response = NULL
                 _api.Free()
+                _api = NULL
+                _result = _body
             Catch ex As Exception
+                DiagStack.DumpOnError(ex)
+
                 If Assigned(_response) Then
                     _response.Free()
                 End If
@@ -170,8 +204,10 @@ Namespace rede_ancora_produto_service
                     _api.Free()
                 End If
 
-                Throw New System.Exception("Erro na busca full-search por familia Rede Ancora: " + ex._getMessage())
+                Throw New System.Exception("Erro na busca full-search por familia Rede Ancora: " & ex._getMessage())
             End Try
+
+            BuscarProdutoFullSearchPorFamilia = _result
         End Function
 
         Function BuscarProdutoFullSearch(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCna As Integer, pCodigo As String, pQuery As String) As String
@@ -605,52 +641,100 @@ Namespace rede_ancora_produto_service
 
         Function UpsertProdutoAncoraDeApiComTransacao(pItemJson As TJSONObject, pOrigem As String, pUsarTransacao As Boolean) As Integer
             Dim _apiModel As RedeAncoraProdutoVinculoModel = NULL
-            Dim _existente As RedeAncoraProdutoVinculoModel = NULL
+            Dim _result As Integer = 0
 
             Try
                 _apiModel = me.MapearProdutoAncoraDeJson(pItemJson, 0)
+                _result = me.UpsertProdutoAncoraDeModelo(_apiModel, pOrigem, pUsarTransacao)
+                _apiModel.Free()
+                _apiModel = NULL
+            Catch ex As Exception
+                If Assigned(_apiModel) Then
+                    _apiModel.Free()
+                End If
+
+                Throw New System.Exception("Erro ao persistir produto Ancora da API: " & ex._getMessage())
+            End Try
+
+            UpsertProdutoAncoraDeApiComTransacao = _result
+        End Function
+
+        ' Full-search / janela ASCII: nao usa TJSONObject (body de familia pode ter centenas de KB).
+        Function UpsertProdutoAncoraDeCampos(pCna As Integer, pCodigoAncora As String, pDescricaoAncora As String, pCodMarca As Integer, pCodLinha As Integer, pCodFamilia As Integer, pOrigem As String, pUsarTransacao As Boolean) As Integer
+            Dim _apiModel As RedeAncoraProdutoVinculoModel = NULL
+            Dim _result As Integer = 0
+
+            Try
+                If pCna <= 0 Then
+                    Throw New System.Exception("CNA nao encontrado na resposta de produto da Rede Ancora")
+                End If
+
+                _apiModel = New RedeAncoraProdutoVinculoModel()
+                _apiModel.Cna = pCna
+                _apiModel.CodigoAncora = pCodigoAncora
+                _apiModel.DescricaoAncora = pDescricaoAncora
+                _apiModel.CodMarca = pCodMarca
+                _apiModel.CodLinha = pCodLinha
+                _apiModel.CodFamilia = pCodFamilia
+                _result = me.UpsertProdutoAncoraDeModelo(_apiModel, pOrigem, pUsarTransacao)
+                _apiModel.Free()
+                _apiModel = NULL
+            Catch ex As Exception
+                If Assigned(_apiModel) Then
+                    _apiModel.Free()
+                End If
+
+                Throw New System.Exception("Erro ao persistir produto Ancora da API: " & ex._getMessage())
+            End Try
+
+            UpsertProdutoAncoraDeCampos = _result
+        End Function
+
+        Private Function UpsertProdutoAncoraDeModelo(pApiModel As RedeAncoraProdutoVinculoModel, pOrigem As String, pUsarTransacao As Boolean) As Integer
+            Dim _existente As RedeAncoraProdutoVinculoModel = NULL
+            Dim _result As Integer = 0
+
+            Try
                 _existente = New RedeAncoraProdutoVinculoModel()
 
-                If me._vinculoRepository.TryObterPorCna(_apiModel.Cna, _existente) Then
-                    If me.ProdutoTemAlteracao(_existente, _apiModel) Then
-                        _apiModel.Ativo = "S"
+                If me._vinculoRepository.TryObterPorCna(pApiModel.Cna, _existente) Then
+                    If me.ProdutoTemAlteracao(_existente, pApiModel) Then
+                        pApiModel.Ativo = "S"
 
                         If pUsarTransacao Then
-                            me._vinculoRepository.AtualizarMetadadosApi(_apiModel)
+                            me._vinculoRepository.AtualizarMetadadosApi(pApiModel)
                         Else
-                            me._vinculoRepository.AtualizarMetadadosApiSemTransacao(_apiModel)
+                            me._vinculoRepository.AtualizarMetadadosApiSemTransacao(pApiModel)
                         End If
 
-                        UpsertProdutoAncoraDeApiComTransacao = 2
+                        _result = 2
                     Else
-                        UpsertProdutoAncoraDeApiComTransacao = 3
+                        _result = 3
                     End If
                 Else
-                    _apiModel.Ativo = "S"
-                    _apiModel.OrigemVinculo = pOrigem
+                    pApiModel.Ativo = "S"
+                    pApiModel.OrigemVinculo = pOrigem
 
                     If pUsarTransacao Then
-                        me._vinculoRepository.Salvar(_apiModel)
+                        me._vinculoRepository.Salvar(pApiModel)
                     Else
-                        me._vinculoRepository.SalvarSemTransacao(_apiModel)
+                        me._vinculoRepository.SalvarSemTransacao(pApiModel)
                     End If
 
-                    UpsertProdutoAncoraDeApiComTransacao = 1
+                    _result = 1
                 End If
 
                 _existente.Free()
-                _apiModel.Free()
+                _existente = NULL
             Catch ex As Exception
                 If Assigned(_existente) Then
                     _existente.Free()
                 End If
 
-                If Assigned(_apiModel) Then
-                    _apiModel.Free()
-                End If
-
-                Throw New System.Exception("Erro ao persistir produto Ancora da API: " + ex._getMessage())
+                Throw ex
             End Try
+
+            UpsertProdutoAncoraDeModelo = _result
         End Function
 
         Private Function ProdutoTemAlteracao(pExistente As RedeAncoraProdutoVinculoModel, pApi As RedeAncoraProdutoVinculoModel) As Boolean

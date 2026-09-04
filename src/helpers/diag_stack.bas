@@ -34,7 +34,7 @@ Namespace diag_stack
 
             _frames.Add(pFrame)
             Try
-                mod_logger.Info("diag: " + DiagStack.Snapshot())
+                mod_logger.Info("diag: push " + pFrame)
             Catch exLog As Exception
             End Try
         End Sub
@@ -54,6 +54,42 @@ Namespace diag_stack
 
             _frames.Delete(_frames.Count - 1)
         End Sub
+
+        ' Sempre ativo (nao depende do kill switch): Catch precisa descrever AV
+        ' com Message vazia. Nao atribui o nome da Function dentro de Try.
+        Shared Function FormatException(pEx As Exception) As String
+            Dim _type As String = "?"
+            Dim _msg As String = ""
+            Dim _result As String = "(null exception)"
+
+            If Not Assigned(pEx) Then
+                FormatException = _result
+                Exit Function
+            End If
+
+            Try
+                _type = pEx.ClassName()
+            Catch exType As Exception
+                _type = "?"
+            End Try
+
+            If _type = "" Then
+                _type = "?"
+            End If
+
+            Try
+                _msg = pEx._getMessage()
+            Catch exMsg As Exception
+                _msg = ""
+            End Try
+
+            If _msg = "" Then
+                _msg = "(empty exception message)"
+            End If
+
+            _result = "type=" + _type + " msg=" + _msg
+            FormatException = _result
+        End Function
 
         Shared Function Snapshot() As String
             Dim _text As String = ""
@@ -94,23 +130,21 @@ Namespace diag_stack
             End If
 
             Try
-                _dump = "diag-stack: " + DiagStack.Snapshot()
+                _dump = DiagStack.Snapshot()
+                If _dump = "" Then
+                    mod_logger.Erro("diag-stack: (empty)")
+                Else
+                    mod_logger.Erro("diag-stack: " + _dump)
+                End If
 
                 If Assigned(pEx) Then
-                    Try
-                        _exMsg = pEx._getMessage()
-                    Catch exMsg As Exception
-                        _exMsg = ""
-                    End Try
-                    If _exMsg = "" Then
-                        _exMsg = "(empty exception message)"
-                    End If
-                    _dump = _dump + Char(13) + "ex: " + _exMsg
+                    _exMsg = DiagStack.FormatException(pEx)
+                    mod_logger.Erro("diag-ex: " + _exMsg)
 
                     Try
                         _inner = pEx.InnerException
                         If Assigned(_inner) Then
-                            _dump = _dump + Char(13) + "inner: " + _inner._getMessage()
+                            mod_logger.Erro("diag-inner: " + DiagStack.FormatException(_inner))
                         End If
                     Catch exInner As Exception
                     End Try
@@ -118,13 +152,11 @@ Namespace diag_stack
                     Try
                         _native = pEx.StackTrace
                         If _native <> "" Then
-                            _dump = _dump + Char(13) + "native-stack:" + Char(13) + _native
+                            mod_logger.Erro("diag-native: " + _native)
                         End If
                     Catch exIgnore As Exception
                     End Try
                 End If
-
-                mod_logger.Erro(_dump)
             Catch exDump As Exception
                 Try
                     mod_logger.Erro("diag-stack: dump failed")

@@ -3,6 +3,7 @@ Imports rede_ancora_autenticacao_model
 Imports integracao_schema
 Imports sql_helper
 Imports transactions
+Imports diag_stack
 
 Namespace rede_ancora_autenticacao_repository
     Class RedeAncoraAutenticacaoRepository
@@ -14,23 +15,18 @@ Namespace rede_ancora_autenticacao_repository
 
         Private Function SqlSelectPorCodUsuario() As String
             SqlSelectPorCodUsuario = $"SELECT CodUsuario, " +_
-                $"       Email, " +_
-                $"       ChaveApi, " +_
-                $"       Ativo, " +_
-                $"       IdUsuarioApi, " +_
-                $"       NomeUsuario, " +_
-                $"       CodSeller " +_
+                $"       ISNULL(Email, '') Email, " +_
+                $"       ISNULL(ChaveApi, '') ChaveApi, " +_
+                $"       ISNULL(Ativo, '') Ativo, " +_
+                $"       ISNULL(IdUsuarioApi, 0) IdUsuarioApi, " +_
+                $"       ISNULL(NomeUsuario, '') NomeUsuario, " +_
+                $"       ISNULL(CodSeller, 0) CodSeller " +_
                 $"FROM {me.Tabela()} " +_
                 $"WHERE CodUsuario = :CodUsuario"
         End Function
 
         Private Function SqlExistePorCodUsuario() As String
-            SqlExistePorCodUsuario = "SELECT CASE " +_
-                "           WHEN COUNT(CodUsuario) > 0 THEN " + SqlHelper.SqlText("true") + " " +_
-                "           ELSE " + SqlHelper.SqlText("false") + " " +_
-                "       END result " +_
-                "FROM " + me.Tabela() + " " +_
-                "WHERE CodUsuario = :CodUsuario"
+            SqlExistePorCodUsuario = "SELECT CodUsuario FROM " + me.Tabela() + " WHERE CodUsuario = :CodUsuario"
         End Function
 
         Private Function SqlInsert() As String
@@ -50,6 +46,7 @@ Namespace rede_ancora_autenticacao_repository
         End Function
 
         Private Sub Mapear(pQuery As SQL.Command, pItem As RedeAncoraAutenticacaoModel)
+            DiagStack.Trace("sync-user: Mapear start")
             pItem.CodUsuario = pQuery.Field("CodUsuario").AsInteger
             pItem.Email = pQuery.Field("Email").AsString
             pItem.ChaveApi = pQuery.Field("ChaveApi").AsString
@@ -57,27 +54,35 @@ Namespace rede_ancora_autenticacao_repository
             pItem.IdUsuarioApi = pQuery.Field("IdUsuarioApi").AsInteger
             pItem.NomeUsuario = pQuery.Field("NomeUsuario").AsString
             pItem.CodSeller = pQuery.Field("CodSeller").AsInteger
+            DiagStack.Trace("sync-user: Mapear done")
         End Sub
 
         Private Sub BindParams(pQuery As SQL.Command, pModel As RedeAncoraAutenticacaoModel)
+            DiagStack.Trace("sync-user: BindParams start")
             pQuery.Param("CodUsuario").AsInteger = pModel.CodUsuario
             pQuery.Param("Email").AsString = pModel.Email
             pQuery.Param("ChaveApi").AsString = pModel.ChaveApi
             pQuery.Param("Ativo").AsString = pModel.Ativo
             pQuery.Param("IdUsuarioApi").AsInteger = pModel.IdUsuarioApi
+            DiagStack.Trace("sync-user: BindParams nome")
             pQuery.Param("NomeUsuario").AsString = pModel.NomeUsuario
             pQuery.Param("CodSeller").AsInteger = pModel.CodSeller
+            DiagStack.Trace("sync-user: BindParams done")
         End Sub
 
         Function ExistePorCodUsuario(pCodUsuario As Integer) As Boolean
             Dim _query As SQL.Command = Null
 
             Try
+                DiagStack.Trace("sync-user: ExistePorCodUsuario open")
                 _query = SqlHelper.OpenQuery(me.SqlExistePorCodUsuario())
                 _query.Param("CodUsuario").AsInteger = pCodUsuario
+                DiagStack.Trace("sync-user: ExistePorCodUsuario query.Open")
                 _query.Open()
-                ExistePorCodUsuario = _query.Field("result").AsBoolean
+                DiagStack.Trace("sync-user: ExistePorCodUsuario IsEmpty")
+                ExistePorCodUsuario = Not _query.IsEmpty()
                 SqlHelper.ReleaseQuery(_query)
+                DiagStack.Trace("sync-user: ExistePorCodUsuario done")
             Catch ex As Exception
                 SqlHelper.ReleaseQuery(_query)
                 SqlHelper.HandleQueryError(ex, "Erro ao verificar Integracao.RedeAncoraAutenticacao", "9201")
@@ -157,11 +162,15 @@ Namespace rede_ancora_autenticacao_repository
         End Sub
 
         Sub Salvar(pModel As RedeAncoraAutenticacaoModel)
+            DiagStack.Trace("sync-user: Salvar enter")
             If me.ExistePorCodUsuario(pModel.CodUsuario) Then
+                DiagStack.Trace("sync-user: Salvar update")
                 me.Atualizar(pModel)
             Else
+                DiagStack.Trace("sync-user: Salvar insert")
                 me.Inserir(pModel)
             End If
+            DiagStack.Trace("sync-user: Salvar done")
         End Sub
 
         Overrides Sub Dispose()

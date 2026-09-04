@@ -1,4 +1,5 @@
 Imports mod_tobject
+Imports rede_ancora_json_helper
 
 Namespace usuario_model
     Class UsuarioModel
@@ -97,23 +98,32 @@ Namespace usuario_model
         End Function
 
         Shared Function FromJson(pString As String) As UsuarioModel
-            Dim model As New UsuarioModel
-            Dim _json As New TJSONObject(pString)
-            model.CompanyCode = _json.GetInteger("CompanyCode")
-            model.BranchCode = _json.GetInteger("BranchCode")
-            model.SessionId = _json.GetString("SessionId")
-            model.UserId = _json.GetInteger("UserId")
-            model.UserName = _json.GetString("UserName")
-            model.FinancialAccountCode = _json.GetString("FinancialAccountCode")
-            model.CashPeriodCode = _json.GetInteger("CashPeriodCode")
-            model.CashPeriodStatus = _json.GetString("CashPeriodStatus")
-            model.StockSectorCode = _json.GetInteger("StockSectorCode")
-            model.ConferenceSectorCode = _json.GetInteger("ConferenceSectorCode")
-            model.ComputerName = _json.GetString("ComputerName")
-            model.WindowsUser = _json.GetString("WindowsUser")
-            model.SystemVersion = _json.GetString("SystemVersion")
-            model.Database = _json.GetString("Database")
-            _json.Free()
+            Dim model As UsuarioModel = NULL
+
+            Try
+                model = New UsuarioModel()
+                model.CompanyCode = RedeAncoraJsonHelper.ObterInteiroJsonDeBlob(pString, "CompanyCode")
+                model.BranchCode = RedeAncoraJsonHelper.ObterInteiroJsonDeBlob(pString, "BranchCode")
+                model.SessionId = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pString, "SessionId")
+                model.UserId = RedeAncoraJsonHelper.ObterInteiroJsonDeBlob(pString, "UserId")
+                model.UserName = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pString, "UserName")
+                model.FinancialAccountCode = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pString, "FinancialAccountCode")
+                model.CashPeriodCode = RedeAncoraJsonHelper.ObterInteiroJsonDeBlob(pString, "CashPeriodCode")
+                model.CashPeriodStatus = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pString, "CashPeriodStatus")
+                model.StockSectorCode = RedeAncoraJsonHelper.ObterInteiroJsonDeBlob(pString, "StockSectorCode")
+                model.ConferenceSectorCode = RedeAncoraJsonHelper.ObterInteiroJsonDeBlob(pString, "ConferenceSectorCode")
+                model.ComputerName = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pString, "ComputerName")
+                model.WindowsUser = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pString, "WindowsUser")
+                model.SystemVersion = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pString, "SystemVersion")
+                model.Database = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pString, "Database")
+            Catch ex As Exception
+                If Assigned(model) Then
+                    model.Free()
+                End If
+
+                Throw ex
+            End Try
+
             FromJson = model
         End Function
 

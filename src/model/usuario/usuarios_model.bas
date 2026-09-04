@@ -1,5 +1,6 @@
 ' data7:disable missing-import
 Imports usuario_model
+Imports rede_ancora_json_helper
 
 Namespace usuarios_model
     Class UsuariosModel
@@ -36,12 +37,36 @@ Namespace usuarios_model
 
         Shared Function FromJson(pString As String) As UsuariosModel
             Dim _i As Integer = 0
-            Dim _result As New UsuariosModel()
-            Dim _json As New TJSONArray(pString)
-            For _i = 0 To _json.Length() - 1
-                _result.Push(UsuarioModel.FromJson(_json.GetJSONObject(_i).ToString()))
-            Next
-            _json.Free()
+            Dim _elem As String = ""
+            Dim _result As UsuariosModel = NULL
+            Dim _item As UsuarioModel = NULL
+
+            Try
+                _result = New UsuariosModel()
+
+                For _i = 0 To 9999
+                    _elem = RedeAncoraJsonHelper.ExtrairElementoArrayJson(pString, _i)
+
+                    If _elem = "" Then
+                        Exit For
+                    End If
+
+                    _item = UsuarioModel.FromJson(_elem)
+                    _result.Push(_item)
+                    _item = NULL
+                Next
+            Catch ex As Exception
+                If Assigned(_item) Then
+                    _item.Free()
+                End If
+
+                If Assigned(_result) Then
+                    _result.Free()
+                End If
+
+                Throw ex
+            End Try
+
             FromJson = _result
         End Function
 
