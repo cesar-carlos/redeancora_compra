@@ -49,7 +49,7 @@
   },
   "virtualFolders": [
     {
-      "nome": "Unidades (150)",
+      "nome": "Unidades (153)",
       "id": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
       "pastaId": "",
       "aberta": "Sim"
@@ -310,12 +310,6 @@
     },
     "rede_ancora_input_consultar_precos_estoques_cds": {
       "nome": "rede_ancora_input_consultar_precos_estoques_cds",
-      "aberto": false,
-      "ordemAbertura": 0,
-      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
-    },
-    "rede_ancora_input_consultar_similares": {
-      "nome": "rede_ancora_input_consultar_similares",
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
@@ -632,6 +626,12 @@
       "ordemAbertura": 0,
       "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
     },
+    "rede_ancora_produto_sync_progresso_repository": {
+      "nome": "rede_ancora_produto_sync_progresso_repository",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
     "rede_ancora_produto_vinculo_repository": {
       "nome": "rede_ancora_produto_vinculo_repository",
       "aberto": false,
@@ -920,12 +920,6 @@
       "ordemAbertura": 0,
       "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
     },
-    "rede_ancora_produto_imagem_sincronizacao_resultado_model": {
-      "nome": "rede_ancora_produto_imagem_sincronizacao_resultado_model",
-      "aberto": false,
-      "ordemAbertura": 0,
-      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
-    },
     "rede_ancora_produto_imagem_tipo": {
       "nome": "rede_ancora_produto_imagem_tipo",
       "aberto": false,
@@ -968,6 +962,12 @@
       "ordemAbertura": 0,
       "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
     },
+    "rede_ancora_produto_sync_progresso_model": {
+      "nome": "rede_ancora_produto_sync_progresso_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
     "rede_ancora_produto_vinculos_model": {
       "nome": "rede_ancora_produto_vinculos_model",
       "aberto": false,
@@ -979,12 +979,6 @@
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
-    },
-    "usuarios_model": {
-      "nome": "usuarios_model",
-      "aberto": false,
-      "ordemAbertura": 0,
-      "pastaId": "{7327A688-26D0-4217-8DF7-AF1385535CDA}"
     },
     "usuario_model": {
       "nome": "usuario_model",

@@ -62,6 +62,10 @@ Namespace integracao_schema
             TabelaProdutoImagem = "RedeAncoraProdutoImagem"
         End Function
 
+        Shared Function TabelaProdutoSyncProgresso() As String
+            TabelaProdutoSyncProgresso = "RedeAncoraProdutoSyncProgresso"
+        End Function
+
         Shared Function NomeQualificado(pTabela As String) As String
             NomeQualificado = SqlHelper.QualifiedTable(IntegracaoSchema.Nome(), pTabela)
         End Function
@@ -116,6 +120,10 @@ Namespace integracao_schema
 
         Shared Function TabelaProdutoImagemQualificada() As String
             TabelaProdutoImagemQualificada = IntegracaoSchema.NomeQualificado(IntegracaoSchema.TabelaProdutoImagem())
+        End Function
+
+        Shared Function TabelaProdutoSyncProgressoQualificada() As String
+            TabelaProdutoSyncProgressoQualificada = IntegracaoSchema.NomeQualificado(IntegracaoSchema.TabelaProdutoSyncProgresso())
         End Function
 
         Overrides Sub Dispose()

@@ -817,14 +817,14 @@ Namespace usuario_service
             SincronizarRedeAncoraProdutosOpcoes = me._redeAncoraProdutoSincronizacaoService.Sincronizar(pOpcoes)
         End Function
 
-        Function SincronizarRedeAncoraCadastroProdutosCompleto() As RedeAncoraProdutoSincronizacaoResultadoModel
+        Function SincronizarRedeAncoraCadastroProdutosCompleto(pReiniciar As Boolean = False) As RedeAncoraProdutoSincronizacaoResultadoModel
             Dim _codCentro As Integer = 0
             Dim _codEstado As Integer = 0
             Dim _result As RedeAncoraProdutoSincronizacaoResultadoModel = NULL
 
             Try
                 me.ResolverCentroDistribuicaoParaCadastro(_codCentro, _codEstado)
-                _result = me._redeAncoraProdutoSincronizacaoService.SincronizarCadastroProdutosCompleto(me.ObterCodUsuarioIntegracao(), _codCentro, _codEstado, 0)
+                _result = me._redeAncoraProdutoSincronizacaoService.SincronizarCadastroProdutosCompleto(me.ObterCodUsuarioIntegracao(), _codCentro, _codEstado, 0, pReiniciar)
             Catch ex As Exception
                 If Assigned(_result) Then
                     _result.Free()
@@ -837,8 +837,8 @@ Namespace usuario_service
             SincronizarRedeAncoraCadastroProdutosCompleto = _result
         End Function
 
-        Function SincronizarRedeAncoraCadastroProdutosCompletoComCd(pCodCentroDistribuicao As Integer, pCodEstado As Integer, pTamanhoPagina As Integer) As RedeAncoraProdutoSincronizacaoResultadoModel
-            SincronizarRedeAncoraCadastroProdutosCompletoComCd = me._redeAncoraProdutoSincronizacaoService.SincronizarCadastroProdutosCompleto(me.ObterCodUsuarioIntegracao(), pCodCentroDistribuicao, pCodEstado, pTamanhoPagina)
+        Function SincronizarRedeAncoraCadastroProdutosCompletoComCd(pCodCentroDistribuicao As Integer, pCodEstado As Integer, pTamanhoPagina As Integer, pReiniciar As Boolean = False) As RedeAncoraProdutoSincronizacaoResultadoModel
+            SincronizarRedeAncoraCadastroProdutosCompletoComCd = me._redeAncoraProdutoSincronizacaoService.SincronizarCadastroProdutosCompleto(me.ObterCodUsuarioIntegracao(), pCodCentroDistribuicao, pCodEstado, pTamanhoPagina, pReiniciar)
         End Function
 
         Private Sub ResolverCentroDistribuicaoParaCadastro(ByRef pCodCentro As Integer, ByRef pCodEstado As Integer)

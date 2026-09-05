@@ -3,6 +3,8 @@
 Imports app_boot
 Imports rede_ancora_dev_harness
 
+mod_logger.ConfigureVSCode("C:\Data7\logger.txt")
+
 AppBoot.Run()
 
 ' Teste local: cadastro completo de produtos.

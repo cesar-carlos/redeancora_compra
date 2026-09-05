@@ -16,6 +16,7 @@ Namespace rede_ancora_produto_sincronizacao_opcoes_model
         Modo As String
         UsarProdutosCadastrados As Boolean
         BaixarCatalogoCompleto As Boolean
+        ReiniciarProgresso As Boolean
 
         Sub New()
             MyBase.New()
@@ -26,6 +27,7 @@ Namespace rede_ancora_produto_sincronizacao_opcoes_model
             me.Modo = RedeAncoraProdutoSincronizacaoModo.Completa()
             me.UsarProdutosCadastrados = False
             me.BaixarCatalogoCompleto = False
+            me.ReiniciarProgresso = False
         End Sub
 
         Sub Validate()

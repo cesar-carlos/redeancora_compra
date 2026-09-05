@@ -47,6 +47,7 @@ Namespace rede_ancora_migration
             me.AtualizarColunasProdutoVinculo(_schema)
             me.CriarIndiceProdutoVinculo(_schema)
             me.CriarTabelaProdutoImagem(_schema)
+            me.CriarTabelaProdutoSyncProgresso(_schema)
             me.CriarTabelaCarrinho(_schema)
             me.AtualizarColunasCarrinho(_schema)
             me.CriarTabelaCarrinhoItem(_schema)
@@ -425,6 +426,23 @@ Namespace rede_ancora_migration
             _columns.Add(New MigrationColumn(_tabela, "TipoImagem", "VARCHAR(15)", False, True, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "DataAtualizacao", "DATETIME", False, False, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "Url", "VARCHAR(500)", False, False, pSchema))
+            _table = New MigrationTable(_tabela, _columns, pSchema)
+            _controller.CreateTable(_table)
+            _table.Free()
+            _columns.Free()
+        End Sub
+
+        Private Sub CriarTabelaProdutoSyncProgresso(pSchema As String)
+            Dim _columns As MigrationColumns = Null
+            Dim _table As MigrationTable = Null
+            Dim _tabela As String = IntegracaoSchema.TabelaProdutoSyncProgresso()
+
+            _columns = New MigrationColumns()
+            _columns.Add(New MigrationColumn(_tabela, "CodFamilia", "INTEGER", False, True, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "UltimaPaginaOk", "INTEGER", False, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "LastPage", "INTEGER", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "Status", "VARCHAR(20)", False, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "DataAtualizacao", "DATETIME", False, False, pSchema))
             _table = New MigrationTable(_tabela, _columns, pSchema)
             _controller.CreateTable(_table)
             _table.Free()
