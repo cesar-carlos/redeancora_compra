@@ -55,16 +55,33 @@ Namespace rede_ancora_smoke_test
                 _authService.Free()
                 _authService = NULL
             Catch ex As Exception
-                Dim _detalhe As String = DiagStack.FormatException(ex)
+                Dim _detalhe As String = "erro desconhecido"
 
-                DiagStack.DumpOnError(ex)
-                mod_logger.Erro("Smoke Catch: " + _detalhe)
+                Try
+                    _detalhe = DiagStack.FormatException(ex)
+                Catch exFmt As Exception
+                    _detalhe = "falha ao ler excecao"
+                End Try
+
+                Try
+                    DiagStack.DumpOnError(ex)
+                Catch exDump As Exception
+                End Try
+
+                Try
+                    mod_logger.Erro("Smoke Catch: " & _detalhe)
+                Catch exLog As Exception
+                End Try
 
                 If Assigned(_authService) Then
-                    _authService.Free()
+                    Try
+                        _authService.Free()
+                    Catch exFree As Exception
+                    End Try
+                    _authService = NULL
                 End If
 
-                Throw New System.Exception("Rede Ancora smoke test falhou: " + _detalhe)
+                Throw New System.Exception("Rede Ancora smoke test falhou: " & _detalhe)
             End Try
         End Sub
 

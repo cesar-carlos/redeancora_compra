@@ -10,6 +10,7 @@ Imports rede_ancora_centros_distribuicao_model
 Imports rede_ancora_centro_distribuicao_repository
 Imports try_parser
 Imports http_response
+Imports rede_ancora_http_erro_helper
 
 Namespace rede_ancora_empresa_service
     Class RedeAncoraEmpresaService
@@ -66,9 +67,10 @@ Namespace rede_ancora_empresa_service
                 mod_logger.Info("sync-profile: after IsSuccess")
 
                 If Not _ok Then
-                    Throw New System.Exception("GET /profile Rede Ancora falhou. HTTP " & Parser.IntegerToString(_status) & ": " & _snippet)
+                    Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("GET /profile", _status, _body))
                 End If
                 mod_logger.Info("sync-profile: response success")
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET /profile", _status, _body)
 
                 _model = New RedeAncoraEmpresaModel()
                 _centros = New RedeAncoraCentrosDistribuicaoModel()
@@ -101,6 +103,8 @@ Namespace rede_ancora_empresa_service
                 _result = _model
                 _model = NULL
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraEmpresaService.SincronizarPerfil", ex)
+
                 If Assigned(_centros) Then
                     _centros.Free()
                 End If

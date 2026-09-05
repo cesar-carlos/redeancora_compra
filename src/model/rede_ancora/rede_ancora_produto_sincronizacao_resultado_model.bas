@@ -51,6 +51,20 @@ Namespace rede_ancora_produto_sincronizacao_resultado_model
 
         Private Sub MontarMensagemResumo()
             If me.QtdCnasSolicitados <= 0 Then
+                If me.QtdChunks > 0 Then
+                    me.MensagemResumo = "Sync cadastro completo " & me.Modo & ": " &_
+                    me.QtdInseridos.ToString() & " inseridos, " &_
+                    me.QtdAtualizados.ToString() & " atualizados, " &_
+                    me.QtdSemAlteracao.ToString() & " sem alteracao, " &_
+                    me.QtdIgnorados.ToString() & " ignorados"
+
+                    If me.QtdChunksComErro > 0 Then
+                        me.MensagemResumo = me.MensagemResumo + ", " + me.QtdChunksComErro.ToString() + " chunks com erro"
+                    End If
+
+                    Exit Sub
+                End If
+
                 me.MensagemResumo = "Nenhum CNA informado para sincronizacao"
                 Exit Sub
             End If

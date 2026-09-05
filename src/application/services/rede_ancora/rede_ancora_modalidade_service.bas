@@ -8,6 +8,7 @@ Imports rede_ancora_modalidade_model
 Imports rede_ancora_modalidades_model
 Imports rede_ancora_modalidade_repository
 Imports http_response
+Imports rede_ancora_http_erro_helper
 
 Namespace rede_ancora_modalidade_service
     Class RedeAncoraModalidadeService
@@ -60,9 +61,10 @@ Namespace rede_ancora_modalidade_service
                 mod_logger.Info("sync-modalidades: after IsSuccess")
 
                 If Not _ok Then
-                    Throw New System.Exception("GET /modalities Rede Ancora falhou. HTTP " & Parser.IntegerToString(_status) & ": " & _snippet)
+                    Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("GET /modalities", _status, _body))
                 End If
                 mod_logger.Info("sync-modalidades: response success")
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET /modalities", _status, _body)
 
                 mod_logger.Info("sync-modalidades: before MapearModalidadesDeBlob")
                 _modalidades = me.MapearModalidadesDeBlob(_body)
@@ -80,6 +82,8 @@ Namespace rede_ancora_modalidade_service
                 _result = _modalidades
                 _modalidades = NULL
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraModalidadeService.Sincronizar", ex)
+
                 If Assigned(_modalidades) Then
                     _modalidades.Free()
                 End If

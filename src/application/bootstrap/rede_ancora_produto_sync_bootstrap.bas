@@ -88,39 +88,52 @@ Namespace rede_ancora_produto_sync_bootstrap
 
                 me.GarantirAutenticacao(_svc)
 
-                _centros = _svc.ListarRedeAncoraCentrosDistribuicao()
-                me.ResolverCentroDistribuicao(_centros, _codCentro, _codEstado)
+                If me._baixarCatalogoCompleto Then
+                    mod_logger.Printe("Usuario: " & Parser.IntegerToString(_codUsuario) & " | cadastro completo de produtos")
+                    _resultado = _svc.SincronizarRedeAncoraCadastroProdutosCompleto()
+                    me.ImprimirResultado(_resultado)
+                    mod_logger.Printe("=== Rede Ancora sync produtos :: concluido ===")
+                    _resultado.Free()
+                    _resultado = NULL
+                    _svc.Free()
+                    _svc = NULL
+                Else
+                    _centros = _svc.ListarRedeAncoraCentrosDistribuicao()
+                    me.ResolverCentroDistribuicao(_centros, _codCentro, _codEstado)
 
-                mod_logger.Printe("Usuario: " + Parser.IntegerToString(_codUsuario) + " | Centro: " + Parser.IntegerToString(_codCentro) + " | Estado: " + Parser.IntegerToString(_codEstado))
-                mod_logger.Printe("Modo: " + me._modo)
+                    mod_logger.Printe("Usuario: " + Parser.IntegerToString(_codUsuario) + " | Centro: " + Parser.IntegerToString(_codCentro) + " | Estado: " + Parser.IntegerToString(_codEstado))
+                    mod_logger.Printe("Modo: " + me._modo)
 
-                _opcoes = New RedeAncoraProdutoSincronizacaoOpcoesModel()
-                _opcoes.CodUsuario = _codUsuario
-                _opcoes.CodCentroDistribuicao = _codCentro
-                _opcoes.CodEstado = _codEstado
-                _opcoes.TamanhoChunk = me._tamanhoChunk
-                _opcoes.DesativarAusentes = me._desativarAusentes
-                _opcoes.SincronizarCatalogo = me._sincronizarCatalogo
-                _opcoes.Modo = me._modo
-                _opcoes.UsarProdutosCadastrados = me._usarProdutosCadastrados
-                _opcoes.BaixarCatalogoCompleto = me._baixarCatalogoCompleto
-                _opcoes.Cnas = NULL
+                    _opcoes = New RedeAncoraProdutoSincronizacaoOpcoesModel()
+                    _opcoes.CodUsuario = _codUsuario
+                    _opcoes.CodCentroDistribuicao = _codCentro
+                    _opcoes.CodEstado = _codEstado
+                    _opcoes.TamanhoChunk = me._tamanhoChunk
+                    _opcoes.DesativarAusentes = me._desativarAusentes
+                    _opcoes.SincronizarCatalogo = me._sincronizarCatalogo
+                    _opcoes.Modo = me._modo
+                    _opcoes.UsarProdutosCadastrados = me._usarProdutosCadastrados
+                    _opcoes.BaixarCatalogoCompleto = False
+                    _opcoes.Cnas = NULL
 
-                If Not _opcoes.UsarProdutosCadastrados And Not _opcoes.BaixarCatalogoCompleto Then
-                    _opcoes.Cnas = me._cnas
+                    If Not _opcoes.UsarProdutosCadastrados Then
+                        _opcoes.Cnas = me._cnas
+                    End If
+
+                    _resultado = _svc.SincronizarRedeAncoraProdutosOpcoes(_opcoes)
+                    me.ImprimirResultado(_resultado)
+
+                    mod_logger.Printe("=== Rede Ancora sync produtos :: concluido ===")
+
+                    _resultado.Free()
+                    _resultado = NULL
+                    _opcoes.Free()
+                    _opcoes = NULL
+                    _centros.Free()
+                    _centros = NULL
+                    _svc.Free()
+                    _svc = NULL
                 End If
-
-                mod_logger.Printe("BaixarCatalogoCompleto: " + _opcoes.BaixarCatalogoCompleto.ToString())
-
-                _resultado = _svc.SincronizarRedeAncoraProdutosOpcoes(_opcoes)
-                me.ImprimirResultado(_resultado)
-
-                mod_logger.Printe("=== Rede Ancora sync produtos :: concluido ===")
-
-                _resultado.Free()
-                _opcoes.Free()
-                _centros.Free()
-                _svc.Free()
             Catch ex As Exception
                 If Assigned(_resultado) Then
                     _resultado.Free()
@@ -221,11 +234,15 @@ Namespace rede_ancora_produto_sync_bootstrap
         End Sub
 
         Private Sub ImprimirResultado(pResultado As RedeAncoraProdutoSincronizacaoResultadoModel)
-            mod_logger.Printe("Sucesso: " + pResultado.Sucesso.ToString())
+            If Not Assigned(pResultado) Then
+                Exit Sub
+            End If
+
+            mod_logger.Printe("Sucesso: " & pResultado.Sucesso.ToString())
             mod_logger.Printe(pResultado.MensagemResumo)
-            mod_logger.Printe("Chunks: " + pResultado.QtdChunks.ToString() + " | API: " + pResultado.QtdChunksApi.ToString() + " | Com erro: " + pResultado.QtdChunksComErro.ToString())
-            mod_logger.Printe("Inseridos: " + pResultado.QtdInseridos.ToString() + " | Atualizados: " + pResultado.QtdAtualizados.ToString() + " | Sem alteracao: " + pResultado.QtdSemAlteracao.ToString())
-            mod_logger.Printe("Ignorados: " + pResultado.QtdIgnorados.ToString() + " | Nao encontrados: " + pResultado.QtdNaoEncontrados.ToString() + " | Desativados: " + pResultado.QtdDesativados.ToString())
+            mod_logger.Printe("Chunks: " & pResultado.QtdChunks.ToString() & " | API: " & pResultado.QtdChunksApi.ToString() & " | Com erro: " & pResultado.QtdChunksComErro.ToString())
+            mod_logger.Printe("Inseridos: " & pResultado.QtdInseridos.ToString() & " | Atualizados: " & pResultado.QtdAtualizados.ToString() & " | Sem alteracao: " & pResultado.QtdSemAlteracao.ToString())
+            mod_logger.Printe("Ignorados: " & pResultado.QtdIgnorados.ToString() & " | Nao encontrados: " & pResultado.QtdNaoEncontrados.ToString() & " | Desativados: " & pResultado.QtdDesativados.ToString())
 
             If pResultado.Erros <> "" Then
                 mod_logger.Printe("Erros por chunk:")

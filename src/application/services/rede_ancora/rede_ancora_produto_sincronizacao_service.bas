@@ -2,6 +2,7 @@ Imports mod_tobject
 Imports mod_logger
 Imports try_parser
 Imports rede_ancora_produto_service
+Imports rede_ancora_produto_model
 Imports rede_ancora_produto_vinculo_repository
 Imports rede_ancora_produto_vinculo_origem
 Imports rede_ancora_produto_cnas_model
@@ -15,6 +16,7 @@ Imports rede_ancora_produto_sincronizacao_modo
 Imports rede_ancora_api_config
 Imports transactions
 Imports diag_stack
+Imports rede_ancora_http_erro_helper
 
 Namespace rede_ancora_produto_sincronizacao_service
     Class RedeAncoraProdutoSincronizacaoService
@@ -58,14 +60,15 @@ Namespace rede_ancora_produto_sincronizacao_service
         Function Sincronizar(pOpcoes As RedeAncoraProdutoSincronizacaoOpcoesModel) As RedeAncoraProdutoSincronizacaoResultadoModel
             Dim _cnas As RedeAncoraProdutoCnasModel = NULL
             Dim _resultadoSync As RedeAncoraProdutoSincronizacaoResultadoModel = NULL
+            Dim _result As RedeAncoraProdutoSincronizacaoResultadoModel = NULL
 
             pOpcoes.Validate()
 
-            If pOpcoes.SincronizarCatalogo Then
-                me._catalogoService.SincronizarCatalogo(pOpcoes.CodUsuario)
-            End If
-
             Try
+                If pOpcoes.SincronizarCatalogo Then
+                    me._catalogoService.SincronizarCatalogo(pOpcoes.CodUsuario)
+                End If
+
                 If pOpcoes.BaixarCatalogoCompleto Then
                     mod_logger.Printe("Rede Ancora sync :: iniciando catalogo completo...")
                     _resultadoSync = me.ExecutarSincronizacaoCatalogoCompleto(pOpcoes)
@@ -73,16 +76,84 @@ Namespace rede_ancora_produto_sincronizacao_service
                     _cnas = me.ResolverListaCnas(pOpcoes)
                     _resultadoSync = me.ExecutarSincronizacaoCnas(pOpcoes, _cnas)
                     _cnas.Free()
+                    _cnas = NULL
                 End If
 
-                Sincronizar = _resultadoSync
+                _result = _resultadoSync
+                _resultadoSync = NULL
             Catch ex As Exception
                 If Assigned(_cnas) Then
                     _cnas.Free()
                 End If
 
-                Throw New System.Exception("Erro na sincronizacao de produtos Rede Ancora: " + ex._getMessage())
+                If Assigned(_resultadoSync) Then
+                    _resultadoSync.Free()
+                End If
+
+                Throw New System.Exception("Erro na sincronizacao de produtos Rede Ancora: " & me.MensagemExcecaoSegura(ex))
             End Try
+
+            Sincronizar = _result
+        End Function
+
+        ' Carga completa do cadastro de produtos (API sem delta): dimensoes, depois
+        ' GET /products/full-search por familia. Upsert local; nunca DELETE /checkout.
+        Function SincronizarCadastroProdutosCompleto(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCodEstado As Integer, pTamanhoPagina As Integer) As RedeAncoraProdutoSincronizacaoResultadoModel
+            Dim _opcoes As RedeAncoraProdutoSincronizacaoOpcoesModel = NULL
+            Dim _resultado As RedeAncoraProdutoSincronizacaoResultadoModel = NULL
+            Dim _result As RedeAncoraProdutoSincronizacaoResultadoModel = NULL
+
+            Try
+                If pCodUsuario <= 0 Then
+                    Throw New System.Exception("CodUsuario invalido para cadastro completo de produtos Rede Ancora")
+                End If
+
+                If pCodCentroDistribuicao <= 0 Then
+                    Throw New System.Exception("Centro de distribuicao invalido para cadastro completo de produtos Rede Ancora")
+                End If
+
+                If pCodEstado <= 0 Then
+                    Throw New System.Exception("CodEstado invalido para cadastro completo de produtos Rede Ancora")
+                End If
+
+                mod_logger.Printe("=== Cadastro completo de produtos Rede Ancora :: inicio ===")
+                mod_logger.Printe("Ordem: 1) marcas 2) linhas 3) familias 4) produtos full-search por familia (upsert). Sem DELETE /checkout.")
+                mod_logger.Printe("Usuario: " & Parser.IntegerToString(pCodUsuario) & " | CD: " & Parser.IntegerToString(pCodCentroDistribuicao) & " | Estado: " & Parser.IntegerToString(pCodEstado))
+
+                _opcoes = New RedeAncoraProdutoSincronizacaoOpcoesModel()
+                _opcoes.CodUsuario = pCodUsuario
+                _opcoes.CodCentroDistribuicao = pCodCentroDistribuicao
+                _opcoes.CodEstado = pCodEstado
+                _opcoes.TamanhoChunk = pTamanhoPagina
+                _opcoes.DesativarAusentes = False
+                _opcoes.SincronizarCatalogo = True
+                _opcoes.Modo = RedeAncoraProdutoSincronizacaoModo.Completa()
+                _opcoes.UsarProdutosCadastrados = False
+                _opcoes.BaixarCatalogoCompleto = True
+                _opcoes.Cnas = NULL
+
+                _resultado = me.Sincronizar(_opcoes)
+                _opcoes.Free()
+                _opcoes = NULL
+                _result = _resultado
+                _resultado = NULL
+
+                mod_logger.Printe("=== Cadastro completo de produtos Rede Ancora :: concluido ===")
+            Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("SincronizarCadastroProdutosCompleto", ex)
+
+                If Assigned(_resultado) Then
+                    _resultado.Free()
+                End If
+
+                If Assigned(_opcoes) Then
+                    _opcoes.Free()
+                End If
+
+                Throw New System.Exception("Erro no cadastro completo de produtos Rede Ancora: " & DiagStack.FormatException(ex))
+            End Try
+
+            SincronizarCadastroProdutosCompleto = _result
         End Function
 
         Function SincronizarCompleto(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCodEstado As Integer, pCnas As RedeAncoraProdutoCnasModel, pTamanhoChunk As Integer, pDesativarAusentes As Boolean, pSincronizarCatalogo As Boolean, pModo As String) As RedeAncoraProdutoSincronizacaoResultadoModel
@@ -159,7 +230,7 @@ Namespace rede_ancora_produto_sincronizacao_service
                 End If
 
                 mod_logger.Printe("Rede Ancora sync catalogo completo :: familias: " & Parser.IntegerToString(_familias.Length) & " | pagina: " & Parser.IntegerToString(_tamanhoPagina))
-                mod_logger.Info("sync-full: imagens omitidas neste passo (fields=details; sem TJSONObject)")
+                mod_logger.Info("sync-full: imagens extraidas do blob se presentes (sem TJSONObject)")
 
                 For _i = 0 To _familias.Length - 1
                     mod_logger.Info("sync-full: Take familia i=" & Parser.IntegerToString(_i) & "/" & Parser.IntegerToString(_familias.Length))
@@ -173,17 +244,8 @@ Namespace rede_ancora_produto_sincronizacao_service
                         _qtdItens = 0
                         _body = ""
 
-                        Try
-                            _body = me._produtoService.BuscarProdutoFullSearchPorFamilia(pOpcoes.CodUsuario, pOpcoes.CodCentroDistribuicao, _codFamilia, _pagina, _tamanhoPagina)
-                            _resultado.QtdChunksApi = _resultado.QtdChunksApi + 1
-                        Catch exPagina As Exception
-                            If me.IsErroAutenticacao(exPagina) Then
-                                Throw exPagina
-                            End If
-
-                            _resultado.RegistrarErroChunk(_resultado.QtdChunks, "Familia " & Parser.IntegerToString(_codFamilia) & " pagina " & Parser.IntegerToString(_pagina) & ": " & exPagina._getMessage())
-                            Exit While
-                        End Try
+                        _body = me._produtoService.BuscarProdutoFullSearchPorFamilia(pOpcoes.CodUsuario, pOpcoes.CodCentroDistribuicao, _codFamilia, _pagina, _tamanhoPagina)
+                        _resultado.QtdChunksApi = _resultado.QtdChunksApi + 1
 
                         mod_logger.Info("sync-full: before parse familia=" & Parser.IntegerToString(_codFamilia) & " pagina=" & Parser.IntegerToString(_pagina) & " bytes=" & Parser.IntegerToString(Len(_body)))
                         DiagStack.Push("sync-full.PersistirBlob")
@@ -194,11 +256,7 @@ Namespace rede_ancora_produto_sincronizacao_service
                         Catch exPersistir As Exception
                             DiagStack.DumpOnError(exPersistir)
                             DiagStack.Pop()
-                            If me.IsErroAutenticacao(exPersistir) Then
-                                Throw exPersistir
-                            End If
-
-                            _resultado.RegistrarErroChunk(_resultado.QtdChunks, "Familia " & Parser.IntegerToString(_codFamilia) & " pagina " & Parser.IntegerToString(_pagina) & ": " & exPersistir._getMessage())
+                            Throw New System.Exception("Erro ao persistir pagina full-search familia=" & Parser.IntegerToString(_codFamilia) & " pagina=" & Parser.IntegerToString(_pagina) & ": " & me.MensagemExcecaoSegura(exPersistir))
                         End Try
 
                         _ultimaPagina = me.ObterLastPageDoSufixo(_body)
@@ -243,7 +301,7 @@ Namespace rede_ancora_produto_sincronizacao_service
                     _resultado.Free()
                 End If
 
-                Throw New System.Exception("Erro ao sincronizar catalogo completo Rede Ancora: " & ex._getMessage())
+                Throw New System.Exception("Erro ao sincronizar catalogo completo Rede Ancora: " & me.MensagemExcecaoSegura(ex))
             End Try
 
             ExecutarSincronizacaoCatalogoCompleto = _result
@@ -256,6 +314,7 @@ Namespace rede_ancora_produto_sincronizacao_service
             Dim _modo As String = me.ResolverModo(pOpcoes.Modo)
             Dim _numeroChunk As Integer = 0
             Dim _totalChunks As Integer = 0
+            Dim _result As RedeAncoraProdutoSincronizacaoResultadoModel = NULL
 
             Try
                 If pCnas.Length <= 0 Then
@@ -292,7 +351,8 @@ Namespace rede_ancora_produto_sincronizacao_service
                 _resultado.Finalizar()
                 me._cnasExistentes.Free()
                 me._cnasExistentes = NULL
-                ExecutarSincronizacaoCnas = _resultado
+                _result = _resultado
+                _resultado = NULL
             Catch ex As Exception
                 If Assigned(me._cnasExistentes) Then
                     me._cnasExistentes.Free()
@@ -303,8 +363,10 @@ Namespace rede_ancora_produto_sincronizacao_service
                     _resultado.Free()
                 End If
 
-                Throw New System.Exception("Erro ao sincronizar produtos Rede Ancora: " + ex._getMessage())
+                Throw New System.Exception("Erro ao sincronizar produtos Rede Ancora: " & ex._getMessage())
             End Try
+
+            ExecutarSincronizacaoCnas = _result
         End Function
 
         Private Function ResolverTamanhoChunk(pTamanhoChunk As Integer) As Integer
@@ -488,26 +550,27 @@ Namespace rede_ancora_produto_sincronizacao_service
             End Try
         End Sub
 
-        ' Full-search: nunca New TJSONObject / GetJSONObject no body (pagina ~100 itens / details = centenas de KB = AV 00220000).
-        ' Janela Mid 200 chars; profundidade {} para pular details aninhado; imagens nao entram em fields=details.
+        ' Full-search: nunca TJSONObject no body. Marcas 370KB sobreviveram com Mid 200 no blob
+        ' + ASCII na fatia. Mid 800 / Mid 1-char no OleStr da pagina = Invalid pointer.
         Private Function PersistirProdutosFullSearchDeBlob(pBody As String, pSomenteNovos As Boolean, pResultado As RedeAncoraProdutoSincronizacaoResultadoModel, pCodFamilia As Integer) As Integer
             Dim _tx As Transaction = NULL
             Dim _arrayStart As Integer = 0
             Dim _bodyLen As Integer = 0
             Dim _pos As Integer = 0
-            Dim _janelaMax As Integer = 200
-            Dim _janelaLen As Integer = 0
             Dim _janela As String = ""
             Dim _idxAbre As Integer = 0
             Dim _objStart As Integer = 0
             Dim _objFim As Integer = 0
-            Dim _prefix As String = ""
-            Dim _prefixLen As Integer = 0
+            Dim _prox As Integer = 0
             Dim _qtd As Integer = 0
             Dim _result As Integer = 0
-            Dim _brandId As Integer = 0
-            Dim _lineId As Integer = 0
-            Dim _familyId As Integer = 0
+            Dim _itemOk As Boolean = False
+            Dim _janelaOk As Boolean = False
+            Dim _msg As String = ""
+            Dim _cadastro As RedeAncoraProdutoModel = NULL
+            Dim _urlReal As String = ""
+            Dim _urlIlustrativa As String = ""
+            Dim _tecnicasBlob As String = ""
 
             Try
                 _arrayStart = me.PosicaoArrayDataAscii(pBody)
@@ -515,24 +578,24 @@ Namespace rede_ancora_produto_sincronizacao_service
                     Throw New System.Exception("Resposta /products/full-search sem array data")
                 End If
                 mod_logger.Info("sync-full: array pos=" & Parser.IntegerToString(_arrayStart))
-
-                _tx = Transaction.Instance()
-                _tx.OffAutoCommit()
-                _tx.StartTransaction("Integracao.RedeAncoraProdutoVinculo Sync full-search")
+                DiagStack.Trace("sync-full: after array pos")
 
                 _bodyLen = Len(pBody)
                 _pos = _arrayStart + 1
+                DiagStack.Trace("sync-full: before walk")
 
                 While _pos <= _bodyLen
-                    _janelaLen = _janelaMax
-                    If _janelaLen > (_bodyLen - _pos + 1) Then
-                        _janelaLen = _bodyLen - _pos + 1
-                    End If
-                    If _janelaLen <= 0 Then
+                    _janela = me.CopiarJanelaAscii(pBody, _pos, 200)
+                    If _janela = "" Then
                         Exit While
                     End If
 
-                    _janela = Mid(pBody, _pos, _janelaLen)
+                    If Not _janelaOk Then
+                        _janelaOk = True
+                        DiagStack.Trace("sync-full: first window ok")
+                        mod_logger.Info("sync-full: first window ok len=" & Parser.IntegerToString(Len(_janela)))
+                    End If
+
                     _idxAbre = me.PosicaoAbreObjetoNaJanela(_janela)
 
                     If _idxAbre < 0 Then
@@ -540,55 +603,124 @@ Namespace rede_ancora_produto_sincronizacao_service
                     End If
 
                     If _idxAbre = 0 Then
-                        _pos = _pos + _janelaLen
+                        _pos = _pos + Len(_janela)
                     Else
                         _objStart = _pos + _idxAbre - 1
-                        _prefixLen = _janelaLen - _idxAbre + 1
-                        _prefix = Mid(_janela, _idxAbre, _prefixLen)
-                        _brandId = 0
-                        _lineId = 0
-                        _familyId = 0
-                        _objFim = me.AvancarFimObjetoEExtrair(pBody, _objStart, _brandId, _lineId, _familyId)
-                        me.PersistirProdutoDoPrefixo(_prefix, _brandId, _lineId, _familyId, pCodFamilia, pSomenteNovos, pResultado)
-                        _qtd = _qtd + 1
+                        _urlReal = ""
+                        _urlIlustrativa = ""
+                        _tecnicasBlob = ""
+                        _itemOk = False
+                        _objFim = 0
 
-                        If _qtd = 1 Then
-                            mod_logger.Info("sync-full: primeiro item ok")
+                        If Assigned(_cadastro) Then
+                            _cadastro.Free()
+                            _cadastro = NULL
                         End If
 
-                        If _objFim <= 0 Then
-                            Exit While
+                        If Not Assigned(_tx) Then
+                            DiagStack.Trace("sync-full: before tx")
+                            mod_logger.Info("sync-full: before tx")
+                            _tx = Transaction.Instance()
+                            _tx.OffAutoCommit()
+                            _tx.StartTransaction("Integracao.RedeAncoraProduto Sync full-search")
+                            DiagStack.Trace("sync-full: after tx")
+                            mod_logger.Info("sync-full: after tx")
                         End If
-                        _pos = _objFim + 1
+
+                        _cadastro = New RedeAncoraProdutoModel()
+                        _cadastro.Ativo = ""
+
+                        If _qtd = 0 Then
+                            DiagStack.Trace("sync-full: first item walk")
+                            mod_logger.Info("sync-full: first item walk objStart=" & Parser.IntegerToString(_objStart))
+                        End If
+
+                        Try
+                            _objFim = me.AvancarFimObjetoEExtrair(pBody, _objStart, _cadastro, _urlReal, _urlIlustrativa, _tecnicasBlob)
+                            _itemOk = True
+
+                            If _qtd = 0 Then
+                                DiagStack.Trace("sync-full: first item walk ok")
+                                mod_logger.Info("sync-full: first item walk ok objFim=" & Parser.IntegerToString(_objFim))
+                            End If
+                        Catch exWalk As Exception
+                            RedeAncoraHttpErroHelper.RegistrarExcecao("sync-full.walk familia=" & Parser.IntegerToString(pCodFamilia), exWalk)
+                            _msg = me.MensagemExcecaoSegura(exWalk)
+                            pResultado.RegistrarErroChunk(pResultado.QtdChunks, "item ignorado familia " & Parser.IntegerToString(pCodFamilia) & ": " & _msg)
+                        End Try
+
+                        If _itemOk Then
+                            Try
+                                me.PersistirProdutoDoCadastro(_cadastro, pCodFamilia, pSomenteNovos, pResultado, _urlReal, _urlIlustrativa, _tecnicasBlob)
+                                _qtd = _qtd + 1
+
+                                If _qtd = 1 Then
+                                    mod_logger.Info("sync-full: primeiro item ok cna=" & Parser.IntegerToString(_cadastro.Cna))
+                                End If
+                            Catch exItem As Exception
+                                RedeAncoraHttpErroHelper.RegistrarExcecao("sync-full.item familia=" & Parser.IntegerToString(pCodFamilia), exItem)
+                                pResultado.RegistrarErroChunk(pResultado.QtdChunks, "item malformado familia " & Parser.IntegerToString(pCodFamilia) & ": " & me.MensagemExcecaoSegura(exItem))
+                            End Try
+                        End If
+
+                        If Assigned(_cadastro) Then
+                            _cadastro.Free()
+                            _cadastro = NULL
+                        End If
+
+                        If _itemOk Then
+                            If _objFim <= 0 Then
+                                Exit While
+                            End If
+                            _pos = _objFim + 1
+                        Else
+                            Try
+                                _prox = me.PularAteProximoObjeto(pBody, _objStart)
+                            Catch exPular As Exception
+                                RedeAncoraHttpErroHelper.RegistrarExcecao("sync-full.pular familia=" & Parser.IntegerToString(pCodFamilia), exPular)
+                                Throw New System.Exception("Erro de ponteiro no parse full-search familia=" & Parser.IntegerToString(pCodFamilia) & ": " & me.MensagemExcecaoSegura(exPular))
+                            End Try
+
+                            If _prox <= 0 Then
+                                Exit While
+                            End If
+                            _pos = _prox
+                        End If
                     End If
                 Wend
 
-                _tx.OnAutoCommit()
-                _tx.Commit()
-                _tx = NULL
+                If Assigned(_tx) Then
+                    _tx.OnAutoCommit()
+                    _tx.Commit()
+                    _tx = NULL
+                End If
                 _result = _qtd
             Catch ex As Exception
+                If Assigned(_cadastro) Then
+                    _cadastro.Free()
+                    _cadastro = NULL
+                End If
+
                 If Assigned(_tx) Then
                     _tx.Rollback()
                     _tx.OnAutoCommit()
                 End If
 
-                Throw ex
+                Throw New System.Exception("Erro no parse full-search familia=" & Parser.IntegerToString(pCodFamilia) & ": " & me.MensagemExcecaoSegura(ex))
             End Try
 
             PersistirProdutosFullSearchDeBlob = _result
         End Function
 
-        Private Sub PersistirProdutoDoPrefixo(pPrefixo As String, pBrandId As Integer, pLineId As Integer, pFamilyId As Integer, pCodFamilia As Integer, pSomenteNovos As Boolean, pResultado As RedeAncoraProdutoSincronizacaoResultadoModel)
+        Private Sub PersistirProdutoDoCadastro(pCadastro As RedeAncoraProdutoModel, pCodFamilia As Integer, pSomenteNovos As Boolean, pResultado As RedeAncoraProdutoSincronizacaoResultadoModel, pUrlReal As String, pUrlIlustrativa As String, pTecnicasBlob As String)
             Dim _cna As Integer = 0
-            Dim _codigo As String = ""
-            Dim _descricao As String = ""
-            Dim _codMarca As Integer = 0
-            Dim _codLinha As Integer = 0
-            Dim _codFamilia As Integer = 0
             Dim _upsert As Integer = 0
 
-            _cna = me.ExtrairInteiroDoPrefixoAscii(pPrefixo, "cna")
+            If Not Assigned(pCadastro) Then
+                Exit Sub
+            End If
+
+            _cna = pCadastro.Cna
             If _cna <= 0 Then
                 Exit Sub
             End If
@@ -600,39 +732,26 @@ Namespace rede_ancora_produto_sincronizacao_service
                 End If
             End If
 
-            _codigo = me.ExtrairTextoJsonDoPrefixoAscii(pPrefixo, "codigoReferencia")
-            If _codigo.Trim() = "" Then
-                _codigo = me.ExtrairTextoJsonDoPrefixoAscii(pPrefixo, "code")
+            If pCadastro.CodFamilia <= 0 Then
+                pCadastro.CodFamilia = pCodFamilia
             End If
 
-            _descricao = me.ExtrairTextoJsonDoPrefixoAscii(pPrefixo, "nomeProduto")
-            If _descricao.Trim() = "" Then
-                _descricao = me.ExtrairTextoJsonDoPrefixoAscii(pPrefixo, "description")
+            If pCadastro.NomeProduto.Trim() = "" Then
+                pCadastro.NomeProduto = pCadastro.NomeErp
             End If
 
-            _codMarca = pBrandId
-            If _codMarca <= 0 Then
-                _codMarca = me.ExtrairInteiroDoPrefixoAscii(pPrefixo, "marcaId")
-            End If
-            If _codMarca <= 0 Then
-                _codMarca = me.ExtrairInteiroDoPrefixoAscii(pPrefixo, "brand_id")
+            If pCadastro.Ativo.Trim() = "" Then
+                pCadastro.Ativo = "S"
             End If
 
-            _codLinha = pLineId
-            If _codLinha <= 0 Then
-                _codLinha = me.ExtrairInteiroDoPrefixoAscii(pPrefixo, "line_id")
-            End If
-
-            _codFamilia = pFamilyId
-            If _codFamilia <= 0 Then
-                _codFamilia = me.ExtrairInteiroDoPrefixoAscii(pPrefixo, "family_id")
-            End If
-            If _codFamilia <= 0 Then
-                _codFamilia = pCodFamilia
-            End If
-
-            _upsert = me._produtoService.UpsertProdutoAncoraDeCampos(_cna, _codigo, _descricao, _codMarca, _codLinha, _codFamilia, RedeAncoraProdutoVinculoOrigem.Sincronizacao(), False)
+            _upsert = me._produtoService.UpsertCadastroProdutoEVinculo(pCadastro, RedeAncoraProdutoVinculoOrigem.Sincronizacao(), False)
             me.RegistrarResultadoUpsert(_upsert, pResultado)
+
+            Try
+                me._produtoService.PersistirImagensProdutoDeCampos(_cna, pUrlReal, pUrlIlustrativa, pTecnicasBlob, False)
+            Catch exImg As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("sync-full.imagens cna=" & Parser.IntegerToString(_cna), exImg)
+            End Try
 
             If _upsert = 1 Then
                 If Assigned(me._cnasExistentes) Then
@@ -641,13 +760,148 @@ Namespace rede_ancora_produto_sincronizacao_service
             End If
         End Sub
 
-        ' Caminha o objeto com janelas de 200 (nunca Mid 1-char no blob). Extrai brand_id/line/family de details.
-        Private Function AvancarFimObjetoEExtrair(pBody As String, pStart As Integer, ByRef pBrandId As Integer, ByRef pLineId As Integer, ByRef pFamilyId As Integer) As Integer
+        Private Function CoalesceTextoFatia(pAtual As String, pFatia As String, pChave As String, pTeto As Integer) As String
+            Dim _valor As String = ""
+
+            If pAtual.Trim() <> "" Then
+                CoalesceTextoFatia = pAtual
+                Exit Function
+            End If
+
+            If pTeto > 80 Then
+                _valor = me.ExtrairTextoJsonDoPrefixoAsciiComTeto(pFatia, pChave, pTeto)
+            Else
+                _valor = me.ExtrairTextoJsonDoPrefixoAscii(pFatia, pChave)
+            End If
+
+            If _valor.Trim() = "" Then
+                _valor = me.ExtrairLiteralJsonDoPrefixoAscii(pFatia, pChave)
+            End If
+
+            CoalesceTextoFatia = _valor
+        End Function
+
+        Private Function CoalesceInteiroFatia(pAtual As Integer, pFatia As String, pChave As String) As Integer
+            If pAtual > 0 Then
+                CoalesceInteiroFatia = pAtual
+            Else
+                CoalesceInteiroFatia = me.ExtrairInteiroDoPrefixoAscii(pFatia, pChave)
+            End If
+        End Function
+
+        Private Function CoalesceDecimalFatia(pAtual As Double, pFatia As String, pChave As String) As Double
+            Dim _tok As String = ""
+
+            If pAtual <> 0 Then
+                CoalesceDecimalFatia = pAtual
+                Exit Function
+            End If
+
+            _tok = me.ExtrairLiteralJsonDoPrefixoAscii(pFatia, pChave)
+            If _tok = "" Then
+                CoalesceDecimalFatia = 0
+            Else
+                CoalesceDecimalFatia = Parser.StringToDouble(_tok)
+            End If
+        End Function
+
+        Private Function CoalesceFlagFatia(pAtual As String, pFatia As String, pChave As String) As String
+            Dim _tri As Integer = 0
+
+            If pAtual.Trim() <> "" Then
+                CoalesceFlagFatia = pAtual
+                Exit Function
+            End If
+
+            _tri = me.ExtrairBooleanTriDoPrefixoAscii(pFatia, pChave)
+            If _tri < 0 Then
+                CoalesceFlagFatia = ""
+            Else
+                If _tri > 0 Then
+                    CoalesceFlagFatia = "S"
+                Else
+                    CoalesceFlagFatia = "N"
+                End If
+            End If
+        End Function
+
+        Private Sub PreencherCadastroDaFatia(pFatia As String, pCadastro As RedeAncoraProdutoModel)
+            pCadastro.Cna = me.CoalesceInteiroFatia(pCadastro.Cna, pFatia, "cna")
+            pCadastro.CatalogoId = me.CoalesceInteiroFatia(pCadastro.CatalogoId, pFatia, "catalogo_id")
+            pCadastro.Csa = me.CoalesceTextoFatia(pCadastro.Csa, pFatia, "csa", 30)
+            pCadastro.Cnl = me.CoalesceTextoFatia(pCadastro.Cnl, pFatia, "cnl", 30)
+            pCadastro.CodigoReferencia = me.CoalesceTextoFatia(pCadastro.CodigoReferencia, pFatia, "codigoReferencia", 30)
+            pCadastro.CodigoReferencia = me.CoalesceTextoFatia(pCadastro.CodigoReferencia, pFatia, "code", 30)
+            pCadastro.CodeEdi = me.CoalesceTextoFatia(pCadastro.CodeEdi, pFatia, "code_edi", 30)
+            pCadastro.CodeManufacturer = me.CoalesceTextoFatia(pCadastro.CodeManufacturer, pFatia, "code_manufacturer", 30)
+            pCadastro.NomeProduto = me.CoalesceTextoFatia(pCadastro.NomeProduto, pFatia, "nomeProduto", 255)
+            pCadastro.NomeProduto = me.CoalesceTextoFatia(pCadastro.NomeProduto, pFatia, "description", 255)
+            pCadastro.NomeErp = me.CoalesceTextoFatia(pCadastro.NomeErp, pFatia, "nome", 255)
+            pCadastro.NomeErp = me.CoalesceTextoFatia(pCadastro.NomeErp, pFatia, "name", 255)
+            pCadastro.InformacoesAdicionais = me.CoalesceTextoFatia(pCadastro.InformacoesAdicionais, pFatia, "informacoesAdicionais", 500)
+            pCadastro.InformacoesComplementares = me.CoalesceTextoFatia(pCadastro.InformacoesComplementares, pFatia, "informacoesComplementares", 500)
+            pCadastro.AdditionalDescription = me.CoalesceTextoFatia(pCadastro.AdditionalDescription, pFatia, "additional_description", 500)
+            pCadastro.PontoCriticoAtencao = me.CoalesceTextoFatia(pCadastro.PontoCriticoAtencao, pFatia, "pontoCriticoAtencao", 255)
+            pCadastro.Dimensoes = me.CoalesceTextoFatia(pCadastro.Dimensoes, pFatia, "dimensoes", 255)
+            pCadastro.CodMarca = me.CoalesceInteiroFatia(pCadastro.CodMarca, pFatia, "marcaId")
+            pCadastro.CodMarcaErp = me.CoalesceInteiroFatia(pCadastro.CodMarcaErp, pFatia, "brand_id")
+            pCadastro.NomeMarca = me.CoalesceTextoFatia(pCadastro.NomeMarca, pFatia, "marca", 120)
+            pCadastro.NomeMarca = me.CoalesceTextoFatia(pCadastro.NomeMarca, pFatia, "brand", 120)
+            pCadastro.CodLinha = me.CoalesceInteiroFatia(pCadastro.CodLinha, pFatia, "line")
+            pCadastro.CodLinha = me.CoalesceInteiroFatia(pCadastro.CodLinha, pFatia, "line_id")
+            pCadastro.NomeLinha = me.CoalesceTextoFatia(pCadastro.NomeLinha, pFatia, "line_name", 120)
+            pCadastro.CodFamilia = me.CoalesceInteiroFatia(pCadastro.CodFamilia, pFatia, "family")
+            pCadastro.CodFamilia = me.CoalesceInteiroFatia(pCadastro.CodFamilia, pFatia, "family_id")
+            pCadastro.NomeFamilia = me.CoalesceTextoFatia(pCadastro.NomeFamilia, pFatia, "family_name", 120)
+            pCadastro.CodFabricante = me.CoalesceInteiroFatia(pCadastro.CodFabricante, pFatia, "manufacturer_id")
+            pCadastro.CodFabricante = me.CoalesceInteiroFatia(pCadastro.CodFabricante, pFatia, "fabricante")
+            pCadastro.Ean = me.CoalesceTextoFatia(pCadastro.Ean, pFatia, "ean", 20)
+            pCadastro.Gtin = me.CoalesceTextoFatia(pCadastro.Gtin, pFatia, "gtin", 20)
+            pCadastro.Ncm = me.CoalesceTextoFatia(pCadastro.Ncm, pFatia, "ncm", 30)
+            pCadastro.Cest = me.CoalesceTextoFatia(pCadastro.Cest, pFatia, "cest", 20)
+            pCadastro.Origem = me.CoalesceTextoFatia(pCadastro.Origem, pFatia, "origem", 10)
+            pCadastro.OrigemLabel = me.CoalesceTextoFatia(pCadastro.OrigemLabel, pFatia, "origem_label", 200)
+            pCadastro.Anp = me.CoalesceInteiroFatia(pCadastro.Anp, pFatia, "anp")
+            pCadastro.AnpLabel = me.CoalesceTextoFatia(pCadastro.AnpLabel, pFatia, "anp_label", 200)
+            pCadastro.PesoLiquido = me.CoalesceDecimalFatia(pCadastro.PesoLiquido, pFatia, "peso_liquido")
+            pCadastro.PesoLiquido = me.CoalesceDecimalFatia(pCadastro.PesoLiquido, pFatia, "net_weight")
+            pCadastro.PesoBruto = me.CoalesceDecimalFatia(pCadastro.PesoBruto, pFatia, "peso_bruto")
+            pCadastro.PesoBruto = me.CoalesceDecimalFatia(pCadastro.PesoBruto, pFatia, "gross_weight")
+            pCadastro.Volume = me.CoalesceDecimalFatia(pCadastro.Volume, pFatia, "volume")
+            pCadastro.Litros = me.CoalesceDecimalFatia(pCadastro.Litros, pFatia, "liters")
+            pCadastro.Tamanho = me.CoalesceTextoFatia(pCadastro.Tamanho, pFatia, "tamanho", 60)
+            pCadastro.Material = me.CoalesceTextoFatia(pCadastro.Material, pFatia, "material", 120)
+            pCadastro.Tipo = me.CoalesceInteiroFatia(pCadastro.Tipo, pFatia, "tipo")
+            pCadastro.MedidaVenda = me.CoalesceTextoFatia(pCadastro.MedidaVenda, pFatia, "medida_venda", 20)
+            pCadastro.GarantiaDias = me.CoalesceInteiroFatia(pCadastro.GarantiaDias, pFatia, "garantia_dias")
+            pCadastro.GarantiaDias = me.CoalesceInteiroFatia(pCadastro.GarantiaDias, pFatia, "warranty")
+            pCadastro.FracaoFabrica = me.CoalesceInteiroFatia(pCadastro.FracaoFabrica, pFatia, "fracao_fabrica")
+            pCadastro.FracaoLoja = me.CoalesceInteiroFatia(pCadastro.FracaoLoja, pFatia, "fracao_loja")
+            pCadastro.Status = me.CoalesceInteiroFatia(pCadastro.Status, pFatia, "status")
+            pCadastro.ErpHandle = me.CoalesceInteiroFatia(pCadastro.ErpHandle, pFatia, "erp_handle")
+            pCadastro.ErpHandle = me.CoalesceInteiroFatia(pCadastro.ErpHandle, pFatia, "handle")
+            pCadastro.Leadtime = me.CoalesceInteiroFatia(pCadastro.Leadtime, pFatia, "leadtime")
+            pCadastro.OnDemandLabel = me.CoalesceTextoFatia(pCadastro.OnDemandLabel, pFatia, "on_demand_label", 120)
+            pCadastro.MotivoDescontinuado = me.CoalesceTextoFatia(pCadastro.MotivoDescontinuado, pFatia, "motivo_descontinuado", 255)
+            pCadastro.Ativo = me.CoalesceFlagFatia(pCadastro.Ativo, pFatia, "ativo")
+            pCadastro.Descontinuado = me.CoalesceFlagFatia(pCadastro.Descontinuado, pFatia, "descontinuado")
+            pCadastro.Bloqueado = me.CoalesceFlagFatia(pCadastro.Bloqueado, pFatia, "bloqueado")
+            pCadastro.Confiavel = me.CoalesceFlagFatia(pCadastro.Confiavel, pFatia, "confiavel")
+            pCadastro.Sugerido = me.CoalesceFlagFatia(pCadastro.Sugerido, pFatia, "sugerido")
+            pCadastro.Lancamento = me.CoalesceFlagFatia(pCadastro.Lancamento, pFatia, "lancamento")
+            pCadastro.OnDemand = me.CoalesceFlagFatia(pCadastro.OnDemand, pFatia, "on_demand")
+            pCadastro.ParcialmenteSimilar = me.CoalesceFlagFatia(pCadastro.ParcialmenteSimilar, pFatia, "parcialmente_similar")
+            pCadastro.HasRestrictions = me.CoalesceFlagFatia(pCadastro.HasRestrictions, pFatia, "has_restrictions")
+            pCadastro.PrazoEspecial = me.CoalesceFlagFatia(pCadastro.PrazoEspecial, pFatia, "prazo_especial")
+        End Sub
+
+        ' Caminha o objeto so com janelas Mid 200 (mesmo padrao das marcas). Nunca Mid 1-char
+        ' nem Mid 800 no blob da pagina. Campos e imagens saem da fatia curta ja copiada.
+        Private Function AvancarFimObjetoEExtrair(pBody As String, pStart As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String, ByRef pTecnicasBlob As String) As Integer
             Dim _bodyLen As Integer = 0
             Dim _pos As Integer = pStart
-            Dim _janelaMax As Integer = 200
-            Dim _janelaLen As Integer = 0
             Dim _janela As String = ""
+            Dim _janelaLen As Integer = 0
             Dim _i As Integer = 0
             Dim _ch As String = ""
             Dim _q As String = Chr(34)
@@ -656,6 +910,8 @@ Namespace rede_ancora_produto_sincronizacao_service
             Dim _escape As Boolean = False
             Dim _fim As Integer = 0
             Dim _n As Integer = 0
+            Dim _url As String = ""
+            Dim _tecnicas As String = ""
 
             AvancarFimObjetoEExtrair = 0
 
@@ -673,32 +929,51 @@ Namespace rede_ancora_produto_sincronizacao_service
                     Exit While
                 End If
 
-                _janelaLen = _janelaMax
-                If _janelaLen > (_bodyLen - _pos + 1) Then
-                    _janelaLen = _bodyLen - _pos + 1
-                End If
+                _janela = me.CopiarJanelaAscii(pBody, _pos, 200)
+                _janelaLen = Len(_janela)
                 If _janelaLen <= 0 Then
                     Exit While
                 End If
 
-                _janela = Mid(pBody, _pos, _janelaLen)
+                If pImagemReal = "" Then
+                    _url = me.ExtrairTextoJsonDoPrefixoAsciiComTeto(_janela, "imagemReal", 160)
+                    If _url <> "" Then
+                        pImagemReal = _url
+                    End If
+                End If
+                If pImagemIlustrativa = "" Then
+                    _url = me.ExtrairTextoJsonDoPrefixoAsciiComTeto(_janela, "imagemIlustrativa", 160)
+                    If _url <> "" Then
+                        pImagemIlustrativa = _url
+                    End If
+                End If
+                If pTecnicasBlob = "" Then
+                    _tecnicas = me.ExtrairBlobArrayJsonDoPrefixoAscii(_janela, "imagensTecnicas")
+                    If _tecnicas <> "" Then
+                        pTecnicasBlob = _tecnicas
+                    End If
+                End If
 
-                If pBrandId <= 0 Then
-                    _n = me.ExtrairInteiroDoPrefixoAscii(_janela, "brand_id")
-                    If _n > 0 Then
-                        pBrandId = _n
+                If Assigned(pCadastro) Then
+                    me.PreencherCadastroDaFatia(_janela, pCadastro)
+
+                    If pCadastro.CodMarcaErp <= 0 Then
+                        _n = me.ExtrairInteiroDoPrefixoAscii(_janela, "brand_id")
+                        If _n > 0 Then
+                            pCadastro.CodMarcaErp = _n
+                        End If
                     End If
-                End If
-                If pFamilyId <= 0 Then
-                    _n = me.ExtrairInteiroDoPrefixoAscii(_janela, "family")
-                    If _n > 0 Then
-                        pFamilyId = _n
+                    If pCadastro.CodFamilia <= 0 Then
+                        _n = me.ExtrairInteiroDoPrefixoAscii(_janela, "family")
+                        If _n > 0 Then
+                            pCadastro.CodFamilia = _n
+                        End If
                     End If
-                End If
-                If pLineId <= 0 Then
-                    _n = me.ExtrairInteiroDoPrefixoAscii(_janela, "line")
-                    If _n > 0 Then
-                        pLineId = _n
+                    If pCadastro.CodLinha <= 0 Then
+                        _n = me.ExtrairInteiroDoPrefixoAscii(_janela, "line")
+                        If _n > 0 Then
+                            pCadastro.CodLinha = _n
+                        End If
                     End If
                 End If
 
@@ -751,7 +1026,6 @@ Namespace rede_ancora_produto_sincronizacao_service
         Private Function ObterLastPageDoSufixo(pBody As String) As Integer
             Dim _bodyLen As Integer = 0
             Dim _janelaMax As Integer = 200
-            Dim _janelaLen As Integer = 0
             Dim _janela As String = ""
             Dim _pos As Integer = 0
             Dim _n As Integer = 0
@@ -764,7 +1038,7 @@ Namespace rede_ancora_produto_sincronizacao_service
             End If
 
             If _bodyLen <= _janelaMax Then
-                ObterLastPageDoSufixo = me.ExtrairInteiroDoPrefixoAscii(pBody, "last_page")
+                ObterLastPageDoSufixo = me.ExtrairInteiroDoPrefixoAscii(me.CopiarJanelaAscii(pBody, 1, _bodyLen), "last_page")
                 Exit Function
             End If
 
@@ -775,15 +1049,10 @@ Namespace rede_ancora_produto_sincronizacao_service
                 End If
                 _passos = _passos + 1
 
-                _janelaLen = _janelaMax
-                If _janelaLen > (_bodyLen - _pos + 1) Then
-                    _janelaLen = _bodyLen - _pos + 1
-                End If
-                If _janelaLen <= 0 Then
+                _janela = me.CopiarJanelaAscii(pBody, _pos, 200)
+                If _janela = "" Then
                     Exit Function
                 End If
-
-                _janela = Mid(pBody, _pos, _janelaLen)
                 _n = me.ExtrairInteiroDoPrefixoAscii(_janela, "last_page")
                 If _n > 0 Then
                     ObterLastPageDoSufixo = _n
@@ -816,8 +1085,91 @@ Namespace rede_ancora_produto_sincronizacao_service
                 _prefixLen = _bodyLen
             End If
 
-            _prefix = Mid(pBody, 1, _prefixLen)
+            _prefix = me.CopiarJanelaAscii(pBody, 1, _prefixLen)
             PosicaoArrayDataAscii = me.PosicaoArrayDataNoPrefixo(_prefix)
+        End Function
+
+        ' Mid no blob so em fatia <= 200 (padrao que sobreviveu em marcas 370KB).
+        ' Nunca Mid 1-char nem janela grande no OleStr da pagina.
+        Private Function CopiarJanelaAscii(pSrc As String, pStart As Integer, pLen As Integer) As String
+            Dim _bodyLen As Integer = 0
+            Dim _n As Integer = 0
+
+            CopiarJanelaAscii = ""
+
+            If pStart < 1 Then
+                Exit Function
+            End If
+
+            If pLen <= 0 Then
+                Exit Function
+            End If
+
+            _bodyLen = Len(pSrc)
+            If pStart > _bodyLen Then
+                Exit Function
+            End If
+
+            _n = pLen
+            If _n > 200 Then
+                _n = 200
+            End If
+
+            If (pStart + _n - 1) > _bodyLen Then
+                _n = _bodyLen - pStart + 1
+            End If
+
+            If _n <= 0 Then
+                Exit Function
+            End If
+
+            CopiarJanelaAscii = Mid(pSrc, pStart, _n)
+        End Function
+
+        ' Encontra `},{` (proximo item) ou `}]` (fim) em janelas de 200; overlap 2.
+        Private Function PularAteProximoObjeto(pBody As String, pFrom As Integer) As Integer
+            Dim _bodyLen As Integer = 0
+            Dim _i As Integer = pFrom
+            Dim _janela As String = ""
+            Dim _janelaLen As Integer = 0
+            Dim _j As Integer = 0
+
+            PularAteProximoObjeto = 0
+
+            If pFrom < 1 Then
+                Exit Function
+            End If
+
+            _bodyLen = Len(pBody)
+
+            While _i <= _bodyLen
+                _janela = me.CopiarJanelaAscii(pBody, _i, 200)
+                _janelaLen = Len(_janela)
+                If _janelaLen < 2 Then
+                    Exit Function
+                End If
+
+                _j = 1
+                While _j <= (_janelaLen - 2)
+                    If Mid(_janela, _j, 3) = "},{" Then
+                        PularAteProximoObjeto = _i + _j + 1
+                        Exit Function
+                    End If
+                    If Mid(_janela, _j, 2) = "}]" Then
+                        Exit Function
+                    End If
+                    _j = _j + 1
+                Wend
+
+                If Mid(_janela, _janelaLen - 1, 2) = "}]" Then
+                    Exit Function
+                End If
+
+                If _janelaLen <= 2 Then
+                    Exit Function
+                End If
+                _i = _i + _janelaLen - 2
+            Wend
         End Function
 
         Private Function PosicaoArrayDataNoPrefixo(pPrefixo As String) As Integer
@@ -1037,6 +1389,115 @@ Namespace rede_ancora_produto_sincronizacao_service
             ExtrairInteiroDoPrefixoAscii = _n
         End Function
 
+        Private Function PosicaoValorAposChaveAscii(pPrefixo As String, pChave As String) As Integer
+            Dim _len As Integer = Len(pPrefixo)
+            Dim _keyLen As Integer = Len(pChave)
+            Dim _i As Integer = 1
+            Dim _j As Integer = 0
+            Dim _q As String = Chr(34)
+            Dim _igual As Boolean = False
+            Dim _ch As String = ""
+
+            PosicaoValorAposChaveAscii = 0
+
+            If _len <= 0 Then
+                Exit Function
+            End If
+
+            If _keyLen <= 0 Then
+                Exit Function
+            End If
+
+            While _i <= (_len - _keyLen - 2)
+                If Mid(pPrefixo, _i, 1) = _q Then
+                    _igual = True
+                    For _j = 1 To _keyLen
+                        If Mid(pPrefixo, _i + _j, 1) <> Mid(pChave, _j, 1) Then
+                            _igual = False
+                            Exit For
+                        End If
+                    Next
+                    If _igual Then
+                        If Mid(pPrefixo, _i + _keyLen + 1, 1) = _q Then
+                            If Mid(pPrefixo, _i + _keyLen + 2, 1) = ":" Then
+                                _i = _i + _keyLen + 3
+                                While _i <= _len
+                                    _ch = Mid(pPrefixo, _i, 1)
+                                    If _ch = " " Then
+                                        _i = _i + 1
+                                    Else
+                                        PosicaoValorAposChaveAscii = _i
+                                        Exit Function
+                                    End If
+                                Wend
+                                Exit Function
+                            End If
+                        End If
+                    End If
+                End If
+                _i = _i + 1
+            Wend
+        End Function
+
+        Private Function ExtrairLiteralJsonDoPrefixoAscii(pPrefixo As String, pChave As String) As String
+            Dim _i As Integer = 0
+            Dim _len As Integer = Len(pPrefixo)
+            Dim _ch As String = ""
+            Dim _q As String = Chr(34)
+            Dim _result As String = ""
+
+            ExtrairLiteralJsonDoPrefixoAscii = ""
+            _i = me.PosicaoValorAposChaveAscii(pPrefixo, pChave)
+
+            If _i <= 0 Then
+                Exit Function
+            End If
+
+            _ch = Mid(pPrefixo, _i, 1)
+            If _ch = _q Then
+                Exit Function
+            End If
+
+            If Mid(pPrefixo, _i, 4) = "null" Then
+                Exit Function
+            End If
+
+            While _i <= _len
+                _ch = Mid(pPrefixo, _i, 1)
+                If _ch = "," Then
+                    Exit While
+                End If
+                If _ch = "}" Then
+                    Exit While
+                End If
+                If _ch = "]" Then
+                    Exit While
+                End If
+                If _ch = " " Then
+                    Exit While
+                End If
+                _result = _result & _ch
+                _i = _i + 1
+            Wend
+
+            ExtrairLiteralJsonDoPrefixoAscii = _result
+        End Function
+
+        Private Function ExtrairBooleanTriDoPrefixoAscii(pPrefixo As String, pChave As String) As Integer
+            Dim _tok As String = ""
+
+            ExtrairBooleanTriDoPrefixoAscii = -1
+            _tok = LCase(me.ExtrairLiteralJsonDoPrefixoAscii(pPrefixo, pChave))
+
+            If _tok = "true" Then
+                ExtrairBooleanTriDoPrefixoAscii = 1
+            Else
+                If _tok = "false" Then
+                    ExtrairBooleanTriDoPrefixoAscii = 0
+                End If
+            End If
+        End Function
+
         Private Function ExtrairTextoJsonDoPrefixoAscii(pPrefixo As String, pChave As String) As String
             Dim _len As Integer = Len(pPrefixo)
             Dim _keyLen As Integer = Len(pChave)
@@ -1135,6 +1596,180 @@ Namespace rede_ancora_produto_sincronizacao_service
             Wend
 
             ExtrairTextoJsonDoPrefixoAscii = _result
+        End Function
+
+        Private Function ExtrairTextoJsonDoPrefixoAsciiComTeto(pPrefixo As String, pChave As String, pMaxValor As Integer) As String
+            Dim _len As Integer = Len(pPrefixo)
+            Dim _keyLen As Integer = Len(pChave)
+            Dim _i As Integer = 1
+            Dim _j As Integer = 0
+            Dim _ch As String = ""
+            Dim _q As String = Chr(34)
+            Dim _achou As Boolean = False
+            Dim _igual As Boolean = False
+            Dim _escape As Boolean = False
+            Dim _result As String = ""
+            Dim _maxValor As Integer = pMaxValor
+            Dim _nValor As Integer = 0
+
+            ExtrairTextoJsonDoPrefixoAsciiComTeto = ""
+
+            If _maxValor <= 0 Then
+                _maxValor = 80
+            End If
+
+            If _len <= 0 Then
+                Exit Function
+            End If
+
+            If _keyLen <= 0 Then
+                Exit Function
+            End If
+
+            While _i <= (_len - _keyLen - 2)
+                If Mid(pPrefixo, _i, 1) = _q Then
+                    _igual = True
+                    For _j = 1 To _keyLen
+                        If Mid(pPrefixo, _i + _j, 1) <> Mid(pChave, _j, 1) Then
+                            _igual = False
+                            Exit For
+                        End If
+                    Next
+                    If _igual Then
+                        If Mid(pPrefixo, _i + _keyLen + 1, 1) = _q Then
+                            If Mid(pPrefixo, _i + _keyLen + 2, 1) = ":" Then
+                                _achou = True
+                                _i = _i + _keyLen + 3
+                                Exit While
+                            End If
+                        End If
+                    End If
+                End If
+                _i = _i + 1
+            Wend
+
+            If Not _achou Then
+                Exit Function
+            End If
+
+            While _i <= _len
+                _ch = Mid(pPrefixo, _i, 1)
+                If _ch = " " Then
+                    _i = _i + 1
+                Else
+                    Exit While
+                End If
+            Wend
+
+            If _i > _len Then
+                Exit Function
+            End If
+
+            If Mid(pPrefixo, _i, 1) <> _q Then
+                Exit Function
+            End If
+
+            _i = _i + 1
+
+            While _i <= _len
+                If _nValor >= _maxValor Then
+                    Exit While
+                End If
+
+                _ch = Mid(pPrefixo, _i, 1)
+
+                If _escape Then
+                    _result = _result & _ch
+                    _nValor = _nValor + 1
+                    _escape = False
+                Else
+                    If _ch = "\" Then
+                        _result = _result & _ch
+                        _nValor = _nValor + 1
+                        _escape = True
+                    Else
+                        If _ch = _q Then
+                            Exit While
+                        End If
+                        _result = _result & _ch
+                        _nValor = _nValor + 1
+                    End If
+                End If
+
+                _i = _i + 1
+            Wend
+
+            ExtrairTextoJsonDoPrefixoAsciiComTeto = _result
+        End Function
+
+        Private Function ExtrairBlobArrayJsonDoPrefixoAscii(pPrefixo As String, pChave As String) As String
+            Dim _posValor As Integer = 0
+            Dim _len As Integer = Len(pPrefixo)
+            Dim _i As Integer = 0
+            Dim _ch As String = ""
+            Dim _q As String = Chr(34)
+            Dim _depth As Integer = 0
+            Dim _inQuotes As Boolean = False
+            Dim _escape As Boolean = False
+            Dim _inicio As Integer = 0
+
+            ExtrairBlobArrayJsonDoPrefixoAscii = ""
+
+            If _len <= 0 Then
+                Exit Function
+            End If
+
+            _posValor = me.PosicaoValorChaveAscii(pPrefixo, pChave)
+            If _posValor <= 0 Then
+                Exit Function
+            End If
+
+            If _posValor > _len Then
+                Exit Function
+            End If
+
+            If Mid(pPrefixo, _posValor, 1) <> "[" Then
+                Exit Function
+            End If
+
+            _inicio = _posValor
+            _i = _posValor
+
+            While _i <= _len
+                _ch = Mid(pPrefixo, _i, 1)
+
+                If _escape Then
+                    _escape = False
+                Else
+                    If _inQuotes Then
+                        If _ch = "\" Then
+                            _escape = True
+                        Else
+                            If _ch = _q Then
+                                _inQuotes = False
+                            End If
+                        End If
+                    Else
+                        If _ch = _q Then
+                            _inQuotes = True
+                        Else
+                            If _ch = "[" Then
+                                _depth = _depth + 1
+                            Else
+                                If _ch = "]" Then
+                                    _depth = _depth - 1
+                                    If _depth = 0 Then
+                                        ExtrairBlobArrayJsonDoPrefixoAscii = Mid(pPrefixo, _inicio, _i - _inicio + 1)
+                                        Exit Function
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+
+                _i = _i + 1
+            Wend
         End Function
 
         ' Bulk-search ainda usa TJSONArray. Catalogo completo nao chama este metodo.
@@ -1316,8 +1951,30 @@ Namespace rede_ancora_produto_sincronizacao_service
             Next
         End Sub
 
+        Private Function MensagemExcecaoSegura(pEx As Exception) As String
+            Dim _msg As String = ""
+            Dim _result As String = "Invalid pointer operation"
+
+            If Not Assigned(pEx) Then
+                MensagemExcecaoSegura = _result
+                Exit Function
+            End If
+
+            Try
+                _msg = DiagStack.FormatException(pEx)
+            Catch exFmt As Exception
+                _msg = ""
+            End Try
+
+            If _msg.Trim() = "" Then
+                MensagemExcecaoSegura = _result
+            Else
+                MensagemExcecaoSegura = _msg
+            End If
+        End Function
+
         Private Function IsErroAutenticacao(pEx As Exception) As Boolean
-            Dim _mensagem As String = pEx._getMessage()
+            Dim _mensagem As String = me.MensagemExcecaoSegura(pEx)
 
             IsErroAutenticacao = _mensagem.Contains("401") Or _mensagem.Contains("Chave API Rede Ancora")
         End Function

@@ -6,6 +6,7 @@ Imports rede_ancora_autenticacao_service
 Imports rede_ancora_api_client
 Imports rede_ancora_empresa_service
 Imports http_response
+Imports rede_ancora_http_erro_helper
 
 Namespace rede_ancora_agenda_compras_service
     Class RedeAncoraAgendaComprasService
@@ -48,10 +49,14 @@ Namespace rede_ancora_agenda_compras_service
                     Throw New System.Exception(me.MontarErroHttp(pOperacao, _response))
                 End If
 
+                RedeAncoraHttpErroHelper.ExigirCorpoJson(pOperacao, _response.StatusCode, _response.Body)
+
                 ExecutarGetPassThrough = _response.Body
                 _response.Free()
                 _api.Free()
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraAgendaComprasService." & pOperacao, ex)
+
                 If Assigned(_response) Then
                     _response.Free()
                 End If
@@ -65,10 +70,8 @@ Namespace rede_ancora_agenda_compras_service
         End Function
 
         Private Function MontarErroHttp(pOperacao As String, pResponse As HttpResponse) As String
-            Dim _msg As String = ""
-
-            _msg = pOperacao + " Rede Ancora falhou. HTTP " + Parser.IntegerToString(pResponse.StatusCode) + ": " + pResponse.Body
-            MontarErroHttp = _msg
+            RedeAncoraHttpErroHelper.RegistrarFalha(pOperacao, pResponse.StatusCode, pResponse.Body)
+            MontarErroHttp = RedeAncoraHttpErroHelper.MontarMensagem(pOperacao, pResponse.StatusCode, pResponse.Body)
         End Function
 
         Overrides Sub Dispose()

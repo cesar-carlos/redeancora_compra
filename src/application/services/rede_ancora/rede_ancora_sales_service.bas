@@ -11,6 +11,7 @@ Imports rede_ancora_input_listar_itens_pedido_api
 Imports rede_ancora_input_listar_pendencias_api
 Imports rede_ancora_input_listar_pendencias_por_pedido_api
 Imports http_response
+Imports rede_ancora_http_erro_helper
 
 Namespace rede_ancora_sales_service
     Class RedeAncoraSalesService
@@ -107,7 +108,8 @@ Namespace rede_ancora_sales_service
         Function CancelarPedidoApi(pCodUsuario As Integer, pIdPedidoApi As Integer) As Boolean
             Dim _api As RedeAncoraApiClient = Null
             Dim _response As HttpResponse = Null
-            Dim _json As TJSONObject = Null
+            Dim _body As String = ""
+            Dim _raw As String = ""
 
             Try
                 If pIdPedidoApi <= 0 Then
@@ -123,15 +125,25 @@ Namespace rede_ancora_sales_service
                     Throw New System.Exception(me.MontarErroHttp("GET /sales/orders/{orderId}/cancel", _response))
                 End If
 
-                _json = _response.BodyAsJsonObject()
-                CancelarPedidoApi = RedeAncoraJsonHelper.ObterBooleanJson(_json, "result")
-                _json.Free()
+                _body = _response.Body
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET /sales/orders/{orderId}/cancel", _response.StatusCode, _body)
+
+                If Not RedeAncoraJsonHelper.ExisteChaveJsonDeBlob(_body, "result") Then
+                    RedeAncoraHttpErroHelper.RegistrarFalha("GET /sales/orders/{orderId}/cancel", _response.StatusCode, _body)
+                    Throw New System.Exception("GET /sales/orders/{orderId}/cancel sem campo result")
+                End If
+
+                _raw = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(_body, "result").Trim()
+                If _raw.ToLower() = "null" Then
+                    RedeAncoraHttpErroHelper.RegistrarFalha("GET /sales/orders/{orderId}/cancel", _response.StatusCode, _body)
+                    Throw New System.Exception("GET /sales/orders/{orderId}/cancel result=null")
+                End If
+
+                CancelarPedidoApi = RedeAncoraJsonHelper.ObterBooleanJsonDeBlob(_body, "result")
                 _response.Free()
                 _api.Free()
             Catch ex As Exception
-                If Assigned(_json) Then
-                    _json.Free()
-                End If
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraSalesService.CancelarPedidoApi", ex)
 
                 If Assigned(_response) Then
                     _response.Free()
@@ -206,10 +218,14 @@ Namespace rede_ancora_sales_service
                     Throw New System.Exception(me.MontarErroHttp(pOperacao, _response))
                 End If
 
+                RedeAncoraHttpErroHelper.ExigirCorpoJson(pOperacao, _response.StatusCode, _response.Body)
+
                 ExecutarGetPassThrough = _response.Body
                 _response.Free()
                 _api.Free()
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraSalesService." & pOperacao, ex)
+
                 If Assigned(_response) Then
                     _response.Free()
                 End If
@@ -241,10 +257,8 @@ Namespace rede_ancora_sales_service
         End Function
 
         Private Function MontarErroHttp(pOperacao As String, pResponse As HttpResponse) As String
-            Dim _msg As String = ""
-
-            _msg = pOperacao + " Rede Ancora falhou. HTTP " + Parser.IntegerToString(pResponse.StatusCode) + ": " + pResponse.Body
-            MontarErroHttp = _msg
+            RedeAncoraHttpErroHelper.RegistrarFalha(pOperacao, pResponse.StatusCode, pResponse.Body)
+            MontarErroHttp = RedeAncoraHttpErroHelper.MontarMensagem(pOperacao, pResponse.StatusCode, pResponse.Body)
         End Function
 
         Overrides Sub Dispose()

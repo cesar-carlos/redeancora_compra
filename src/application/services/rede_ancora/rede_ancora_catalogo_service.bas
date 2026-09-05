@@ -12,6 +12,7 @@ Imports rede_ancora_familia_model
 Imports rede_ancora_familias_model
 Imports rede_ancora_catalogo_repository
 Imports http_response
+Imports rede_ancora_http_erro_helper
 
 Namespace rede_ancora_catalogo_service
     Class RedeAncoraCatalogoService
@@ -226,9 +227,10 @@ Namespace rede_ancora_catalogo_service
                 mod_logger.Info(pBreadcrumb & ": after IsSuccess")
 
                 If Not _ok Then
-                    Throw New System.Exception("GET " & pRota & " Rede Ancora falhou. HTTP " & Parser.IntegerToString(_status) & ": " & _snippet)
+                    Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("GET " & pRota, _status, _body))
                 End If
                 mod_logger.Info(pBreadcrumb & ": response success")
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET " & pRota, _status, _body)
 
                 _response.Free()
                 _response = NULL
@@ -236,6 +238,8 @@ Namespace rede_ancora_catalogo_service
                 _api = NULL
                 _result = _body
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCatalogoService." & pBreadcrumb, ex)
+
                 If Assigned(_response) Then
                     _response.Free()
                 End If

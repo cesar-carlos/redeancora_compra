@@ -390,7 +390,6 @@ Namespace rede_ancora_checkout_bootstrap
             Dim _warehouses As String = ""
             Dim _i As Integer = 0
             Dim _products As String = ""
-            Dim _similares As String = ""
             Dim _bulkLote As String = ""
             Dim _precosCds As String = ""
             Dim _codes As RedeAncoraProdutoCodigosModel = Null
@@ -433,9 +432,11 @@ Namespace rede_ancora_checkout_bootstrap
                 mod_logger.Printe("Produto: GET /products OK")
                 me.LogTextoTruncado("products", _products)
 
-                _similares = pSvc.ConsultarRedeAncoraProdutoSimilares(_cnas, pCodEstado, pCodCentro)
-                mod_logger.Printe("Produto: POST /products/similares OK")
-                me.LogTextoTruncado("similares", _similares)
+                ' Temporario: pular POST /products/similares para reexecutar os testes sem importar similares.
+                ' _similares = pSvc.ConsultarRedeAncoraProdutoSimilares(_cnas, pCodEstado, pCodCentro)
+                ' mod_logger.Printe("Produto: POST /products/similares OK")
+                ' me.LogTextoTruncado("similares", _similares)
+                mod_logger.Printe("Produto: POST /products/similares PULADO")
 
                 _bulkLote = pSvc.BuscarRedeAncoraProdutosPorLote(_cnas, Null, Null, 1, 10)
                 mod_logger.Printe("Produto: POST /products/bulk OK")

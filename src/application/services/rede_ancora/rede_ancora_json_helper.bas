@@ -177,6 +177,86 @@ Namespace rede_ancora_json_helper
             PosicaoInicioArrayJsonDeBlob = PosicaoInicioBlocoJsonDeBlob(pBlob, pKey, "[")
         End Function
 
+        Shared Function PosicaoInicioObjetoJsonDeBlobApos(pBlob As String, pKey As String, pFromPos As Integer) As Integer
+            PosicaoInicioObjetoJsonDeBlobApos = PosicaoInicioBlocoJsonDeBlobApos(pBlob, pKey, "{", pFromPos)
+        End Function
+
+        Shared Function PosicaoInicioArrayJsonDeBlobApos(pBlob As String, pKey As String, pFromPos As Integer) As Integer
+            PosicaoInicioArrayJsonDeBlobApos = PosicaoInicioBlocoJsonDeBlobApos(pBlob, pKey, "[", pFromPos)
+        End Function
+
+        Private Shared Function PosicaoInicioBlocoJsonDeBlobApos(pBlob As String, pKey As String, pAbre As String, pFromPos As Integer) As Integer
+            Dim _start As Integer = 0
+            Dim _searchFrom As Integer = pFromPos
+            Dim _ch As String = ""
+            Dim _blobLen As Integer = Len(pBlob)
+
+            PosicaoInicioBlocoJsonDeBlobApos = 0
+
+            If _searchFrom < 1 Then
+                _searchFrom = 1
+            End If
+
+            While _searchFrom > 0
+                If _searchFrom > _blobLen Then
+                    Exit Function
+                End If
+
+                _start = LocalizarInicioValorApartir(pBlob, pKey, _searchFrom)
+
+                If _start <= 0 Then
+                    Exit Function
+                End If
+
+                _ch = Mid(pBlob, _start, 1)
+
+                If pAbre = "" Then
+                    If _ch = "{" Then
+                        PosicaoInicioBlocoJsonDeBlobApos = _start
+                        Exit Function
+                    End If
+
+                    If _ch = "[" Then
+                        PosicaoInicioBlocoJsonDeBlobApos = _start
+                        Exit Function
+                    End If
+                Else
+                    If _ch = pAbre Then
+                        PosicaoInicioBlocoJsonDeBlobApos = _start
+                        Exit Function
+                    End If
+                End If
+
+                _searchFrom = _start + 1
+            Wend
+        End Function
+
+        Shared Function ExisteChaveJsonDeBlob(pBlob As String, pKey As String) As Boolean
+            ExisteChaveJsonDeBlob = False
+
+            If LocalizarInicioValorApartir(pBlob, pKey, 1) > 0 Then
+                ExisteChaveJsonDeBlob = True
+            End If
+        End Function
+
+        Shared Function ExisteChaveJsonDeBlobEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As Boolean
+            Dim _start As Integer = LocalizarInicioValorApartir(pBlob, pKey, pFromPos)
+
+            ExisteChaveJsonDeBlobEntre = False
+
+            If _start <= 0 Then
+                Exit Function
+            End If
+
+            If pToPos > 0 Then
+                If _start > pToPos Then
+                    Exit Function
+                End If
+            End If
+
+            ExisteChaveJsonDeBlobEntre = True
+        End Function
+
         ' Posicao do '}' ou ']' que fecha o bloco em pStart. Mid de 1 char; sem copiar o bloco.
         Shared Function PosicaoFimBlocoJsonDeBlob(pBlob As String, pStart As Integer) As Integer
             Dim _quote As String = AspasJson()
@@ -590,6 +670,103 @@ Namespace rede_ancora_json_helper
             Wend
         End Function
 
+        ' Posicao do '{' do objeto-filho pIndex (0-based) dentro do objeto em pObjectStart.
+        ' Nao copia o filho (Mid de janela grande em unicode = AV 00220000).
+        Shared Function PosicaoObjetoFilhoJsonDeBlob(pBlob As String, pObjectStart As Integer, pIndex As Integer) As Integer
+            Dim _blobLen As Integer = Len(pBlob)
+            Dim _quote As String = AspasJson()
+            Dim _pos As Integer = 0
+            Dim _valueStart As Integer = 0
+            Dim _objIndex As Integer = 0
+            Dim _depth As Integer = 0
+            Dim _inQuotes As Boolean = False
+            Dim _escapeNext As Boolean = False
+            Dim _ch As String = ""
+
+            PosicaoObjetoFilhoJsonDeBlob = 0
+
+            If pIndex < 0 Then
+                Exit Function
+            End If
+
+            If pObjectStart < 1 Then
+                Exit Function
+            End If
+
+            If pObjectStart > _blobLen Then
+                Exit Function
+            End If
+
+            If Mid(pBlob, pObjectStart, 1) <> "{" Then
+                Exit Function
+            End If
+
+            _pos = pObjectStart + 1
+
+            While _pos <= _blobLen
+                _ch = Mid(pBlob, _pos, 1)
+
+                If _escapeNext Then
+                    _escapeNext = False
+                ElseIf _inQuotes Then
+                    If _ch = "\" Then
+                        _escapeNext = True
+                    ElseIf _ch = _quote Then
+                        _inQuotes = False
+                    End If
+                Else
+                    If _ch = _quote Then
+                        _inQuotes = True
+                    ElseIf _ch = "{" Or _ch = "[" Then
+                        If _depth = 0 Then
+                            If _valueStart = 0 Then
+                                _valueStart = _pos
+                            End If
+                        End If
+
+                        _depth = _depth + 1
+                    ElseIf _ch = "}" Or _ch = "]" Then
+                        If _depth = 1 Then
+                            If _valueStart > 0 Then
+                                If Mid(pBlob, _valueStart, 1) = "{" Then
+                                    If _objIndex = pIndex Then
+                                        PosicaoObjetoFilhoJsonDeBlob = _valueStart
+                                        Exit Function
+                                    End If
+
+                                    _objIndex = _objIndex + 1
+                                End If
+
+                                _valueStart = 0
+                            End If
+                        End If
+
+                        _depth = _depth - 1
+
+                        If _depth < 0 Then
+                            Exit Function
+                        End If
+                    ElseIf _ch = "," Then
+                        If _depth = 0 Then
+                            _valueStart = 0
+                        End If
+                    Else
+                        If _depth = 0 Then
+                            If _valueStart = 0 Then
+                                If Not EhBrancoJson(_ch) Then
+                                    If _ch <> ":" Then
+                                        _valueStart = _pos
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+
+                _pos = _pos + 1
+            Wend
+        End Function
+
         Shared Function ObterObjetoJson(pJson As TJSONObject, pKey As String) As TJSONObject
             Dim _raw As String = RedeAncoraJsonHelper.ObterBlocoJson(pJson, pKey)
 
@@ -835,6 +1012,10 @@ Namespace rede_ancora_json_helper
 
         Shared Function ObterBooleanJsonDeBlob(pBlob As String, pKey As String) As Boolean
             ObterBooleanJsonDeBlob = TextoEhBooleanTrue(RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pBlob, pKey))
+        End Function
+
+        Shared Function ObterBooleanJsonDeBlobEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As Boolean
+            ObterBooleanJsonDeBlobEntre = TextoEhBooleanTrue(RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBlob, pKey, pFromPos, pToPos))
         End Function
 
         Shared Function ObterBooleanJson(pJson As TJSONObject, pKey As String) As Boolean

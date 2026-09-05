@@ -49,7 +49,7 @@
   },
   "virtualFolders": [
     {
-      "nome": "Unidades (145)",
+      "nome": "Unidades (150)",
       "id": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
       "pastaId": "",
       "aberta": "Sim"
@@ -436,12 +436,18 @@
     },
     "rede_ancora_empresa_service": {
       "nome": "rede_ancora_empresa_service",
-      "aberto": true,
+      "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
     },
     "rede_ancora_http_client": {
       "nome": "rede_ancora_http_client",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
+    },
+    "rede_ancora_http_erro_helper": {
+      "nome": "rede_ancora_http_erro_helper",
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
@@ -616,6 +622,12 @@
     },
     "rede_ancora_produto_imagem_repository": {
       "nome": "rede_ancora_produto_imagem_repository",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_produto_repository": {
+      "nome": "rede_ancora_produto_repository",
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
@@ -922,6 +934,12 @@
     },
     "rede_ancora_produto_imagens_model": {
       "nome": "rede_ancora_produto_imagens_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_model": {
+      "nome": "rede_ancora_produto_model",
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10012-0012-4012-8012-000000000012}"

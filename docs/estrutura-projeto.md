@@ -151,7 +151,8 @@ flowchart TB
 | `run_migrations` | Executa `RedeAncoraMigration` na inicialização |
 | `rede_ancora_smoke_test` | Ping + profile (teste manual) |
 | `rede_ancora_empresa_sync_test` | Sync profile → banco (teste manual) |
-| `rede_ancora_produto_sync_bootstrap` | Sync produtos CNA/catálogo (teste manual) |
+| `rede_ancora_produto_sync_bootstrap` | Sync produtos CNA ou cadastro completo (teste manual) |
+| `rede_ancora_cadastro_produtos_listener` | Timer (`BaseListener`) que dispara `SincronizarCadastroProdutosCompleto` (padrão 4 h; sem auto-start) |
 | `rede_ancora_checkout_bootstrap` | Fluxo carrinho + checkout (teste manual) |
 | `rede_ancora_api_novos_bootstrap` | Sales, ScheduledOrder, Agenda, Haulers e produtos complementares (teste manual) |
 | `rede_ancora_dev_harness` | Orquestrador de cenários de homologação |
@@ -186,7 +187,7 @@ flowchart TB
 | `rede_ancora_modalidade_service` | `GET /modalities` + cache local |
 | `rede_ancora_catalogo_service` | Marcas, linhas e famílias (`/products/brands`, …) |
 | `rede_ancora_produto_service` | Consultas de produto, bulk-search, warehouses, vínculo CNA, sync de imagens; `GET /products`, similares, bulk, prices-stocks-warehouses |
-| `rede_ancora_produto_sincronizacao_service` | Sync em lote de CNAs e catálogo completo |
+| `rede_ancora_produto_sincronizacao_service` | Sync em lote de CNAs; **cadastro completo** (`SincronizarCadastroProdutosCompleto`: marcas/linhas/famílias + full-search por família, upsert em `RedeAncoraProduto` + espelho em `RedeAncoraProdutoVinculo`, sem `DELETE /checkout`) |
 | `rede_ancora_produto_sincronizacao_modo` | Constantes de modo de sync (`COMPLETA`, `NOVOS`) |
 | `rede_ancora_carrinho_service` | Carrinho (`/checkout`, itens, bulk); `POST /sales/orders/{id}/reorder` |
 | `rede_ancora_checkout_service` | Review, pagamentos, logística, `POST .../order`; CRUD de transportadores (`/logistics/haulers`) |
@@ -280,7 +281,8 @@ _model.SetCpfResponsavel(pCpf)         ' Cpf.Create — opcional
 | `rede_ancora_centro_distribuicao_repository` | CDs do profile por `CodUsuario` |
 | `rede_ancora_modalidade_repository` | Cache de modalidades |
 | `rede_ancora_catalogo_repository` | Marcas, linhas e famílias |
-| `rede_ancora_produto_vinculo_repository` | Produtos Âncora e vínculos ERP (PK `Cna`) |
+| `rede_ancora_produto_repository` | Cadastro Âncora (`Integracao.RedeAncoraProduto`, PK `Cna`) |
+| `rede_ancora_produto_vinculo_repository` | Vínculo ERP + espelho legado de catálogo (PK `Cna`) |
 | `rede_ancora_produto_imagem_repository` | URLs de imagem por CNA (`SubstituirPorCna`) |
 | `rede_ancora_carrinho_repository` | Cabeçalho `Integracao.RedeAncoraCarrinho` (`PK CodCarrinho`, `IdCarrinho` UUID) |
 | `rede_ancora_carrinho_item_repository` | Itens `Integracao.RedeAncoraCarrinhoItem` (`PK CodCarrinho + Item`) |
@@ -313,7 +315,7 @@ _model.SetCpfResponsavel(pCpf)         ' Cpf.Create — opcional
 
 |--------|------------------|
 
-| `base_listener` | Listener periódico com `Forms.Timer` (Template Method: `OnListener`/`OnListenerError`) |
+| `base_listener` | Listener periódico com `Forms.Timer` (Template Method: `OnListener`/`OnListenerError`). Feature de cadastro: `RedeAncoraCadastroProdutosListener` em `application/bootstrap/` |
 
 
 
@@ -382,7 +384,7 @@ Models agrupados por domínio (cada par `*_model` / `*_models` quando aplicável
 |-------|----------|--------------|
 | Auth / empresa | `RedeAncoraAutenticacaoModel`, `RedeAncoraEmpresaModel`, `RedeAncoraCentroDistribuicaoModel` | Tabelas `Integracao` |
 | Catálogo | `RedeAncoraMarcaModel`, `RedeAncoraLinhaModel`, `RedeAncoraFamiliaModel`, `RedeAncoraModalidadeModel` | Tabelas `Integracao` |
-| Produto | `RedeAncoraProdutoVinculoModel`, `RedeAncoraProdutoImagemModel`, `RedeAncoraProdutoPrecoEstoqueModel`, `RedeAncoraProdutoCnasModel`, `RedeAncoraProdutoCodigosModel` | Vínculo e imagens em banco; preços/códigos só em memória |
+| Produto | `RedeAncoraProdutoModel`, `RedeAncoraProdutoVinculoModel`, `RedeAncoraProdutoImagemModel`, `RedeAncoraProdutoPrecoEstoqueModel`, `RedeAncoraProdutoCnasModel`, `RedeAncoraProdutoCodigosModel` | Cadastro e vínculo/imagens em banco; preços/códigos só em memória |
 | Carrinho | `RedeAncoraCarrinhoModel`, `RedeAncoraCarrinhoItemModel`, `*SolicitacaoModel`, `*ItensIdsModel` | Carrinho/item em banco |
 | Checkout | `RedeAncoraCheckoutRevisaoModel`, `RedeAncoraCheckoutPagamentosModel`, `*Entrega*Model` | Só em memória (resposta API) |
 | Pedido | `RedeAncoraPedidoModel`, `RedeAncoraPedidosModel` | `RedeAncoraPedido` após confirmar |
@@ -426,8 +428,9 @@ Tabelas criadas em `Integracao`:
 | `RedeAncoraEmpresa` | Profile do franqueado (`GET /profile`), `CodEmpresaAncora` (API `company.id`), `IdCarrinhoAtual` (cache local por `CodUsuario` de integração — **não** prova de cart exclusivo na API) |
 | `RedeAncoraCentroDistribuicao` | CDs (`warehouses`) por usuário |
 | `RedeAncoraModalidade` | Cache de `GET /modalities` |
-| `RedeAncoraMarca`, `RedeAncoraLinha`, `RedeAncoraFamilia` | Catálogo de apoio para filtros e vínculo |
-| `RedeAncoraProdutoVinculo` | Catálogo Âncora: **PK `Cna`**; `CodProduto` opcional (FK ERP); `CodLinha`, `CodFamilia` |
+| `RedeAncoraMarca`, `RedeAncoraLinha`, `RedeAncoraFamilia` | Catálogo de apoio para filtros e cadastro (códigos lógicos; sem FK SQL, como as demais tabelas `Integracao`) |
+| `RedeAncoraProduto` | Cadastro Âncora (fonte: `GET /products/full-search?fields=details`): **PK `Cna`**; FKs lógicas `CodMarca`/`CodMarcaErp` → Marca, `CodLinha` → Linha, `CodFamilia` → Família |
+| `RedeAncoraProdutoVinculo` | Vínculo ERP (`CodProduto`) + **espelho legado** de catálogo (`CodigoAncora`, `DescricaoAncora`, `CodMarca`…). Dual-write no sync |
 | `RedeAncoraProdutoImagem` | Imagens por CNA: **PK `(Cna, Item, TipoImagem)`**; `Item` VARCHAR(5) (`00001`…); `Url`, `DataAtualizacao` |
 | `RedeAncoraCarrinho` | Cabeçalho (`PK CodCarrinho`, `IdCarrinho` UUID da API, totais). **Sem `CodUsuario`** — o cart na API é da chave/franqueado (compartilhado); `IdCarrinhoAtual` é só cache local |
 | `RedeAncoraCarrinhoItem` | Linhas (`PK CodCarrinho + Item`). `Item` = sequencial local (`00001`…); `IdItemApi` = `item_id` da API. Demais campos: CNA, CD, condição de pagamento, produto, modalidade, quantidade, preços. **Auditoria ERP (quem lançou, não dono do cart):** `CodUsuario`, `NomeUsuario` (30), `DataLancamento` (DATE), `HoraLancamento` (8), `EstacaoTrabalho` — preenchidos em `AdicionarItens` para `IdItemApi` novo; sem lançamento ERP → `0`/`""`/`1900-01-01` |

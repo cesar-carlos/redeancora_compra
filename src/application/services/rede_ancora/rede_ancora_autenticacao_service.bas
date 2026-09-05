@@ -8,7 +8,7 @@ Imports rede_ancora_autenticacao_repository
 Imports rede_ancora_http_client
 Imports http_response
 Imports http_client
-Imports rede_ancora_json_helper
+Imports rede_ancora_http_erro_helper
 
 Namespace rede_ancora_autenticacao_service
     Class RedeAncoraAutenticacaoService
@@ -25,71 +25,178 @@ Namespace rede_ancora_autenticacao_service
             CreateClient = RedeAncoraHttpClient.Criar(pAuth)
         End Function
 
-        Private Function RespostaPingValida(pBody As String) As Boolean
-            Dim _body As String = pBody.Trim()
-            Dim _json As TJSONObject = NULL
-            Dim _data As String = ""
+        ' Copia Mid de 1 char (prefixo ASCII curto). Mid/InStr no OleStr cru do WinHTTP = AV 00220000.
+        Private Function CopiarPrefixoAscii(pSrc As String, pMaxLen As Integer) As String
+            Dim _len As Integer = 0
+            Dim _n As Integer = 0
+            Dim _i As Integer = 1
+            Dim _result As String = ""
 
-            RespostaPingValida = False
+            CopiarPrefixoAscii = ""
+            _len = Len(pSrc)
 
-            If _body = "" Then
+            If _len <= 0 Then
                 Exit Function
             End If
 
-            If Mid(_body, 1, 1) = "{" Then
-                Try
-                    _json = New TJSONObject(_body)
-                    _data = RedeAncoraJsonHelper.ObterTextoJson(_json, "data").Trim()
-
-                    If _data.ToUpper() = "PONG" Then
-                        RespostaPingValida = True
-                    End If
-
-                    _json.Free()
-                    Exit Function
-                Catch ex As Exception
-                    If Assigned(_json) Then
-                        _json.Free()
-                    End If
-                End Try
+            _n = pMaxLen
+            If _n > _len Then
+                _n = _len
             End If
 
-            RespostaPingValida = _body.ToUpper().Contains("PONG")
+            If _n <= 0 Then
+                Exit Function
+            End If
+
+            While _i <= _n
+                _result = _result & Mid(pSrc, _i, 1)
+                _i = _i + 1
+            Wend
+
+            CopiarPrefixoAscii = _result
+        End Function
+
+        ' {"data":"PONG"} ou texto PONG. So InStr/Mid/UCase no prefixo ASCII — sem TJSONObject/JsonHelper/Contains.
+        Private Function RespostaPingValida(pBody As String) As Boolean
+            Dim _body As String = pBody
+            Dim _len As Integer = 0
+            Dim _q As String = Chr(34)
+            Dim _marker As String = ""
+            Dim _pos As Integer = 0
+            Dim _i As Integer = 0
+            Dim _ch As String = ""
+            Dim _data As String = ""
+
+            RespostaPingValida = False
+            _len = Len(_body)
+
+            If _len <= 0 Then
+                Exit Function
+            End If
+
+            _marker = _q & "data" & _q & ":"
+            _pos = InStr(_body, _marker)
+
+            If _pos > 0 Then
+                _i = _pos + Len(_marker)
+
+                While _i <= _len
+                    _ch = Mid(_body, _i, 1)
+                    If _ch = " " Then
+                        _i = _i + 1
+                    Else
+                        Exit While
+                    End If
+                Wend
+
+                If _i <= _len Then
+                    If Mid(_body, _i, 1) = _q Then
+                        _i = _i + 1
+
+                        While _i <= _len
+                            _ch = Mid(_body, _i, 1)
+                            If _ch = _q Then
+                                Exit While
+                            End If
+                            _data = _data & _ch
+                            _i = _i + 1
+                        Wend
+
+                        If UCase(_data) = "PONG" Then
+                            RespostaPingValida = True
+                            Exit Function
+                        End If
+                    End If
+                End If
+            End If
+
+            If InStr(UCase(_body), "PONG") > 0 Then
+                RespostaPingValida = True
+            End If
         End Function
 
         Function Ping() As Boolean
             Dim _client As HttpClient = NULL
             Dim _response As HttpResponse = NULL
             Dim _url As String = RedeAncoraApiConfig.IntegrationUrl("/ping")
+            Dim _body As String = ""
+            Dim _status As Integer = 0
+            Dim _ok As Boolean = False
+            Dim _detalhe As String = ""
 
             Try
-                mod_logger.Printe("Ping URL: " + _url)
+                mod_logger.Info("Ping URL: " & _url)
                 _client = me.CreateClient(NULL)
                 _response = _client.GetRequest(_url)
-                mod_logger.Printe("Ping HTTP " + _response.StatusCode.ToString() + ": " + _response.Body)
 
-                If Not _response.IsSuccess Then
-                    Throw New System.Exception("GET /ping HTTP " + _response.StatusCode.ToString() + ": " + _response.Body)
-                End If
-
-                If Not me.RespostaPingValida(_response.Body) Then
-                    Throw New System.Exception("GET /ping resposta inesperada: " + _response.Body)
-                End If
-
-                Ping = True
-                _response.Free()
-                _client.Free()
-            Catch ex As Exception
                 If Assigned(_response) Then
-                    _response.Free()
+                    _status = _response.StatusCode
+                    _body = me.CopiarPrefixoAscii(_response.Body, 256)
+                    _ok = _response.IsSuccess
+                End If
+
+                mod_logger.Info("Ping HTTP " & Parser.IntegerToString(_status) & " body=" & RedeAncoraHttpErroHelper.TruncarCorpo(_body))
+
+                If Not Assigned(_response) Then
+                    Throw New System.Exception("GET /ping resposta nula")
+                End If
+
+                If Not _ok Then
+                    Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("GET /ping", _status, _body))
+                End If
+
+                ' Nao usar ExigirCorpoJson: ping aceita JSON data ou texto PONG; parse TJSONObject/JsonHelper AV.
+                If _body = "" Then
+                    Throw New System.Exception("GET /ping HTTP " & Parser.IntegerToString(_status) & " com corpo vazio")
+                End If
+
+                If Not me.RespostaPingValida(_body) Then
+                    Throw New System.Exception("GET /ping resposta inesperada: " & RedeAncoraHttpErroHelper.TruncarCorpo(_body))
+                End If
+
+                _response.Free()
+                _response = NULL
+                _client.Free()
+                _client = NULL
+            Catch ex As Exception
+                _detalhe = "erro desconhecido"
+
+                Try
+                    _detalhe = DiagStack.FormatException(ex)
+                Catch exFmt As Exception
+                    _detalhe = "falha ao ler excecao"
+                End Try
+
+                Try
+                    DiagStack.DumpOnError(ex)
+                Catch exDump As Exception
+                End Try
+
+                Try
+                    mod_logger.Erro("RedeAncoraAutenticacaoService.Ping: " & _detalhe)
+                Catch exLog As Exception
+                End Try
+
+                If Assigned(_response) Then
+                    Try
+                        _response.Free()
+                    Catch exFreeResp As Exception
+                    End Try
+                    _response = NULL
                 End If
 
                 If Assigned(_client) Then
-                    _client.Free()
+                    Try
+                        _client.Free()
+                    Catch exFreeClient As Exception
+                    End Try
+                    _client = NULL
                 End If
 
-                Throw ex
+                Throw New System.Exception("Ping Rede Ancora falhou: " & _detalhe)
             End Try
+
+            Ping = True
         End Function
 
         Function GarantirChaveApi(pCodUsuario As Integer) As RedeAncoraAutenticacaoModel
@@ -201,10 +308,10 @@ Namespace rede_ancora_autenticacao_service
                 mod_logger.Info("sync-user: after IsSuccess")
 
                 If Not _ok Then
-                    mod_logger.Erro("GET /profile falhou. HTTP " & Parser.IntegerToString(_status) & ": " & _snippet)
-                    Throw New System.Exception("GET /profile Rede Ancora falhou. HTTP " & Parser.IntegerToString(_status) & ": " & _snippet)
+                    Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("GET /profile", _status, _body))
                 End If
                 mod_logger.Info("sync-user: response success")
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET /profile", _status, _body)
 
                 DiagStack.Push("SincronizarUsuarioApi.PreencherUsuarioDeProfile")
                 mod_logger.Info("sync-user: before PreencherUsuarioDeProfile")

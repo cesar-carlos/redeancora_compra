@@ -161,9 +161,11 @@ Namespace rede_ancora_api_novos_bootstrap
                 _cnas = New RedeAncoraProdutoCnasModel()
                 _cnas.Push(pCna)
 
-                _resposta = pSvc.ConsultarRedeAncoraProdutoSimilares(_cnas, pCodEstado, pCodCentro)
-                mod_logger.Printe("POST /products/similares OK")
-                me.LogTextoTruncado("similares", _resposta)
+                ' Temporario: pular POST /products/similares para reexecutar os testes sem importar similares.
+                ' _resposta = pSvc.ConsultarRedeAncoraProdutoSimilares(_cnas, pCodEstado, pCodCentro)
+                ' mod_logger.Printe("POST /products/similares OK")
+                ' me.LogTextoTruncado("similares", _resposta)
+                mod_logger.Printe("POST /products/similares PULADO")
 
                 _resposta = pSvc.BuscarRedeAncoraProdutosPorLote(_cnas, Null, Null, 1, 10)
                 mod_logger.Printe("POST /products/bulk OK (cna_list)")

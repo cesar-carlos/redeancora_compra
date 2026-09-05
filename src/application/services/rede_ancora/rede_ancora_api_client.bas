@@ -3,6 +3,7 @@ Imports rede_ancora_autenticacao_model
 Imports rede_ancora_autenticacao_service
 Imports rede_ancora_api_config
 Imports rede_ancora_http_client
+Imports rede_ancora_http_erro_helper
 Imports mod_logger
 Imports http_response
 Imports http_client
@@ -67,12 +68,7 @@ Namespace rede_ancora_api_client
                     _client = Null
                     me.LogarResposta(pMethod, pUrl, _response)
 
-                    If _response.StatusCode = 401 Then
-                        Dim _mensagem As String = "Chave API Rede Ancora invalida ou sem permissao (HTTP 401)."
-                        _response.Free()
-                        _response = Null
-                        Throw New System.Exception(_mensagem)
-                    ElseIf _response.StatusCode = 429 And _tentativa429 < 3 Then
+                    If _response.StatusCode = 429 And _tentativa429 < 3 Then
                         me.AguardarBackoff429(_tentativa429)
                         _tentativa429 = _tentativa429 + 1
                         _response.Free()
@@ -93,9 +89,13 @@ Namespace rede_ancora_api_client
                     End If
                 Wend
 
+                me.AvaliarRespostaFinal(pMethod, pUrl, _response)
+
                 _result = _response
                 _response = Null
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraApiClient.Executar " & pMethod, ex)
+
                 If Assigned(_client) Then
                     _client.Free()
                     _client = Null
@@ -111,6 +111,30 @@ Namespace rede_ancora_api_client
 
             Executar = _result
         End Function
+
+        Private Sub AvaliarRespostaFinal(pMethod As String, pUrl As String, pResponse As HttpResponse)
+            Dim _operacao As String = ""
+            Dim _msg As String = ""
+
+            If Not Assigned(pResponse) Then
+                Throw New System.Exception(pMethod & " " & pUrl & " sem resposta HTTP")
+            End If
+
+            If pResponse.IsSuccess Then
+                Exit Sub
+            End If
+
+            _operacao = pMethod & " " & pUrl
+
+            If pResponse.StatusCode = 404 Then
+                mod_logger.Info(_operacao & " HTTP 404 (recurso nao encontrado; caller decide fallback ou falha)")
+                Exit Sub
+            End If
+
+            RedeAncoraHttpErroHelper.RegistrarFalha(_operacao, pResponse.StatusCode, pResponse.Body)
+            _msg = RedeAncoraHttpErroHelper.MontarMensagem(_operacao, pResponse.StatusCode, pResponse.Body)
+            Throw New System.Exception(_msg)
+        End Sub
 
         Private Sub LogarRequisicao(pMethod As String, pUrl As String, pBody As String)
             Dim _mensagem As String = "REQ " + pMethod + " " + pUrl

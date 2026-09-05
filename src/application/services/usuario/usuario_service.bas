@@ -10,6 +10,7 @@ Imports rede_ancora_autenticacao_service
 Imports rede_ancora_empresa_model
 Imports rede_ancora_empresa_service
 Imports rede_ancora_centros_distribuicao_model
+Imports rede_ancora_centro_distribuicao_model
 Imports rede_ancora_modalidade_service
 Imports rede_ancora_modalidades_model
 Imports rede_ancora_carrinho_service
@@ -815,6 +816,67 @@ Namespace usuario_service
         Function SincronizarRedeAncoraProdutosOpcoes(pOpcoes As RedeAncoraProdutoSincronizacaoOpcoesModel) As RedeAncoraProdutoSincronizacaoResultadoModel
             SincronizarRedeAncoraProdutosOpcoes = me._redeAncoraProdutoSincronizacaoService.Sincronizar(pOpcoes)
         End Function
+
+        Function SincronizarRedeAncoraCadastroProdutosCompleto() As RedeAncoraProdutoSincronizacaoResultadoModel
+            Dim _codCentro As Integer = 0
+            Dim _codEstado As Integer = 0
+            Dim _result As RedeAncoraProdutoSincronizacaoResultadoModel = NULL
+
+            Try
+                me.ResolverCentroDistribuicaoParaCadastro(_codCentro, _codEstado)
+                _result = me._redeAncoraProdutoSincronizacaoService.SincronizarCadastroProdutosCompleto(me.ObterCodUsuarioIntegracao(), _codCentro, _codEstado, 0)
+            Catch ex As Exception
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = NULL
+                End If
+
+                Throw New System.Exception("Erro no cadastro completo de produtos Rede Ancora: " & ex._getMessage())
+            End Try
+
+            SincronizarRedeAncoraCadastroProdutosCompleto = _result
+        End Function
+
+        Function SincronizarRedeAncoraCadastroProdutosCompletoComCd(pCodCentroDistribuicao As Integer, pCodEstado As Integer, pTamanhoPagina As Integer) As RedeAncoraProdutoSincronizacaoResultadoModel
+            SincronizarRedeAncoraCadastroProdutosCompletoComCd = me._redeAncoraProdutoSincronizacaoService.SincronizarCadastroProdutosCompleto(me.ObterCodUsuarioIntegracao(), pCodCentroDistribuicao, pCodEstado, pTamanhoPagina)
+        End Function
+
+        Private Sub ResolverCentroDistribuicaoParaCadastro(ByRef pCodCentro As Integer, ByRef pCodEstado As Integer)
+            Dim _centros As RedeAncoraCentrosDistribuicaoModel = NULL
+            Dim _pref As RedeAncoraCentroDistribuicaoModel = NULL
+            Dim _item As RedeAncoraCentroDistribuicaoModel = NULL
+
+            Try
+                _centros = me.ListarRedeAncoraCentrosDistribuicao()
+
+                If Not Assigned(_centros) Then
+                    Throw New System.Exception("Nenhum centro de distribuicao encontrado. Execute InicializarRedeAncora antes do cadastro completo de produtos.")
+                End If
+
+                If _centros.Length <= 0 Then
+                    Throw New System.Exception("Nenhum centro de distribuicao encontrado. Execute InicializarRedeAncora antes do cadastro completo de produtos.")
+                End If
+
+                _pref = _centros.ObterPreferencial()
+                If Assigned(_pref) Then
+                    pCodCentro = _pref.CodCentroDistribuicao
+                    pCodEstado = _pref.CodEstado
+                Else
+                    _item = _centros.Take(0)
+                    pCodCentro = _item.CodCentroDistribuicao
+                    pCodEstado = _item.CodEstado
+                End If
+
+                _centros.Free()
+                _centros = NULL
+            Catch ex As Exception
+                If Assigned(_centros) Then
+                    _centros.Free()
+                End If
+
+                Throw ex
+            End Try
+        End Sub
 
         Function SincronizarRedeAncoraProdutos(pCodCentroDistribuicao As Integer, pCodEstado As Integer, pCnas As RedeAncoraProdutoCnasModel, pTamanhoChunk As Integer, pDesativarAusentes As Boolean, pModo As String) As RedeAncoraProdutoSincronizacaoResultadoModel
             SincronizarRedeAncoraProdutos = me._redeAncoraProdutoSincronizacaoService.SincronizarProdutos(me.ObterCodUsuarioIntegracao(), pCodCentroDistribuicao, pCodEstado, pCnas, pTamanhoChunk, pDesativarAusentes, pModo)

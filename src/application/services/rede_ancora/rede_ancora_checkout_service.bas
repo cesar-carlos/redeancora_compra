@@ -35,6 +35,7 @@ Imports rede_ancora_output_confirmar_pedido
 Imports rede_ancora_input_criar_transportador
 Imports rede_ancora_input_atualizar_transportador
 Imports http_response
+Imports rede_ancora_http_erro_helper
 
 Namespace rede_ancora_checkout_service
     Class RedeAncoraCheckoutService
@@ -70,10 +71,14 @@ Namespace rede_ancora_checkout_service
                     Throw New System.Exception(me.MontarErroHttp("POST /checkout/review", _response))
                 End If
 
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("POST /checkout/review", _response.StatusCode, _response.Body)
+
                 RevisarCarrinho = me.MapearRevisao(_response)
                 _response.Free()
                 _api.Free()
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.RevisarCarrinho", ex)
+
                 If Assigned(_response) Then
                     _response.Free()
                 End If
@@ -108,7 +113,7 @@ Namespace rede_ancora_checkout_service
                 End If
 
                 _payload = me.MontarPayloadPagamentos(pInput.CodCentroDistribuicao, pInput.CodModalidade, pInput.ItensIds)
-                mod_logger.Printe("Debug: POST /checkout/payments payload=" + me.LogTextoTruncadoLocal(_payload))
+                mod_logger.Info("POST /checkout/payments payload=" & me.LogTextoTruncadoLocal(_payload))
 
                 _api = New RedeAncoraApiClient(pInput.CodUsuario, me._authService)
                 _response = _api.PostJson(RedeAncoraApiConfig.IntegrationUrl("/checkout/" + pInput.IdCarrinho + "/payments"), _payload)
@@ -117,14 +122,17 @@ Namespace rede_ancora_checkout_service
                     Throw New System.Exception(me.MontarErroHttp("POST /checkout/payments", _response))
                 End If
 
-                mod_logger.Printe("Debug: POST /checkout/payments HTTP " + Parser.IntegerToString(_response.StatusCode))
-                mod_logger.Printe("Debug: POST /checkout/payments body=" + me.LogTextoTruncadoLocal(_response.Body))
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("POST /checkout/payments", _response.StatusCode, _response.Body)
+
+                mod_logger.Info("POST /checkout/payments HTTP " & Parser.IntegerToString(_response.StatusCode))
 
                 _output.Pagamentos = me.MapearPagamentos(_response)
                 ConsultarPagamentos = _output
                 _response.Free()
                 _api.Free()
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.ConsultarPagamentos", ex)
+
                 If Assigned(_output) Then
                     _output.Free()
                 End If
@@ -167,11 +175,15 @@ Namespace rede_ancora_checkout_service
                     Throw New System.Exception(me.MontarErroHttp("PATCH /checkout/payments", _response))
                 End If
 
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("PATCH /checkout/payments", _response.StatusCode, _response.Body)
+
                 _output.Resultado = _response.Body
                 AplicarCondicaoPagamento = _output
                 _response.Free()
                 _api.Free()
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.AplicarCondicaoPagamento", ex)
+
                 If Assigned(_output) Then
                     _output.Free()
                 End If
@@ -239,10 +251,14 @@ Namespace rede_ancora_checkout_service
                     Throw New System.Exception(me.MontarErroHttp("GET /logistics/haulers", _response))
                 End If
 
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET /logistics/haulers", _response.StatusCode, _response.Body)
+
                 ListarTransportadores = me.MapearTransportadores(_response)
                 _response.Free()
                 _api.Free()
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.ListarTransportadores", ex)
+
                 If Assigned(_response) Then
                     _response.Free()
                 End If
@@ -367,8 +383,8 @@ Namespace rede_ancora_checkout_service
         Function ExcluirTransportador(pCodUsuario As Integer, pIdTransportador As Integer) As Boolean
             Dim _api As RedeAncoraApiClient = NULL
             Dim _response As HttpResponse = NULL
-            Dim _json As TJSONObject = NULL
-            Dim _data As TJSONObject = NULL
+            Dim _body As String = ""
+            Dim _raw As String = ""
 
             Try
                 If pIdTransportador <= 0 Then
@@ -383,33 +399,25 @@ Namespace rede_ancora_checkout_service
                     Throw New System.Exception(me.MontarErroHttp("DELETE /logistics/haulers/{id}", _response))
                 End If
 
-                _json = _response.BodyAsJsonObject()
+                _body = _response.Body
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("DELETE /logistics/haulers/{id}", _response.StatusCode, _body)
 
-                If Assigned(_json) Then
-                    _data = RedeAncoraJsonHelper.ObterDataObjeto(_json)
-
-                    If Assigned(_data) Then
-                        ExcluirTransportador = RedeAncoraJsonHelper.ObterBooleanJson(_data, "data")
-                        _data.Free()
-                    Else
-                        ExcluirTransportador = RedeAncoraJsonHelper.ObterBooleanJson(_json, "data")
-                    End If
-
-                    _json.Free()
-                Else
-                    ExcluirTransportador = True
+                If Not RedeAncoraJsonHelper.ExisteChaveJsonDeBlob(_body, "data") Then
+                    RedeAncoraHttpErroHelper.RegistrarFalha("DELETE /logistics/haulers/{id}", _response.StatusCode, _body)
+                    Throw New System.Exception("DELETE /logistics/haulers/{id} sem campo data boolean")
                 End If
 
+                _raw = RedeAncoraJsonHelper.ObterTextoJsonDeBlob(_body, "data").Trim()
+                If _raw = "" Then
+                    RedeAncoraHttpErroHelper.RegistrarFalha("DELETE /logistics/haulers/{id}", _response.StatusCode, _body)
+                    Throw New System.Exception("DELETE /logistics/haulers/{id} data vazio ou objeto (esperado boolean)")
+                End If
+
+                ExcluirTransportador = RedeAncoraJsonHelper.ObterBooleanJsonDeBlob(_body, "data")
                 _response.Free()
                 _api.Free()
             Catch ex As Exception
-                If Assigned(_data) Then
-                    _data.Free()
-                End If
-
-                If Assigned(_json) Then
-                    _json.Free()
-                End If
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.ExcluirTransportador", ex)
 
                 If Assigned(_response) Then
                     _response.Free()
@@ -514,6 +522,8 @@ Namespace rede_ancora_checkout_service
                         Throw New System.Exception(me.MontarErroHttp("POST /checkout/order", _response))
                     End If
 
+                    RedeAncoraHttpErroHelper.ExigirCorpoJson("POST /checkout/order", _response.StatusCode, _response.Body)
+
                     _pedidos = me.MapearPedidos(pInput.CodUsuario, pInput.IdCarrinho, _response)
                     me._pedidoRepository.SalvarVarios(_pedidos)
                     me.MarcarCarrinhoConvertido(pInput.IdCarrinho)
@@ -529,6 +539,8 @@ Namespace rede_ancora_checkout_service
                     _api = NULL
                 End If
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.ConfirmarPedido", ex)
+
                 If Assigned(_output) Then
                     _output.Free()
                     _output = NULL
@@ -560,131 +572,251 @@ Namespace rede_ancora_checkout_service
         End Function
 
         Private Function MapearRevisao(pResponse As HttpResponse) As RedeAncoraCheckoutRevisaoModel
-            Dim _json As TJSONObject = NULL
-            Dim _data As TJSONObject = NULL
-            Dim _result As New RedeAncoraCheckoutRevisaoModel()
-            Dim _totals As TJSONObject = NULL
-            Dim _carriers As TJSONArray = NULL
-            Dim _i As Integer
+            Dim _body As String = ""
+            Dim _result As RedeAncoraCheckoutRevisaoModel = NULL
+            Dim _ok As RedeAncoraCheckoutRevisaoModel = NULL
+            Dim _seller As RedeAncoraCheckoutEntregaSellerModel = NULL
+            Dim _opcao As RedeAncoraCheckoutEntregaOpcaoModel = NULL
+            Dim _dataStart As Integer = 0
+            Dim _dataFim As Integer = 0
+            Dim _totalsStart As Integer = 0
+            Dim _totalsFim As Integer = 0
+            Dim _carriersStart As Integer = 0
+            Dim _sellerStart As Integer = 0
+            Dim _sellerFim As Integer = 0
+            Dim _innerStart As Integer = 0
+            Dim _opStart As Integer = 0
+            Dim _opFim As Integer = 0
+            Dim _i As Integer = 0
+            Dim _j As Integer = 0
 
-            _json = pResponse.BodyAsJsonObject()
-            _data = RedeAncoraJsonHelper.ObterDataObjeto(_json)
+            Try
+                _body = pResponse.Body
 
-            If Not Assigned(_data) Then
-                _json.Free()
-                Throw New System.Exception("Resposta /checkout/review sem objeto data")
-            End If
+                If _body.Trim() = "" Then
+                    Throw New System.Exception("Resposta /checkout/review vazia")
+                End If
 
-            _result.QtdItens = RedeAncoraJsonHelper.ObterInteiroJson(_data, "items_count")
-            _result.QtdItensTotal = RedeAncoraJsonHelper.ObterInteiroJson(_data, "items_qty")
+                _dataStart = RedeAncoraJsonHelper.PosicaoInicioObjetoJsonDeBlob(_body, "data")
 
-            _totals = RedeAncoraJsonHelper.ObterObjetoJson(_data, "totals")
-            If Assigned(_totals) Then
-                _result.Subtotal = RedeAncoraJsonHelper.ObterDecimalJson(_totals, "subtotal")
-                _result.Impostos = RedeAncoraJsonHelper.ObterDecimalJson(_totals, "taxes")
-                _result.Total = RedeAncoraJsonHelper.ObterDecimalJson(_totals, "total")
-                _totals.Free()
-            End If
+                If _dataStart <= 0 Then
+                    Throw New System.Exception("Resposta /checkout/review sem objeto data")
+                End If
 
-            _carriers = RedeAncoraJsonHelper.ObterArrayJson(_data, "carriers")
-            If Assigned(_carriers) Then
-                For _i = 0 To _carriers.Length() - 1
-                    Dim _sellerJson As TJSONObject = _carriers.GetJSONObject(_i)
-                    Dim _seller As New RedeAncoraCheckoutEntregaSellerModel()
-                    Dim _carrierOptions As TJSONArray = NULL
-                    Dim _j As Integer
+                _dataFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _dataStart)
+                _result = New RedeAncoraCheckoutRevisaoModel()
+                _result.QtdItens = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(_body, "items_count", _dataStart, _dataFim)
+                _result.QtdItensTotal = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(_body, "items_qty", _dataStart, _dataFim)
 
-                    _seller.CodCentroDistribuicao = RedeAncoraJsonHelper.ObterInteiroJson(_sellerJson, "seller_id")
-                    _seller.NomeCentroDistribuicao = RedeAncoraJsonHelper.ObterTextoJson(_sellerJson, "seller_name")
-                    _carrierOptions = RedeAncoraJsonHelper.ObterArrayJson(_sellerJson, "carriers")
-
-                    If Assigned(_carrierOptions) Then
-                        For _j = 0 To _carrierOptions.Length() - 1
-                            Dim _carrierJson As TJSONObject = _carrierOptions.GetJSONObject(_j)
-                            Dim _opcao As New RedeAncoraCheckoutEntregaOpcaoModel()
-
-                            _opcao.CodEntrega = RedeAncoraJsonHelper.ObterInteiroJson(_carrierJson, "carrier_id")
-                            _opcao.Nome = RedeAncoraJsonHelper.ObterTextoJson(_carrierJson, "name")
-                            _opcao.ExigeTransportador = RedeAncoraJsonHelper.SimNao(RedeAncoraJsonHelper.ObterBooleanJson(_carrierJson, "haulers_required"))
-                            _seller.Opcoes.Push(_opcao)
-                            _carrierJson.Free()
-                        Next
-
-                        _carrierOptions.Free()
+                _totalsStart = RedeAncoraJsonHelper.PosicaoInicioObjetoJsonDeBlobApos(_body, "totals", _dataStart)
+                If _totalsStart > 0 Then
+                    If _dataFim <= 0 Or _totalsStart <= _dataFim Then
+                        _totalsFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _totalsStart)
+                        _result.Subtotal = RedeAncoraJsonHelper.ObterDecimalJsonDeBlobEntre(_body, "subtotal", _totalsStart, _totalsFim)
+                        _result.Impostos = RedeAncoraJsonHelper.ObterDecimalJsonDeBlobEntre(_body, "taxes", _totalsStart, _totalsFim)
+                        _result.Total = RedeAncoraJsonHelper.ObterDecimalJsonDeBlobEntre(_body, "total", _totalsStart, _totalsFim)
                     End If
+                End If
 
-                    _result.EntregasSellers.Push(_seller)
-                    _sellerJson.Free()
-                Next
+                _carriersStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(_body, "carriers", _dataStart)
+                If _carriersStart > 0 Then
+                    If _dataFim <= 0 Or _carriersStart <= _dataFim Then
+                        For _i = 0 To 999
+                            _sellerStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(_body, _carriersStart, _i)
 
-                _carriers.Free()
-            End If
+                            If _sellerStart <= 0 Then
+                                Exit For
+                            End If
 
-            _data.Free()
-            _json.Free()
-            MapearRevisao = _result
+                            If _dataFim > 0 Then
+                                If _sellerStart > _dataFim Then
+                                    Exit For
+                                End If
+                            End If
+
+                            Try
+                                _sellerFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _sellerStart)
+                                _seller = New RedeAncoraCheckoutEntregaSellerModel()
+                                _seller.CodCentroDistribuicao = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(_body, "seller_id", _sellerStart, _sellerFim)
+                                _seller.NomeCentroDistribuicao = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(_body, "seller_name", _sellerStart, _sellerFim)
+
+                                _innerStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(_body, "carriers", _sellerStart)
+                                If _innerStart > 0 Then
+                                    If _sellerFim <= 0 Or _innerStart <= _sellerFim Then
+                                        For _j = 0 To 999
+                                            _opStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(_body, _innerStart, _j)
+
+                                            If _opStart <= 0 Then
+                                                Exit For
+                                            End If
+
+                                            If _sellerFim > 0 Then
+                                                If _opStart > _sellerFim Then
+                                                    Exit For
+                                                End If
+                                            End If
+
+                                            Try
+                                                _opFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _opStart)
+                                                _opcao = New RedeAncoraCheckoutEntregaOpcaoModel()
+                                                _opcao.CodEntrega = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(_body, "carrier_id", _opStart, _opFim)
+                                                _opcao.Nome = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(_body, "name", _opStart, _opFim)
+                                                _opcao.ExigeTransportador = RedeAncoraJsonHelper.SimNao(RedeAncoraJsonHelper.ObterBooleanJsonDeBlobEntre(_body, "haulers_required", _opStart, _opFim))
+                                                _seller.Opcoes.Push(_opcao)
+                                                _opcao = NULL
+                                            Catch exOpcao As Exception
+                                                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearRevisao.carrier", exOpcao)
+
+                                                If Assigned(_opcao) Then
+                                                    _opcao.Free()
+                                                    _opcao = NULL
+                                                End If
+                                            End Try
+                                        Next
+                                    End If
+                                End If
+
+                                _result.EntregasSellers.Push(_seller)
+                                _seller = NULL
+                            Catch exSeller As Exception
+                                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearRevisao.seller", exSeller)
+
+                                If Assigned(_seller) Then
+                                    _seller.Free()
+                                    _seller = NULL
+                                End If
+                            End Try
+                        Next
+                    End If
+                End If
+
+                _ok = _result
+                _result = NULL
+            Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearRevisao", ex)
+
+                If Assigned(_opcao) Then
+                    _opcao.Free()
+                    _opcao = NULL
+                End If
+
+                If Assigned(_seller) Then
+                    _seller.Free()
+                    _seller = NULL
+                End If
+
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = NULL
+                End If
+
+                Throw New System.Exception("Erro ao mapear /checkout/review: " & ex._getMessage())
+            End Try
+
+            MapearRevisao = _ok
         End Function
 
         Private Function MapearPagamentos(pResponse As HttpResponse) As RedeAncoraCheckoutPagamentosModel
-            Dim _json As TJSONObject = NULL
-            Dim _dataObj As TJSONObject = NULL
-            Dim _dataArray As TJSONArray = NULL
-            Dim _result As New RedeAncoraCheckoutPagamentosModel()
+            Dim _body As String = ""
+            Dim _dataStart As Integer = 0
+            Dim _dataFim As Integer = 0
+            Dim _arrStart As Integer = 0
+            Dim _itemsStart As Integer = 0
+            Dim _itemsFim As Integer = 0
+            Dim _result As RedeAncoraCheckoutPagamentosModel = NULL
+            Dim _ok As RedeAncoraCheckoutPagamentosModel = NULL
 
-            _json = pResponse.BodyAsJsonObject()
+            Try
+                _body = pResponse.Body
 
-            If Not Assigned(_json) Then
-                Throw New System.Exception("Resposta /checkout/payments sem JSON valido")
-            End If
-
-            _dataObj = RedeAncoraJsonHelper.ObterDataObjeto(_json)
-
-            If Assigned(_dataObj) Then
-                me.PreencherCondicoesPagamento(_dataObj, "vendor", _result.Fornecedor)
-                me.PreencherCondicoesPagamento(_dataObj, "free", _result.Livre)
-                me.PreencherCondicoesPagamento(_dataObj, "special", _result.Especial)
-                _dataObj.Free()
-            Else
-                _dataArray = RedeAncoraJsonHelper.ObterDataArray(_json)
-
-                If Not Assigned(_dataArray) Then
-                    _json.Free()
-                    Throw New System.Exception("Resposta /checkout/payments sem data objeto ou array")
+                If _body.Trim() = "" Then
+                    Throw New System.Exception("Resposta /checkout/payments vazia")
                 End If
 
-                me.MapearPagamentosDataArray(_dataArray.ToString(), _result)
-                _dataArray.Free()
-            End If
+                _result = New RedeAncoraCheckoutPagamentosModel()
+                _dataStart = RedeAncoraJsonHelper.PosicaoInicioObjetoJsonDeBlob(_body, "data")
 
-            _json.Free()
-            MapearPagamentos = _result
+                If _dataStart > 0 Then
+                    _dataFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _dataStart)
+                    me.PreencherCondicoesPagamento(_body, _dataStart, _dataFim, "vendor", _result.Fornecedor)
+                    me.PreencherCondicoesPagamento(_body, _dataStart, _dataFim, "free", _result.Livre)
+                    me.PreencherCondicoesPagamento(_body, _dataStart, _dataFim, "special", _result.Especial)
+                Else
+                    _arrStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlob(_body, "data")
+
+                    If _arrStart <= 0 Then
+                        _arrStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlob(_body, "items")
+                    End If
+
+                    If _arrStart > 0 Then
+                        me.MapearPagamentosDataArray(_body, _arrStart, _result)
+                    Else
+                        _itemsStart = RedeAncoraJsonHelper.PosicaoInicioObjetoJsonDeBlob(_body, "items")
+
+                        If _itemsStart <= 0 Then
+                            Throw New System.Exception("Resposta /checkout/payments sem data/items objeto ou array")
+                        End If
+
+                        _itemsFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _itemsStart)
+                        me.PreencherCondicoesPagamento(_body, _itemsStart, _itemsFim, "vendor", _result.Fornecedor)
+                        me.PreencherCondicoesPagamento(_body, _itemsStart, _itemsFim, "free", _result.Livre)
+                        me.PreencherCondicoesPagamento(_body, _itemsStart, _itemsFim, "special", _result.Especial)
+                    End If
+                End If
+
+                _ok = _result
+                _result = NULL
+            Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearPagamentos", ex)
+
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = NULL
+                End If
+
+                Throw New System.Exception("Erro ao mapear /checkout/payments: " & ex._getMessage())
+            End Try
+
+            MapearPagamentos = _ok
         End Function
 
-        Private Sub MapearPagamentosDataArray(pArrayBlob As String, pResult As RedeAncoraCheckoutPagamentosModel)
+        Private Sub MapearPagamentosDataArray(pBody As String, pArrayStart As Integer, pResult As RedeAncoraCheckoutPagamentosModel)
             Dim _i As Integer = 0
-            Dim _elem As String = ""
-            Dim _groupJson As TJSONObject = NULL
+            Dim _elemStart As Integer = 0
+            Dim _elemFim As Integer = 0
+            Dim _arrFim As Integer = 0
             Dim _label As String = ""
             Dim _destino As RedeAncoraCheckoutCondicoesPagamentoModel = NULL
+            Dim _ch As String = ""
+
+            _arrFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, pArrayStart)
 
             For _i = 0 To 999
-                _elem = RedeAncoraJsonHelper.ExtrairElementoArrayJson(pArrayBlob, _i)
+                _elemStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(pBody, pArrayStart, _i)
 
-                If _elem = "" Then
+                If _elemStart <= 0 Then
                     Exit For
                 End If
 
-                If Mid(_elem.Trim(), 1, 1) = "{" Then
-                    _groupJson = New TJSONObject(_elem)
-                    _label = RedeAncoraJsonHelper.ObterTextoJson(_groupJson, "label")
-                    _destino = me.ResolverGrupoPagamentos(pResult, _label)
-
-                    If Assigned(_destino) Then
-                        me.PreencherCondicoesDeFilhoJson(_groupJson, _destino)
+                If _arrFim > 0 Then
+                    If _elemStart > _arrFim Then
+                        Exit For
                     End If
+                End If
 
-                    _groupJson.Free()
-                    _groupJson = NULL
+                _ch = Mid(pBody, _elemStart, 1)
+                If _ch = "{" Then
+                    Try
+                        _elemFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, _elemStart)
+                        _label = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "label", _elemStart, _elemFim)
+                        _destino = me.ResolverGrupoPagamentos(pResult, _label)
+
+                        If Assigned(_destino) Then
+                            me.PreencherCondicoesDeFilhoJson(pBody, _elemStart, _elemFim, _destino)
+                        End If
+                    Catch exItem As Exception
+                        RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearPagamentos.item", exItem)
+                    End Try
                 End If
             Next
         End Sub
@@ -703,118 +835,152 @@ Namespace rede_ancora_checkout_service
             End If
         End Function
 
-        Private Sub PreencherCondicoesPagamento(pData As TJSONObject, pKey As String, pDestino As RedeAncoraCheckoutCondicoesPagamentoModel)
-            Dim _items As TJSONArray = RedeAncoraJsonHelper.ObterArrayJson(pData, pKey)
-            Dim _objeto As TJSONObject = NULL
+        Private Sub PreencherCondicoesPagamento(pBody As String, pFromPos As Integer, pToPos As Integer, pKey As String, pDestino As RedeAncoraCheckoutCondicoesPagamentoModel)
+            Dim _arrStart As Integer = 0
+            Dim _objStart As Integer = 0
 
-            If Assigned(_items) Then
-                me.PreencherCondicoesPagamentoArray(_items.ToString(), pDestino)
-                _items.Free()
-                Exit Sub
+            _arrStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(pBody, pKey, pFromPos)
+            If _arrStart > 0 Then
+                If pToPos <= 0 Or _arrStart <= pToPos Then
+                    me.PreencherCondicoesPagamentoArray(pBody, _arrStart, pDestino)
+                    Exit Sub
+                End If
             End If
 
-            _objeto = RedeAncoraJsonHelper.ObterObjetoJson(pData, pKey)
-
-            If Assigned(_objeto) Then
-                me.PreencherCondicoesPagamentoObjetoMapa(_objeto, pDestino)
-                _objeto.Free()
+            _objStart = RedeAncoraJsonHelper.PosicaoInicioObjetoJsonDeBlobApos(pBody, pKey, pFromPos)
+            If _objStart > 0 Then
+                If pToPos <= 0 Or _objStart <= pToPos Then
+                    me.PreencherCondicoesPagamentoObjetoMapa(pBody, _objStart, pDestino)
+                End If
             End If
         End Sub
 
-        Private Sub PreencherCondicoesPagamentoArray(pArrayBlob As String, pDestino As RedeAncoraCheckoutCondicoesPagamentoModel)
+        Private Sub PreencherCondicoesPagamentoArray(pBody As String, pArrayStart As Integer, pDestino As RedeAncoraCheckoutCondicoesPagamentoModel)
             Dim _i As Integer = 0
-            Dim _elem As String = ""
-            Dim _tipo As String = ""
-            Dim _itemJson As TJSONObject = NULL
+            Dim _elemStart As Integer = 0
+            Dim _elemFim As Integer = 0
+            Dim _arrFim As Integer = 0
+            Dim _ch As String = ""
+
+            _arrFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, pArrayStart)
 
             For _i = 0 To 999
-                _elem = RedeAncoraJsonHelper.ExtrairElementoArrayJson(pArrayBlob, _i)
+                _elemStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(pBody, pArrayStart, _i)
 
-                If _elem = "" Then
+                If _elemStart <= 0 Then
                     Exit For
                 End If
 
-                _tipo = Mid(_elem.Trim(), 1, 1)
+                If _arrFim > 0 Then
+                    If _elemStart > _arrFim Then
+                        Exit For
+                    End If
+                End If
 
-                If _tipo = "{" Then
-                    _itemJson = New TJSONObject(_elem)
-                    me.PreencherCondicoesDeFilhoJson(_itemJson, pDestino)
-                    _itemJson.Free()
-                    _itemJson = NULL
-                ElseIf _tipo = "[" Then
-                    me.PreencherCondicoesPagamentoArray(_elem, pDestino)
+                _ch = Mid(pBody, _elemStart, 1)
+
+                If _ch = "{" Then
+                    Try
+                        _elemFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, _elemStart)
+                        me.PreencherCondicoesDeFilhoJson(pBody, _elemStart, _elemFim, pDestino)
+                    Catch exItem As Exception
+                        RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearPagamentos.condicao", exItem)
+                    End Try
+                ElseIf _ch = "[" Then
+                    me.PreencherCondicoesPagamentoArray(pBody, _elemStart, pDestino)
                 End If
             Next
         End Sub
 
-        Private Sub PreencherCondicoesPagamentoObjetoMapa(pObj As TJSONObject, pDestino As RedeAncoraCheckoutCondicoesPagamentoModel)
-            Dim _blob As String = pObj.ToString()
+        Private Sub PreencherCondicoesPagamentoObjetoMapa(pBody As String, pObjStart As Integer, pDestino As RedeAncoraCheckoutCondicoesPagamentoModel)
             Dim _i As Integer = 0
-            Dim _childBlob As String = ""
-            Dim _child As TJSONObject = NULL
+            Dim _childStart As Integer = 0
+            Dim _childFim As Integer = 0
+            Dim _objFim As Integer = 0
+
+            _objFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, pObjStart)
 
             For _i = 0 To 999
-                _childBlob = RedeAncoraJsonHelper.ExtrairObjetoFilhoJson(_blob, _i)
+                _childStart = RedeAncoraJsonHelper.PosicaoObjetoFilhoJsonDeBlob(pBody, pObjStart, _i)
 
-                If _childBlob = "" Then
+                If _childStart <= 0 Then
                     Exit For
                 End If
 
-                _child = New TJSONObject(_childBlob)
-                me.PreencherCondicoesDeFilhoJson(_child, pDestino)
-                _child.Free()
-                _child = NULL
+                If _objFim > 0 Then
+                    If _childStart > _objFim Then
+                        Exit For
+                    End If
+                End If
+
+                Try
+                    _childFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, _childStart)
+                    me.PreencherCondicoesDeFilhoJson(pBody, _childStart, _childFim, pDestino)
+                Catch exItem As Exception
+                    RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearPagamentos.mapa", exItem)
+                End Try
             Next
         End Sub
 
-        Private Sub PreencherCondicoesDeFilhoJson(pItemJson As TJSONObject, pDestino As RedeAncoraCheckoutCondicoesPagamentoModel)
-            Dim _paymentConditions As TJSONArray = NULL
-            Dim _condicoesArray As TJSONArray = NULL
-            Dim _condicoes As TJSONObject = NULL
+        Private Sub PreencherCondicoesDeFilhoJson(pBody As String, pStart As Integer, pFim As Integer, pDestino As RedeAncoraCheckoutCondicoesPagamentoModel)
+            Dim _paymentStart As Integer = 0
+            Dim _condicoesArrStart As Integer = 0
+            Dim _condicoesObjStart As Integer = 0
             Dim _handle As Integer = 0
             Dim _item As RedeAncoraCheckoutCondicaoPagamentoModel = NULL
 
-            _paymentConditions = RedeAncoraJsonHelper.ObterArrayJson(pItemJson, "payment_conditions")
-
-            If Assigned(_paymentConditions) Then
-                me.PreencherCondicoesPagamentoArray(_paymentConditions.ToString(), pDestino)
-                _paymentConditions.Free()
-                Exit Sub
+            _paymentStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(pBody, "payment_conditions", pStart)
+            If _paymentStart > 0 Then
+                If pFim <= 0 Or _paymentStart <= pFim Then
+                    me.PreencherCondicoesPagamentoArray(pBody, _paymentStart, pDestino)
+                    Exit Sub
+                End If
             End If
 
-            _condicoesArray = RedeAncoraJsonHelper.ObterArrayJson(pItemJson, "condicoes")
-
-            If Assigned(_condicoesArray) Then
-                me.PreencherCondicoesPagamentoArray(_condicoesArray.ToString(), pDestino)
-                _condicoesArray.Free()
-                Exit Sub
+            _condicoesArrStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(pBody, "condicoes", pStart)
+            If _condicoesArrStart > 0 Then
+                If pFim <= 0 Or _condicoesArrStart <= pFim Then
+                    me.PreencherCondicoesPagamentoArray(pBody, _condicoesArrStart, pDestino)
+                    Exit Sub
+                End If
             End If
 
-            _handle = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "condition_handle")
+            _handle = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(pBody, "condition_handle", pStart, pFim)
 
             If _handle <= 0 Then
-                _handle = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "handle")
+                _handle = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(pBody, "handle", pStart, pFim)
             End If
 
             If _handle > 0 Then
-                _item = New RedeAncoraCheckoutCondicaoPagamentoModel()
-                _item.CodCondicaoPagamento = _handle
-                _item.Descricao = RedeAncoraJsonHelper.ObterTextoJson(pItemJson, "label")
+                Try
+                    _item = New RedeAncoraCheckoutCondicaoPagamentoModel()
+                    _item.CodCondicaoPagamento = _handle
+                    _item.Descricao = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "label", pStart, pFim)
 
-                If _item.Descricao = "" Then
-                    _item.Descricao = RedeAncoraJsonHelper.ObterTextoJson(pItemJson, "title")
-                End If
+                    If _item.Descricao = "" Then
+                        _item.Descricao = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "title", pStart, pFim)
+                    End If
 
-                _item.Tag = RedeAncoraJsonHelper.ObterTextoJson(pItemJson, "tag")
-                pDestino.Push(_item)
+                    _item.Tag = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "tag", pStart, pFim)
+                    pDestino.Push(_item)
+                    _item = NULL
+                Catch exItem As Exception
+                    RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearPagamentos.condicao", exItem)
+
+                    If Assigned(_item) Then
+                        _item.Free()
+                        _item = NULL
+                    End If
+                End Try
+
                 Exit Sub
             End If
 
-            _condicoes = RedeAncoraJsonHelper.ObterObjetoJson(pItemJson, "condicoes")
-
-            If Assigned(_condicoes) Then
-                me.PreencherCondicoesPagamentoObjetoMapa(_condicoes, pDestino)
-                _condicoes.Free()
+            _condicoesObjStart = RedeAncoraJsonHelper.PosicaoInicioObjetoJsonDeBlobApos(pBody, "condicoes", pStart)
+            If _condicoesObjStart > 0 Then
+                If pFim <= 0 Or _condicoesObjStart <= pFim Then
+                    me.PreencherCondicoesPagamentoObjetoMapa(pBody, _condicoesObjStart, pDestino)
+                End If
             End If
         End Sub
 
@@ -846,145 +1012,216 @@ Namespace rede_ancora_checkout_service
         End Function
 
         Private Function MapearTransportadores(pResponse As HttpResponse) As RedeAncoraLogisticaTransportadoresModel
-            Dim _json As TJSONObject = NULL
-            Dim _data As TJSONArray = NULL
-            Dim _result As New RedeAncoraLogisticaTransportadoresModel()
-            Dim _i As Integer
+            Dim _body As String = ""
+            Dim _result As RedeAncoraLogisticaTransportadoresModel = NULL
+            Dim _ok As RedeAncoraLogisticaTransportadoresModel = NULL
+            Dim _item As RedeAncoraLogisticaTransportadorModel = NULL
+            Dim _arrStart As Integer = 0
+            Dim _elemStart As Integer = 0
+            Dim _elemFim As Integer = 0
+            Dim _i As Integer = 0
+            Dim _id As Integer = 0
 
-            _json = pResponse.BodyAsJsonObject()
-            _data = RedeAncoraJsonHelper.ObterDataArray(_json)
+            Try
+                _body = pResponse.Body
+                _arrStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlob(_body, "data")
 
-            If Not Assigned(_data) Then
-                _json.Free()
-                Throw New System.Exception("Resposta /logistics/haulers sem array data")
-            End If
-
-            For _i = 0 To _data.Length() - 1
-                Dim _itemJson As TJSONObject = _data.GetJSONObject(_i)
-                Dim _item As New RedeAncoraLogisticaTransportadorModel()
-
-                _item.CodTransportador = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_itemJson, "id")
-                If _item.CodTransportador <= 0 Then
-                    _item.CodTransportador = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_itemJson, "hauler_id")
+                If _arrStart <= 0 Then
+                    Throw New System.Exception("Resposta /logistics/haulers sem array data")
                 End If
 
-                _item.Nome = RedeAncoraJsonHelper.ObterTextoJson(_itemJson, "name")
-                If _item.Nome.Trim() = "" Then
-                    _item.Nome = RedeAncoraJsonHelper.ObterTextoJson(_itemJson, "nome")
+                _result = New RedeAncoraLogisticaTransportadoresModel()
+
+                For _i = 0 To 9999
+                    _elemStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(_body, _arrStart, _i)
+
+                    If _elemStart <= 0 Then
+                        Exit For
+                    End If
+
+                    _elemFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _elemStart)
+
+                    Try
+                        _item = New RedeAncoraLogisticaTransportadorModel()
+                        _id = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(_body, "id", _elemStart, _elemFim)
+
+                        If _id <= 0 Then
+                            _id = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(_body, "hauler_id", _elemStart, _elemFim)
+                        End If
+
+                        _item.CodTransportador = _id
+                        _item.Nome = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(_body, "name", _elemStart, _elemFim)
+
+                        If _item.Nome.Trim() = "" Then
+                            _item.Nome = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(_body, "nome", _elemStart, _elemFim)
+                        End If
+
+                        If _item.CodTransportador <= 0 Then
+                            RedeAncoraHttpErroHelper.RegistrarFalha("GET /logistics/haulers item", 200, "id ausente")
+                            _item.Free()
+                            _item = NULL
+                        Else
+                            _result.Push(_item)
+                            _item = NULL
+                        End If
+                    Catch exItem As Exception
+                        RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearTransportadores.item", exItem)
+
+                        If Assigned(_item) Then
+                            _item.Free()
+                            _item = NULL
+                        End If
+                    End Try
+                Next
+
+                _ok = _result
+                _result = NULL
+            Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearTransportadores", ex)
+
+                If Assigned(_item) Then
+                    _item.Free()
+                    _item = NULL
                 End If
 
-                _result.Push(_item)
-                _itemJson.Free()
-            Next
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = NULL
+                End If
 
-            _data.Free()
-            _json.Free()
-            MapearTransportadores = _result
+                Throw New System.Exception("Erro ao mapear /logistics/haulers: " & ex._getMessage())
+            End Try
+
+            MapearTransportadores = _ok
         End Function
 
         Private Function MapearPedidos(pCodUsuario As Integer, pIdCarrinho As String, pResponse As HttpResponse) As RedeAncoraPedidosModel
-            Dim _json As TJSONObject = NULL
-            Dim _data As TJSONObject = NULL
-            Dim _orders As TJSONArray = NULL
+            Dim _body As String = ""
             Dim _result As RedeAncoraPedidosModel = NULL
-            Dim _orderJson As TJSONObject = NULL
-            Dim _items As TJSONArray = NULL
-            Dim _itemJson As TJSONObject = NULL
+            Dim _ok As RedeAncoraPedidosModel = NULL
             Dim _pedido As RedeAncoraPedidoModel = NULL
-            Dim _i As Integer
-            Dim _j As Integer
+            Dim _dataStart As Integer = 0
+            Dim _dataFim As Integer = 0
+            Dim _ordersStart As Integer = 0
+            Dim _orderStart As Integer = 0
+            Dim _orderFim As Integer = 0
+            Dim _itemsStart As Integer = 0
+            Dim _itemStart As Integer = 0
+            Dim _itemFim As Integer = 0
+            Dim _i As Integer = 0
+            Dim _j As Integer = 0
             Dim _qty As Integer = 0
             Dim _unitPrice As Double = 0
             Dim _unitTaxes As Double = 0
+            Dim _msg As String = ""
 
             Try
-                _result = New RedeAncoraPedidosModel()
-                _json = pResponse.BodyAsJsonObject()
-                _data = RedeAncoraJsonHelper.ObterDataObjeto(_json)
+                _body = pResponse.Body
+                _dataStart = RedeAncoraJsonHelper.PosicaoInicioObjetoJsonDeBlob(_body, "data")
 
-                If Not Assigned(_data) Then
+                If _dataStart <= 0 Then
                     Throw New System.Exception("Resposta /checkout/order sem objeto data")
                 End If
 
-                _orders = RedeAncoraJsonHelper.ObterArrayJson(_data, "orders")
+                _dataFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _dataStart)
 
-                If Not Assigned(_orders) Then
+                If RedeAncoraJsonHelper.ExisteChaveJsonDeBlobEntre(_body, "success", _dataStart, _dataFim) Then
+                    If Not RedeAncoraJsonHelper.ObterBooleanJsonDeBlobEntre(_body, "success", _dataStart, _dataFim) Then
+                        _msg = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(_body, "message", _dataStart, _dataFim)
+                        RedeAncoraHttpErroHelper.RegistrarFalha("POST /checkout/order", 200, _body)
+                        Throw New System.Exception("POST /checkout/order data.success=false: " & _msg)
+                    End If
+                End If
+
+                _ordersStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(_body, "orders", _dataStart)
+
+                If _ordersStart <= 0 Then
                     Throw New System.Exception("Resposta /checkout/order sem array orders")
                 End If
 
-                For _i = 0 To _orders.Length() - 1
-                    _pedido = New RedeAncoraPedidoModel()
+                If _dataFim > 0 Then
+                    If _ordersStart > _dataFim Then
+                        Throw New System.Exception("Resposta /checkout/order sem array orders")
+                    End If
+                End If
 
-                    _orderJson = _orders.GetJSONObject(_i)
-                    _pedido.CodUsuario = pCodUsuario
-                    _pedido.IdPedidoApi = RedeAncoraJsonHelper.ObterInteiroJson(_orderJson, "id")
-                    _pedido.IdCarrinho = pIdCarrinho
-                    _pedido.DataPedido = DateTime()
-                    _pedido.ValorTotal = 0
+                _result = New RedeAncoraPedidosModel()
 
-                    _items = RedeAncoraJsonHelper.ObterArrayJson(_orderJson, "items")
-                    If Assigned(_items) Then
-                        For _j = 0 To _items.Length() - 1
-                            _itemJson = _items.GetJSONObject(_j)
-                            _qty = RedeAncoraJsonHelper.ObterInteiroJson(_itemJson, "qty")
-                            _unitPrice = RedeAncoraJsonHelper.ObterDecimalJson(_itemJson, "unit_price")
-                            _unitTaxes = RedeAncoraJsonHelper.ObterDecimalJson(_itemJson, "unit_taxes")
+                For _i = 0 To 999
+                    _orderStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(_body, _ordersStart, _i)
 
-                            _pedido.ValorTotal = _pedido.ValorTotal + ((_unitPrice + _unitTaxes) * _qty)
-                            _itemJson.Free()
-                            _itemJson = NULL
-                        Next
-
-                        _items.Free()
-                        _items = NULL
+                    If _orderStart <= 0 Then
+                        Exit For
                     End If
 
-                    _result.Push(_pedido)
-                    _pedido = NULL
-                    _orderJson.Free()
-                    _orderJson = NULL
+                    If _dataFim > 0 Then
+                        If _orderStart > _dataFim Then
+                            Exit For
+                        End If
+                    End If
+
+                    Try
+                        _orderFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _orderStart)
+                        _pedido = New RedeAncoraPedidoModel()
+                        _pedido.CodUsuario = pCodUsuario
+                        _pedido.IdPedidoApi = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(_body, "id", _orderStart, _orderFim)
+                        _pedido.IdCarrinho = pIdCarrinho
+                        _pedido.DataPedido = DateTime()
+                        _pedido.ValorTotal = 0
+
+                        If _pedido.IdPedidoApi <= 0 Then
+                            Throw New System.Exception("pedido sem id")
+                        End If
+
+                        _itemsStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(_body, "items", _orderStart)
+                        If _itemsStart > 0 Then
+                            If _orderFim <= 0 Or _itemsStart <= _orderFim Then
+                                For _j = 0 To 999
+                                    _itemStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(_body, _itemsStart, _j)
+
+                                    If _itemStart <= 0 Then
+                                        Exit For
+                                    End If
+
+                                    If _orderFim > 0 Then
+                                        If _itemStart > _orderFim Then
+                                            Exit For
+                                        End If
+                                    End If
+
+                                    Try
+                                        _itemFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(_body, _itemStart)
+                                        _qty = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(_body, "qty", _itemStart, _itemFim)
+                                        _unitPrice = RedeAncoraJsonHelper.ObterDecimalJsonDeBlobEntre(_body, "unit_price", _itemStart, _itemFim)
+                                        _unitTaxes = RedeAncoraJsonHelper.ObterDecimalJsonDeBlobEntre(_body, "unit_taxes", _itemStart, _itemFim)
+                                        _pedido.ValorTotal = _pedido.ValorTotal + ((_unitPrice + _unitTaxes) * _qty)
+                                    Catch exItem As Exception
+                                        RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearPedidos.item", exItem)
+                                    End Try
+                                Next
+                            End If
+                        End If
+
+                        _result.Push(_pedido)
+                        _pedido = NULL
+                    Catch exPedido As Exception
+                        RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearPedidos.order", exPedido)
+
+                        If Assigned(_pedido) Then
+                            _pedido.Free()
+                            _pedido = NULL
+                        End If
+                    End Try
                 Next
 
-                _orders.Free()
-                _orders = NULL
-                _data.Free()
-                _data = NULL
-                _json.Free()
-                _json = NULL
+                _ok = _result
+                _result = NULL
             Catch ex As Exception
-                If Assigned(_itemJson) Then
-                    _itemJson.Free()
-                    _itemJson = NULL
-                End If
-
-                If Assigned(_items) Then
-                    _items.Free()
-                    _items = NULL
-                End If
-
-                If Assigned(_orderJson) Then
-                    _orderJson.Free()
-                    _orderJson = NULL
-                End If
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraCheckoutService.MapearPedidos", ex)
 
                 If Assigned(_pedido) Then
                     _pedido.Free()
                     _pedido = NULL
-                End If
-
-                If Assigned(_orders) Then
-                    _orders.Free()
-                    _orders = NULL
-                End If
-
-                If Assigned(_data) Then
-                    _data.Free()
-                    _data = NULL
-                End If
-
-                If Assigned(_json) Then
-                    _json.Free()
-                    _json = NULL
                 End If
 
                 If Assigned(_result) Then
@@ -995,7 +1232,7 @@ Namespace rede_ancora_checkout_service
                 Throw New System.Exception("Erro ao mapear pedidos Rede Ancora: " + ex._getMessage())
             End Try
 
-            MapearPedidos = _result
+            MapearPedidos = _ok
         End Function
 
         Private Function MontarPayloadItensOpcional(pItensIds As RedeAncoraCarrinhoItensIdsModel) As String
@@ -1067,15 +1304,8 @@ Namespace rede_ancora_checkout_service
         End Function
 
         Private Function MontarErroHttp(pOperacao As String, pResponse As HttpResponse) As String
-            Dim _msg As String = ""
-
-            _msg = pOperacao + " Rede Ancora falhou. HTTP " + Parser.IntegerToString(pResponse.StatusCode)
-
-            If pResponse.Body <> "" Then
-                _msg = _msg + ": " + pResponse.Body
-            End If
-
-            MontarErroHttp = _msg
+            RedeAncoraHttpErroHelper.RegistrarFalha(pOperacao, pResponse.StatusCode, pResponse.Body)
+            MontarErroHttp = RedeAncoraHttpErroHelper.MontarMensagem(pOperacao, pResponse.StatusCode, pResponse.Body)
         End Function
 
         Private Function MontarArrayItensIdsJson(pItensIds As RedeAncoraCarrinhoItensIdsModel) As String

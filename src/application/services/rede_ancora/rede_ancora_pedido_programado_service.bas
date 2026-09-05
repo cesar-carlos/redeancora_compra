@@ -9,6 +9,7 @@ Imports rede_ancora_input_listar_pedidos_programados
 Imports rede_ancora_input_listar_produtos_pedido_programado
 Imports rede_ancora_input_solicitar_relatorio_pedido_programado
 Imports http_response
+Imports rede_ancora_http_erro_helper
 
 Namespace rede_ancora_pedido_programado_service
     Class RedeAncoraPedidoProgramadoService
@@ -157,10 +158,14 @@ Namespace rede_ancora_pedido_programado_service
                     Throw New System.Exception(me.MontarErroHttp(pOperacao, _response))
                 End If
 
+                RedeAncoraHttpErroHelper.ExigirCorpoJson(pOperacao, _response.StatusCode, _response.Body)
+
                 ExecutarGetPassThrough = _response.Body
                 _response.Free()
                 _api.Free()
             Catch ex As Exception
+                RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraPedidoProgramadoService." & pOperacao, ex)
+
                 If Assigned(_response) Then
                     _response.Free()
                 End If
@@ -192,10 +197,8 @@ Namespace rede_ancora_pedido_programado_service
         End Function
 
         Private Function MontarErroHttp(pOperacao As String, pResponse As HttpResponse) As String
-            Dim _msg As String = ""
-
-            _msg = pOperacao + " Rede Ancora falhou. HTTP " + Parser.IntegerToString(pResponse.StatusCode) + ": " + pResponse.Body
-            MontarErroHttp = _msg
+            RedeAncoraHttpErroHelper.RegistrarFalha(pOperacao, pResponse.StatusCode, pResponse.Body)
+            MontarErroHttp = RedeAncoraHttpErroHelper.MontarMensagem(pOperacao, pResponse.StatusCode, pResponse.Body)
         End Function
 
         Overrides Sub Dispose()

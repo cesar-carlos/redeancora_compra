@@ -122,7 +122,8 @@ flowchart LR
 | `RedeAncoraAutenticacao` | **Manual** — `ChaveApi` por `CodUsuario` (`SalvarChaveApiRedeAncora`); demais campos preenchidos via `GET /profile` |
 | `RedeAncoraEmpresa`, `RedeAncoraCentroDistribuicao` | Automático via `GET /profile` |
 | `RedeAncoraModalidade`, marcas/linhas/famílias | Automático via sync de modalidades e catálogo |
-| `RedeAncoraProdutoVinculo` | Cadastro Âncora (PK `Cna`); `CodProduto` opcional (vínculo ERP) |
+| `RedeAncoraProduto` | Cadastro Âncora (PK `Cna`); sync `GET /products/full-search?fields=details` |
+| `RedeAncoraProdutoVinculo` | Vínculo ERP (`CodProduto` opcional) + espelho legado de catálogo (PK `Cna`); dual-write no sync |
 | `RedeAncoraProdutoImagem` | URLs de imagem por `Cna` (PK `Cna + Item + TipoImagem`); sync via `bulk-search` / `full-search` |
 | `RedeAncoraCarrinho`, `RedeAncoraCarrinhoItem` | Automático a cada operação de carrinho (cabeçalho + itens na mesma transação) |
 | `RedeAncoraPedido` | Automático após `POST .../order` |
@@ -1404,7 +1405,7 @@ O plugin em produção executa apenas migrations (`AppBoot.Run()` em `Principal.
 | 5 | `CenarioNovos()` | Sales, ScheduledOrder, Agenda, Haulers (leitura) + produtos complementares novos |
 | 6 | `CenarioCompleto()` | Sequência 1→5 |
 
-Para catálogo completo no passo 3: `DefinirBaixarCatalogoCompleto(True)` no harness (via `ExecutarProduto` interno).
+**Cadastro completo de produtos** (carga total; a API não tem delta): `UsuarioService.SincronizarRedeAncoraCadastroProdutosCompleto` — ordem: marcas → linhas → famílias → `GET /products/full-search` paginado por família (`empresa` = CD, `fields=details`). Upsert em `Integracao.RedeAncoraProduto` (fonte do cadastro) com **dual-write** do espelho legado em `RedeAncoraProdutoVinculo` (`CodigoAncora`, `DescricaoAncora`, `CodMarca`, `CodLinha`, `CodFamilia`). Imagens (`RedeAncoraProdutoImagem`) só se as URLs vierem no blob (parse em janela, sem `TJSONObject`); payload `fields=details` pode omiti-las — nesse caso as imagens locais não são apagadas. **Não** chama `DELETE /checkout`. Exige CDs já gravados (`InicializarRedeAncora`). Harness: `CenarioSincronizacao()` + `DefinirBaixarCatalogoCompleto(True)`. Periódico: `RedeAncoraCadastroProdutosListener` (`StartListener`; intervalo padrão 4 h; não inicia sozinho).
 
 Para fechar pedido real: staging + `DefinirConfirmarPedido(True)` no harness (incompatível com `DefinirDeletarCarrinhoAoFinal(True)`).
 

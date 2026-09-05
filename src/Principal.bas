@@ -5,17 +5,26 @@ Imports rede_ancora_dev_harness
 
 AppBoot.Run()
 
+' Teste local: cadastro completo de produtos.
+' Cadeia: InicializarRedeAncora (CD do profile) ->
+' UsuarioService.SincronizarRedeAncoraCadastroProdutosCompleto ->
+' RedeAncoraProdutoSincronizacaoService.SincronizarCadastroProdutosCompleto
 Dim _dev As New RedeAncoraDevHarness()
+' Preencha a X-API-KEY abaixo para testar. Nao commitar a chave.
 _dev.DefinirChaveApi("")
-' Sync cadastros: marcas/linhas/familias + vinculos CNA + imagens (sem checkout).
 _dev.DefinirCenario(RedeAncoraDevHarness.CenarioSincronizacao())
 _dev.DefinirBaixarCatalogoCompleto(True)
-' Voltar para checkout / COMPLETO: comente as duas linhas acima e descomente abaixo.
+_dev.Executar()
+_dev.Free()
+
+' --- Fluxo anterior (checkout / COMPLETO). Para restaurar, comente o bloco acima e descomente: ---
+' Dim _dev As New RedeAncoraDevHarness()
+' _dev.DefinirChaveApi("")
 ' _dev.DefinirCenario(RedeAncoraDevHarness.CenarioCompleto())
 ' _dev.DefinirCenario(RedeAncoraDevHarness.CenarioCheckout())
 ' _dev.DefinirInicializarRedeAncora(False)
 ' _dev.DefinirDeletarCarrinhoAoFinal(False)
 ' _dev.DefinirConfirmarPedido(False)
 ' _dev.DefinirTestarEndpointsProduto(False)
-_dev.Executar()
-_dev.Free()
+' _dev.Executar()
+' _dev.Free()

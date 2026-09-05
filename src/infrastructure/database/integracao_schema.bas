@@ -50,6 +50,10 @@ Namespace integracao_schema
             TabelaFamilia = "RedeAncoraFamilia"
         End Function
 
+        Shared Function TabelaProduto() As String
+            TabelaProduto = "RedeAncoraProduto"
+        End Function
+
         Shared Function TabelaProdutoVinculo() As String
             TabelaProdutoVinculo = "RedeAncoraProdutoVinculo"
         End Function
@@ -100,6 +104,10 @@ Namespace integracao_schema
 
         Shared Function TabelaFamiliaQualificada() As String
             TabelaFamiliaQualificada = IntegracaoSchema.NomeQualificado(IntegracaoSchema.TabelaFamilia())
+        End Function
+
+        Shared Function TabelaProdutoQualificada() As String
+            TabelaProdutoQualificada = IntegracaoSchema.NomeQualificado(IntegracaoSchema.TabelaProduto())
         End Function
 
         Shared Function TabelaProdutoVinculoQualificada() As String
