@@ -1174,13 +1174,16 @@ Namespace rede_ancora_produto_service
 
         Function VincularComProdutoInterno(pCna As Integer, pCodProduto As Integer) As RedeAncoraProdutoVinculoModel
             Dim _model As RedeAncoraProdutoVinculoModel = NULL
+            Dim _ok As RedeAncoraProdutoVinculoModel = NULL
 
             Try
                 _model = me._vinculoRepository.ObterPorCna(pCna)
                 _model.CodProduto = pCodProduto
                 _model.Ativo = "S"
+                _model.DataVinculo = DateTime()
                 me.SalvarVinculo(_model)
-                VincularComProdutoInterno = _model
+                _ok = _model
+                _model = NULL
             Catch ex As Exception
                 If Assigned(_model) Then
                     _model.Free()
@@ -1188,6 +1191,8 @@ Namespace rede_ancora_produto_service
 
                 Throw New System.Exception("Erro ao vincular CNA " + pCna.ToString() + " com Produto.CodProduto " + pCodProduto.ToString() + ": " + ex._getMessage())
             End Try
+
+            VincularComProdutoInterno = _ok
         End Function
 
         Function VincularProdutoManual(pCodProduto As Integer, pCna As Integer, pCodigoAncora As String, pDescricaoAncora As String, pCodMarca As Integer, pCodLinha As Integer, pCodFamilia As Integer, pObservacao As String) As RedeAncoraProdutoVinculoModel

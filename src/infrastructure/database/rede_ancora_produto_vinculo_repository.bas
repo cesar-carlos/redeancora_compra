@@ -103,6 +103,7 @@ Namespace rede_ancora_produto_vinculo_repository
             $"    CodLinha = " + me.SqlCampoInteiroOuNull("CodLinha") + ", " +_
             $"    CodFamilia = " + me.SqlCampoInteiroOuNull("CodFamilia") + ", " +_
             $"    Ativo = :Ativo, " +_
+            $"    DataVinculo = :DataVinculo, " +_
             $"    DataAtualizacao = :DataAtualizacao, " +_
             $"    OrigemVinculo = :OrigemVinculo, " +_
             $"    Observacao = :Observacao " +_
@@ -515,9 +516,86 @@ Namespace rede_ancora_produto_vinculo_repository
             End Try
         End Sub
 
+        Private Sub CompletarCamposNaoInformados(pModel As RedeAncoraProdutoVinculoModel)
+            Dim _existente As RedeAncoraProdutoVinculoModel = NULL
+
+            _existente = New RedeAncoraProdutoVinculoModel()
+
+            Try
+                If me.TryObterPorCna(pModel.Cna, _existente) Then
+                    If pModel.CodProduto <= 0 Then
+                        pModel.CodProduto = _existente.CodProduto
+                    End If
+
+                    If pModel.CodMarca <= 0 Then
+                        pModel.CodMarca = _existente.CodMarca
+                    End If
+
+                    If pModel.CodLinha <= 0 Then
+                        pModel.CodLinha = _existente.CodLinha
+                    End If
+
+                    If pModel.CodFamilia <= 0 Then
+                        pModel.CodFamilia = _existente.CodFamilia
+                    End If
+
+                    If pModel.CodigoAncora.Trim() = "" Then
+                        pModel.CodigoAncora = _existente.CodigoAncora
+                    End If
+
+                    If pModel.DescricaoAncora.Trim() = "" Then
+                        pModel.DescricaoAncora = _existente.DescricaoAncora
+                    End If
+
+                    If pModel.Observacao.Trim() = "" Then
+                        pModel.Observacao = _existente.Observacao
+                    End If
+
+                    If pModel.OrigemVinculo.Trim() = "" Then
+                        pModel.OrigemVinculo = _existente.OrigemVinculo
+                    Else
+                        If _existente.OrigemVinculo = "MANUAL" Then
+                            If pModel.OrigemVinculo <> "MANUAL" Then
+                                pModel.OrigemVinculo = _existente.OrigemVinculo
+                            End If
+                        End If
+                    End If
+
+                    If IsEmpty(pModel.DataVinculo) Then
+                        pModel.DataVinculo = _existente.DataVinculo
+                    Else
+                        If pModel.DataVinculo <= 0 Then
+                            pModel.DataVinculo = _existente.DataVinculo
+                        End If
+                    End If
+                End If
+
+                _existente.Free()
+                _existente = NULL
+            Catch ex As Exception
+                If Assigned(_existente) Then
+                    _existente.Free()
+                End If
+
+                Throw ex
+            End Try
+        End Sub
+
+        Private Sub PreencherDataVinculoSeVazia(pModel As RedeAncoraProdutoVinculoModel)
+            If IsEmpty(pModel.DataVinculo) Then
+                pModel.DataVinculo = DateTime()
+            Else
+                If pModel.DataVinculo <= 0 Then
+                    pModel.DataVinculo = DateTime()
+                End If
+            End If
+        End Sub
+
         Private Sub AtualizarComTransacao(pModel As RedeAncoraProdutoVinculoModel, pUsarTransacao As Boolean)
             pModel.Validate()
+            me.CompletarCamposNaoInformados(pModel)
             me.ValidarCodProdutoUnicoAtivo(pModel)
+            me.PreencherDataVinculoSeVazia(pModel)
             pModel.DataAtualizacao = DateTime()
 
             Dim _tx As Transaction = NULL
