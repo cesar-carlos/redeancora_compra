@@ -67,6 +67,15 @@ Namespace rede_ancora_produto_vinculo_repository
             "WHERE Cna = :Cna"
         End Function
 
+        Private Function SqlPossuiVinculoManual() As String
+            SqlPossuiVinculoManual = "SELECT CASE " +_
+            "           WHEN COUNT(Cna) > 0 THEN " + SqlHelper.SqlText("true") + " " +_
+            "           ELSE " + SqlHelper.SqlText("false") + " " +_
+            "       END result " +_
+            "FROM " + me.Tabela() + " " +_
+            "WHERE Cna = :Cna AND (CodProduto > 0 OR OrigemVinculo = " + SqlHelper.SqlText("MANUAL") + ")"
+        End Function
+
         Private Function SqlExisteCodProdutoAtivo() As String
             SqlExisteCodProdutoAtivo = "SELECT CASE " +_
             "           WHEN COUNT(Cna) > 0 THEN " + SqlHelper.SqlText("true") + " " +_
@@ -202,6 +211,24 @@ Namespace rede_ancora_produto_vinculo_repository
                 SqlHelper.ReleaseQuery(_query)
                 SqlHelper.HandleQueryError(ex, "Erro ao verificar Integracao.RedeAncoraProdutoVinculo por Cna", "9161")
             End Try
+        End Function
+
+        Function PossuiVinculoManual(pCna As Integer) As Boolean
+            Dim _query As SQL.Command = NULL
+            Dim _result As Boolean = False
+
+            Try
+                _query = SqlHelper.OpenQuery(me.SqlPossuiVinculoManual())
+                _query.Param("Cna").AsInteger = pCna
+                _query.Open()
+                _result = _query.Field("result").AsBoolean
+                SqlHelper.ReleaseQuery(_query)
+            Catch ex As Exception
+                SqlHelper.ReleaseQuery(_query)
+                SqlHelper.HandleQueryError(ex, "Erro ao verificar vinculo manual em Integracao.RedeAncoraProdutoVinculo", "9170")
+            End Try
+
+            PossuiVinculoManual = _result
         End Function
 
         Function ExisteCodProdutoAtivo(pCodProduto As Integer, pIgnorarCna As Integer) As Boolean

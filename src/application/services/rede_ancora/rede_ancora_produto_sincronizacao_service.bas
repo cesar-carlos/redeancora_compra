@@ -135,6 +135,7 @@ Namespace rede_ancora_produto_sincronizacao_service
 
                 mod_logger.Printe("=== Cadastro completo de produtos Rede Ancora :: inicio ===")
                 mod_logger.Printe("Ordem: 1) marcas 2) linhas 3) familias 4) produtos full-search por familia (upsert). Sem DELETE /checkout.")
+                mod_logger.Printe("Vinculo manual preservado: CodMarcaData7 na marca e CodProduto no produto.")
                 mod_logger.Printe("Usuario: " & Parser.IntegerToString(pCodUsuario) & " | CD: " & Parser.IntegerToString(pCodCentroDistribuicao) & " | Estado: " & Parser.IntegerToString(pCodEstado))
                 If pReiniciar Then
                     me._progressoRepository.LimparTodos()
@@ -2672,13 +2673,17 @@ Namespace rede_ancora_produto_sincronizacao_service
                     pResultado.QtdNaoEncontrados = pResultado.QtdNaoEncontrados + 1
 
                     If pDesativarAusentes And me.CnaJaCadastrado(_cna) Then
-                        If pUsarTransacao Then
-                            me._produtoService.DesativarProdutoAncora(_cna)
+                        If me._vinculoRepository.PossuiVinculoManual(_cna) Then
+                            mod_logger.Printe("CNA " & Parser.IntegerToString(_cna) & " com CodProduto manual preservado.")
                         Else
-                            me._produtoService.DesativarProdutoAncoraSemTransacao(_cna)
-                        End If
+                            If pUsarTransacao Then
+                                me._produtoService.DesativarProdutoAncora(_cna)
+                            Else
+                                me._produtoService.DesativarProdutoAncoraSemTransacao(_cna)
+                            End If
 
-                        pResultado.QtdDesativados = pResultado.QtdDesativados + 1
+                            pResultado.QtdDesativados = pResultado.QtdDesativados + 1
+                        End If
                     End If
                 End If
             Next

@@ -10,6 +10,17 @@ Namespace rede_ancora_linhas_model
             MyBase.New()
         End Sub
 
+        Function ObterPorCodigo(pCodLinha As Integer) As RedeAncoraLinhaModel
+            Dim _i As Integer
+
+            For _i = 0 To me.Length - 1
+                If me.Take(_i).CodLinha = pCodLinha Then
+                    ObterPorCodigo = me.Take(_i)
+                    Exit Function
+                End If
+            Next
+        End Function
+
         Sub Free()
             MyBase.Free()
         End Sub

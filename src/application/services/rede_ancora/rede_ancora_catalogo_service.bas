@@ -41,7 +41,7 @@ Namespace rede_ancora_catalogo_service
 
                 me._repository.SubstituirMarcas(_marcas)
                 mod_logger.Info("sync-marcas: gravadas")
-                mod_logger.Printe("Rede Ancora sync marcas concluido. Registros: " & Parser.IntegerToString(_marcas.Length))
+                mod_logger.Printe("Rede Ancora sync marcas concluido. Registros: " & Parser.IntegerToString(_marcas.Length) & ". CodMarcaData7 manual preservado.")
 
                 _result = _marcas
                 _marcas = NULL
@@ -74,7 +74,7 @@ Namespace rede_ancora_catalogo_service
 
                 me._repository.SubstituirLinhas(_linhas)
                 mod_logger.Info("sync-linhas: gravadas")
-                mod_logger.Printe("Rede Ancora sync linhas concluido. Registros: " & Parser.IntegerToString(_linhas.Length))
+                mod_logger.Printe("Rede Ancora sync linhas concluido. Registros: " & Parser.IntegerToString(_linhas.Length) & ". CodLinhaData7 manual preservado.")
 
                 _result = _linhas
                 _linhas = NULL
@@ -107,7 +107,7 @@ Namespace rede_ancora_catalogo_service
 
                 me._repository.SubstituirFamilias(_familias)
                 mod_logger.Info("sync-familias: gravadas")
-                mod_logger.Printe("Rede Ancora sync familias concluido. Registros: " & Parser.IntegerToString(_familias.Length))
+                mod_logger.Printe("Rede Ancora sync familias concluido. Registros: " & Parser.IntegerToString(_familias.Length) & ". CodFamiliaData7 manual preservado.")
 
                 _result = _familias
                 _familias = NULL
@@ -165,6 +165,18 @@ Namespace rede_ancora_catalogo_service
         Function ListarMarcas() As RedeAncoraMarcasModel
             ListarMarcas = me._repository.ListarMarcas()
         End Function
+
+        Sub VincularMarcaData7(pCodMarca As Integer, pCodMarcaData7 As Integer)
+            me._repository.DefinirCodMarcaData7(pCodMarca, pCodMarcaData7)
+        End Sub
+
+        Sub VincularLinhaData7(pCodLinha As Integer, pCodLinhaData7 As Integer)
+            me._repository.DefinirCodLinhaData7(pCodLinha, pCodLinhaData7)
+        End Sub
+
+        Sub VincularFamiliaData7(pCodFamilia As Integer, pCodFamiliaData7 As Integer)
+            me._repository.DefinirCodFamiliaData7(pCodFamilia, pCodFamiliaData7)
+        End Sub
 
         Function ListarLinhas() As RedeAncoraLinhasModel
             ListarLinhas = me._repository.ListarLinhas()

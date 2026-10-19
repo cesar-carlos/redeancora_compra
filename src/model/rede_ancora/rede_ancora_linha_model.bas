@@ -6,6 +6,7 @@ Namespace rede_ancora_linha_model
 
         CodLinha As Integer
         Nome As String
+        CodLinhaData7 As Integer
 
         Sub New()
             MyBase.New()

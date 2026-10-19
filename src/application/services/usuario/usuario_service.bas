@@ -922,6 +922,18 @@ Namespace usuario_service
             ListarRedeAncoraMarcas = me._redeAncoraCatalogoService.ListarMarcas()
         End Function
 
+        Sub VincularRedeAncoraMarcaData7(pCodMarca As Integer, pCodMarcaData7 As Integer)
+            me._redeAncoraCatalogoService.VincularMarcaData7(pCodMarca, pCodMarcaData7)
+        End Sub
+
+        Sub VincularRedeAncoraLinhaData7(pCodLinha As Integer, pCodLinhaData7 As Integer)
+            me._redeAncoraCatalogoService.VincularLinhaData7(pCodLinha, pCodLinhaData7)
+        End Sub
+
+        Sub VincularRedeAncoraFamiliaData7(pCodFamilia As Integer, pCodFamiliaData7 As Integer)
+            me._redeAncoraCatalogoService.VincularFamiliaData7(pCodFamilia, pCodFamiliaData7)
+        End Sub
+
         Function ListarRedeAncoraLinhas() As RedeAncoraLinhasModel
             ListarRedeAncoraLinhas = me._redeAncoraCatalogoService.ListarLinhas()
         End Function

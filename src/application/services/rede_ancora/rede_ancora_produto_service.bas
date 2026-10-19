@@ -1285,8 +1285,16 @@ Namespace rede_ancora_produto_service
                 _existente = New RedeAncoraProdutoVinculoModel()
 
                 If me._vinculoRepository.TryObterPorCna(pApiModel.Cna, _existente) Then
-                    If me.ProdutoTemAlteracao(_existente, pApiModel) Then
+                    If me.PreservarAtivoManual(_existente) Then
+                        pApiModel.Ativo = _existente.Ativo
+                        If pApiModel.Ativo <> "S" And pApiModel.Ativo <> "N" Then
+                            pApiModel.Ativo = "N"
+                        End If
+                    Else
                         pApiModel.Ativo = "S"
+                    End If
+
+                    If me.ProdutoTemAlteracao(_existente, pApiModel) Then
 
                         If pUsarTransacao Then
                             me._vinculoRepository.AtualizarMetadadosApi(pApiModel)
@@ -1350,10 +1358,24 @@ Namespace rede_ancora_produto_service
                 Exit Function
             End If
 
-            If pExistente.Ativo <> "S" Then
+            If pExistente.Ativo <> pApi.Ativo Then
                 ProdutoTemAlteracao = True
                 Exit Function
             End If
+        End Function
+
+        Private Function PreservarAtivoManual(pExistente As RedeAncoraProdutoVinculoModel) As Boolean
+            Dim _result As Boolean = False
+
+            If pExistente.CodProduto > 0 Then
+                _result = True
+            Else
+                If pExistente.OrigemVinculo = RedeAncoraProdutoVinculoOrigem.Manual() Then
+                    _result = True
+                End If
+            End If
+
+            PreservarAtivoManual = _result
         End Function
 
         Private Function ProcessarProdutoAncoraPorBusca(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCna As Integer, pCodigo As String, pQuery As String, pCodProduto As Integer, pOrigem As String) As RedeAncoraProdutoVinculoModel

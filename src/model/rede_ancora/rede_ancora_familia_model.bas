@@ -6,6 +6,7 @@ Namespace rede_ancora_familia_model
 
         CodFamilia As Integer
         Nome As String
+        CodFamiliaData7 As Integer
 
         Sub New()
             MyBase.New()
