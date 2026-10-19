@@ -23,8 +23,13 @@ Imports rede_ancora_produto_imagens_model
 Imports rede_ancora_produto_imagem_tipo
 Imports rede_ancora_produto_imagem_repository
 Imports rede_ancora_produto_imagem_sincronizacao_resultado_model
+Imports rede_ancora_produto_full_search_filtro_model
+Imports rede_ancora_produto_full_search_item_model
+Imports rede_ancora_produto_full_search_itens_model
+Imports rede_ancora_produto_full_search_resultado_model
 Imports string_helper
 Imports try_parser
+Imports transactions
 Imports http_response
 Imports mod_logger
 Imports diag_stack
@@ -62,6 +67,8 @@ Namespace rede_ancora_produto_service
         Private Function ExecutarConsultaCondicoes(pCodUsuario As Integer, pCna As Integer) As String
             Dim _api As RedeAncoraApiClient = NULL
             Dim _response As HttpResponse = NULL
+            Dim _body As String = ""
+            Dim _ok As String = ""
 
             Try
                 If pCna <= 0 Then
@@ -69,36 +76,50 @@ Namespace rede_ancora_produto_service
                 End If
 
                 _api = New RedeAncoraApiClient(pCodUsuario, me._authService)
-                _response = _api.GetRequest(RedeAncoraApiConfig.IntegrationUrl("/products/conditions/" + pCna.ToString()))
+                DiagStack.Push("conditions.GetRequest")
+                _response = _api.GetRequest(RedeAncoraApiConfig.IntegrationUrl("/products/conditions/" + Parser.IntegerToString(pCna)))
+                DiagStack.Pop()
+
+                If Not Assigned(_response) Then
+                    Throw New System.Exception("GET /products/conditions resposta nula")
+                End If
 
                 If Not _response.IsSuccess Then
                     Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("GET /products/conditions", _response.StatusCode, _response.Body))
                 End If
 
-                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET /products/conditions", _response.StatusCode, _response.Body)
-
-                ExecutarConsultaCondicoes = _response.Body
+                _body = _response.Body
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET /products/conditions", _response.StatusCode, _body)
+                me.ExigirCorpoJsonContrato("GET /products/conditions", _body)
                 _response.Free()
+                _response = NULL
                 _api.Free()
+                _api = NULL
+                _ok = _body
             Catch ex As Exception
                 RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService.ConsultarCondicoes", ex)
 
                 If Assigned(_response) Then
                     _response.Free()
+                    _response = NULL
                 End If
 
                 If Assigned(_api) Then
                     _api.Free()
+                    _api = NULL
                 End If
 
                 Throw New System.Exception("Erro ao consultar condicoes do produto Rede Ancora: " + ex._getMessage())
             End Try
+
+            ExecutarConsultaCondicoes = _ok
         End Function
 
         Function ConsultarPrecosEstoques(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCnas As RedeAncoraProdutoCnasModel) As RedeAncoraProdutoPrecosEstoqueModel
             Dim _api As RedeAncoraApiClient = NULL
             Dim _response As HttpResponse = NULL
             Dim _result As RedeAncoraProdutoPrecosEstoqueModel = NULL
+            Dim _ok As RedeAncoraProdutoPrecosEstoqueModel = NULL
 
             Try
                 pCnas.ValidarTodos()
@@ -108,35 +129,49 @@ Namespace rede_ancora_produto_service
                 End If
 
                 _api = New RedeAncoraApiClient(pCodUsuario, me._authService)
+                DiagStack.Push("prices-stocks.PostJson")
                 _response = _api.PostJson(RedeAncoraApiConfig.IntegrationUrl("/products/prices-stocks"), me.MontarPayloadPrecosEstoques(pCodCentroDistribuicao, pCnas))
+                DiagStack.Pop()
+
+                If Not Assigned(_response) Then
+                    Throw New System.Exception("POST /products/prices-stocks resposta nula")
+                End If
 
                 If Not _response.IsSuccess Then
                     Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("POST /products/prices-stocks", _response.StatusCode, _response.Body))
                 End If
 
                 RedeAncoraHttpErroHelper.ExigirCorpoJson("POST /products/prices-stocks", _response.StatusCode, _response.Body)
-
+                me.ExigirCorpoJsonContrato("POST /products/prices-stocks", _response.Body)
                 _result = me.MapearPrecosEstoques(_response)
                 _response.Free()
+                _response = NULL
                 _api.Free()
-                ConsultarPrecosEstoques = _result
+                _api = NULL
+                _ok = _result
+                _result = NULL
             Catch ex As Exception
                 RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService.ConsultarPrecosEstoques", ex)
 
                 If Assigned(_result) Then
                     _result.Free()
+                    _result = NULL
                 End If
 
                 If Assigned(_response) Then
                     _response.Free()
+                    _response = NULL
                 End If
 
                 If Assigned(_api) Then
                     _api.Free()
+                    _api = NULL
                 End If
 
                 Throw New System.Exception("Erro ao consultar precos e estoques Rede Ancora: " + ex._getMessage())
             End Try
+
+            ConsultarPrecosEstoques = _ok
         End Function
 
         Function BuscarProdutoFullSearchPorFamilia(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCodFamilia As Integer, pPagina As Integer, pTamanhoPagina As Integer) As String
@@ -225,60 +260,529 @@ Namespace rede_ancora_produto_service
             BuscarProdutoFullSearchPorFamilia = _result
         End Function
 
-        Function BuscarProdutoFullSearch(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCna As Integer, pCodigo As String, pQuery As String) As String
+        Function BuscarProdutoFullSearch(pFiltro As RedeAncoraProdutoFullSearchFiltroModel) As RedeAncoraProdutoFullSearchResultadoModel
             Dim _api As RedeAncoraApiClient = NULL
             Dim _response As HttpResponse = NULL
             Dim _url As String = ""
+            Dim _body As String = ""
+            Dim _fields As String = ""
+            Dim _pagina As Integer = 0
+            Dim _tamanho As Integer = 0
+            Dim _result As RedeAncoraProdutoFullSearchResultadoModel = NULL
+            Dim _ok As RedeAncoraProdutoFullSearchResultadoModel = NULL
 
             Try
-                If pCodCentroDistribuicao <= 0 Then
-                    Throw New System.Exception("Centro de distribuicao invalido para full-search")
+                me.ValidarFiltroFullSearch(pFiltro)
+                _pagina = me.ResolverPaginaFullSearch(pFiltro.Pagina)
+                _tamanho = me.ResolverTamanhoPaginaFullSearch(pFiltro.TamanhoPagina)
+                _fields = me.MontarFieldsFullSearch(pFiltro)
+                _url = RedeAncoraApiConfig.IntegrationUrl("/products/full-search?empresa=" & Parser.IntegerToString(pFiltro.CodCentroDistribuicao))
+                _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "fields", _fields)
+                _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "page", Parser.IntegerToString(_pagina))
+                _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "page_size", Parser.IntegerToString(_tamanho))
+
+                If pFiltro.Cna > 0 Then
+                    _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "cna", Parser.IntegerToString(pFiltro.Cna))
                 End If
 
-                _url = RedeAncoraApiConfig.IntegrationUrl("/products/full-search?empresa=" + pCodCentroDistribuicao.ToString() + "&fields=prices,stocks,details")
-
-                If pCna > 0 Then
-                    _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "cna", pCna.ToString())
+                If pFiltro.Codigo.Trim() <> "" Then
+                    _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "code", pFiltro.Codigo.Trim())
                 End If
 
-                If pCodigo.Trim() <> "" Then
-                    _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "code", pCodigo.Trim())
+                If pFiltro.Query.Trim() <> "" Then
+                    _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "query", pFiltro.Query.Trim())
                 End If
 
-                If pQuery.Trim() <> "" Then
-                    _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "query", pQuery.Trim())
+                If pFiltro.CodFamilia > 0 Then
+                    _url = RedeAncoraUrlHelper.AppendQueryParam(_url, "family", Parser.IntegerToString(pFiltro.CodFamilia))
                 End If
 
-                _api = New RedeAncoraApiClient(pCodUsuario, me._authService)
+                _api = New RedeAncoraApiClient(pFiltro.CodUsuario, me._authService)
+                DiagStack.Push("full-search.GetRequest")
                 _response = _api.GetRequest(_url)
+                DiagStack.Pop()
+
+                If Not Assigned(_response) Then
+                    Throw New System.Exception("GET /products/full-search resposta nula")
+                End If
 
                 If Not _response.IsSuccess Then
                     Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("GET /products/full-search", _response.StatusCode, _response.Body))
                 End If
 
-                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET /products/full-search", _response.StatusCode, _response.Body)
-
-                BuscarProdutoFullSearch = _response.Body
+                _body = _response.Body
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("GET /products/full-search", _response.StatusCode, _body)
+                me.ExigirCorpoJsonContrato("GET /products/full-search", _body)
                 _response.Free()
+                _response = NULL
                 _api.Free()
+                _api = NULL
+                _result = me.MapearFullSearch(_body, _pagina, _tamanho)
+                _ok = _result
+                _result = NULL
             Catch ex As Exception
+                DiagStack.DumpOnError(ex)
                 RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService.BuscarProdutoFullSearch", ex)
+
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = NULL
+                End If
 
                 If Assigned(_response) Then
                     _response.Free()
+                    _response = NULL
                 End If
 
                 If Assigned(_api) Then
                     _api.Free()
+                    _api = NULL
                 End If
 
-                Throw New System.Exception("Erro na busca full-search Rede Ancora: " + ex._getMessage())
+                Throw New System.Exception("Erro na busca full-search Rede Ancora: " & DiagStack.FormatException(ex))
             End Try
+
+            BuscarProdutoFullSearch = _ok
         End Function
+
+        Private Sub ValidarFiltroFullSearch(pFiltro As RedeAncoraProdutoFullSearchFiltroModel)
+            Dim _temFiltro As Boolean = False
+
+            If Not Assigned(pFiltro) Then
+                Throw New System.Exception("Filtro de full-search nao informado")
+            End If
+
+            If pFiltro.CodCentroDistribuicao <= 0 Then
+                Throw New System.Exception("Centro de distribuicao invalido para full-search")
+            End If
+
+            If pFiltro.Cna > 0 Then
+                _temFiltro = True
+            End If
+
+            If pFiltro.Codigo.Trim() <> "" Then
+                _temFiltro = True
+            End If
+
+            If pFiltro.Query.Trim() <> "" Then
+                _temFiltro = True
+            End If
+
+            If pFiltro.CodFamilia > 0 Then
+                _temFiltro = True
+            End If
+
+            If Not _temFiltro Then
+                Throw New System.Exception("Informe cna, codigo, query ou familia para full-search")
+            End If
+
+            If Not pFiltro.IncluirPrecos Then
+                If Not pFiltro.IncluirEstoques Then
+                    If Not pFiltro.IncluirDetalhes Then
+                        Throw New System.Exception("Informe ao menos um bloco de fields para full-search")
+                    End If
+                End If
+            End If
+        End Sub
+
+        Private Function ResolverPaginaFullSearch(pPagina As Integer) As Integer
+            If pPagina <= 0 Then
+                ResolverPaginaFullSearch = 1
+            Else
+                ResolverPaginaFullSearch = pPagina
+            End If
+        End Function
+
+        Private Function ResolverTamanhoPaginaFullSearch(pTamanho As Integer) As Integer
+            Dim _tamanho As Integer = 0
+
+            If pTamanho <= 0 Then
+                _tamanho = RedeAncoraApiConfig.TamanhoChunkSincronizacaoProdutos()
+
+                If _tamanho <= 0 Then
+                    _tamanho = 100
+                End If
+
+                If _tamanho > 100 Then
+                    _tamanho = 100
+                End If
+            Else
+                If pTamanho > 100 Then
+                    Throw New System.Exception("Tamanho de pagina acima de 100 para full-search")
+                End If
+
+                _tamanho = pTamanho
+            End If
+
+            ResolverTamanhoPaginaFullSearch = _tamanho
+        End Function
+
+        Private Function MontarFieldsFullSearch(pFiltro As RedeAncoraProdutoFullSearchFiltroModel) As String
+            Dim _fields As String = ""
+
+            If pFiltro.IncluirPrecos Then
+                _fields = "prices"
+            End If
+
+            If pFiltro.IncluirEstoques Then
+                If _fields <> "" Then
+                    _fields = _fields & ","
+                End If
+
+                _fields = _fields & "stocks"
+            End If
+
+            If pFiltro.IncluirDetalhes Then
+                If _fields <> "" Then
+                    _fields = _fields & ","
+                End If
+
+                _fields = _fields & "details"
+            End If
+
+            MontarFieldsFullSearch = _fields
+        End Function
+
+        Private Sub ExigirCorpoJsonContrato(pOperacao As String, pBody As String)
+            Dim _texto As String = ""
+            Dim _ch As String = ""
+            Dim _ok As Boolean = False
+
+            _texto = pBody.Trim()
+
+            If _texto <> "" Then
+                _ch = Mid(_texto, 1, 1)
+
+                If _ch = "{" Then
+                    _ok = True
+                End If
+
+                If _ch = "[" Then
+                    _ok = True
+                End If
+            End If
+
+            If Not _ok Then
+                Throw New System.Exception(pOperacao & " resposta sem JSON")
+            End If
+        End Sub
+
+        Private Function MapearFullSearch(pBody As String, pPagina As Integer, pTamanhoPagina As Integer) As RedeAncoraProdutoFullSearchResultadoModel
+            Dim _result As RedeAncoraProdutoFullSearchResultadoModel = NULL
+            Dim _ok As RedeAncoraProdutoFullSearchResultadoModel = NULL
+            Dim _item As RedeAncoraProdutoFullSearchItemModel = NULL
+            Dim _arrStart As Integer = 0
+            Dim _elemStart As Integer = 0
+            Dim _elemFim As Integer = 0
+            Dim _slice As String = ""
+            Dim _itemJson As TJSONObject = NULL
+            Dim _i As Integer = 0
+            Dim _n As Integer = 0
+
+            Try
+                _arrStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlob(pBody, "data")
+
+                If _arrStart <= 0 Then
+                    Throw New System.Exception("Resposta /products/full-search sem array data")
+                End If
+
+                _result = New RedeAncoraProdutoFullSearchResultadoModel()
+
+                For _i = 0 To 9999
+                    _elemStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(pBody, _arrStart, _i)
+
+                    If _elemStart <= 0 Then
+                        Exit For
+                    End If
+
+                    _elemFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, _elemStart)
+
+                    If _elemFim < _elemStart Then
+                        RedeAncoraHttpErroHelper.RegistrarFalha("GET /products/full-search item", 200, "objeto de produto incompleto")
+                    Else
+                        _slice = Mid(pBody, _elemStart, _elemFim - _elemStart + 1)
+
+                        Try
+                            _itemJson = New TJSONObject(_slice)
+                            _item = me.MapearItemFullSearch(_itemJson)
+
+                            If Assigned(_item) Then
+                                If Assigned(_item.Cadastro) Then
+                                    If _item.Cadastro.Cna > 0 Then
+                                        _result.Itens.Push(_item)
+                                        _item = NULL
+                                    Else
+                                        RedeAncoraHttpErroHelper.RegistrarFalha("GET /products/full-search item", 200, "cna ausente ou invalido")
+                                        _item.Free()
+                                        _item = NULL
+                                    End If
+                                Else
+                                    _item.Free()
+                                    _item = NULL
+                                End If
+                            End If
+                        Catch exItem As Exception
+                            RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService.MapearFullSearch.item", exItem)
+
+                            If Assigned(_item) Then
+                                _item.Free()
+                                _item = NULL
+                            End If
+                        End Try
+
+                        If Assigned(_itemJson) Then
+                            _itemJson.Free()
+                            _itemJson = NULL
+                        End If
+                    End If
+                Next
+
+                _n = RedeAncoraJsonHelper.ObterInteiroNoSufixo(pBody, "current_page")
+
+                If _n > 0 Then
+                    _result.Pagina = _n
+                Else
+                    _result.Pagina = pPagina
+                End If
+
+                _n = RedeAncoraJsonHelper.ObterInteiroNoSufixo(pBody, "per_page")
+
+                If _n > 0 Then
+                    _result.TamanhoPagina = _n
+                Else
+                    _result.TamanhoPagina = pTamanhoPagina
+                End If
+
+                _result.UltimaPagina = RedeAncoraJsonHelper.ObterInteiroNoSufixo(pBody, "last_page")
+                _result.Total = RedeAncoraJsonHelper.ObterInteiroNoSufixo(pBody, "total")
+
+                If _result.UltimaPagina <= 0 Then
+                    If _result.Itens.Length < pTamanhoPagina Then
+                        _result.UltimaPagina = _result.Pagina
+                    Else
+                        _result.UltimaPagina = _result.Pagina + 1
+                    End If
+                End If
+
+                _ok = _result
+                _result = NULL
+            Catch ex As Exception
+                If Assigned(_itemJson) Then
+                    _itemJson.Free()
+                    _itemJson = NULL
+                End If
+
+                If Assigned(_item) Then
+                    _item.Free()
+                    _item = NULL
+                End If
+
+                If Assigned(_result) Then
+                    _result.Free()
+                    _result = NULL
+                End If
+
+                Throw New System.Exception("Erro ao mapear /products/full-search: " & ex._getMessage())
+            End Try
+
+            MapearFullSearch = _ok
+        End Function
+
+        Private Function MapearItemFullSearch(pItemJson As TJSONObject) As RedeAncoraProdutoFullSearchItemModel
+            Dim _item As RedeAncoraProdutoFullSearchItemModel = NULL
+            Dim _ok As RedeAncoraProdutoFullSearchItemModel = NULL
+            Dim _details As TJSONObject = NULL
+
+            Try
+                _item = New RedeAncoraProdutoFullSearchItemModel()
+                _item.Cadastro = New RedeAncoraProdutoModel()
+                _item.Cadastro.Ativo = ""
+                me.PreencherCadastroDeObjetoJson(pItemJson, _item.Cadastro)
+                _details = RedeAncoraJsonHelper.ObterFilhoJson(pItemJson, "details")
+
+                If Assigned(_details) Then
+                    me.PreencherCadastroDeObjetoJson(_details, _item.Cadastro)
+                    _details.Free()
+                    _details = NULL
+                End If
+
+                If _item.Cadastro.Ativo.Trim() = "" Then
+                    _item.Cadastro.Ativo = "S"
+                End If
+
+                If _item.Cadastro.NomeProduto.Trim() = "" Then
+                    _item.Cadastro.NomeProduto = _item.Cadastro.NomeErp
+                End If
+
+                _item.PrecoEstoque = me.MapearPrecoEstoqueFullSearch(pItemJson, _item.Cadastro.Cna)
+                _item.Imagens = me.MapearImagensProdutoDeJson(pItemJson, _item.Cadastro.Cna)
+                _ok = _item
+                _item = NULL
+            Catch ex As Exception
+                If Assigned(_details) Then
+                    _details.Free()
+                    _details = NULL
+                End If
+
+                If Assigned(_item) Then
+                    _item.Free()
+                    _item = NULL
+                End If
+
+                Throw ex
+            End Try
+
+            MapearItemFullSearch = _ok
+        End Function
+
+        Private Function MapearPrecoEstoqueFullSearch(pItemJson As TJSONObject, pCna As Integer) As RedeAncoraProdutoPrecoEstoqueModel
+            Dim _prices As TJSONObject = NULL
+            Dim _stocks As TJSONObject = NULL
+            Dim _preco As RedeAncoraProdutoPrecoEstoqueModel = NULL
+            Dim _ok As RedeAncoraProdutoPrecoEstoqueModel = NULL
+            Dim _temBloco As Boolean = False
+
+            Try
+                _prices = RedeAncoraJsonHelper.ObterFilhoJson(pItemJson, "prices")
+                _stocks = RedeAncoraJsonHelper.ObterFilhoJson(pItemJson, "stocks")
+
+                If Assigned(_prices) Then
+                    _temBloco = True
+                End If
+
+                If Assigned(_stocks) Then
+                    _temBloco = True
+                End If
+
+                If Not _temBloco Then
+                    If RedeAncoraJsonHelper.ObterTextoJson(pItemJson, "preco_tabela").Trim() <> "" Then
+                        _temBloco = True
+                    End If
+                End If
+
+                If Not _temBloco Then
+                    If RedeAncoraJsonHelper.ObterTextoJson(pItemJson, "qtd_disponivel").Trim() <> "" Then
+                        _temBloco = True
+                    End If
+                End If
+
+                If _temBloco Then
+                    _preco = New RedeAncoraProdutoPrecoEstoqueModel()
+                    _preco.Cna = pCna
+                    me.PreencherPrecoEstoqueFullSearch(_preco, pItemJson)
+
+                    If Assigned(_prices) Then
+                        me.PreencherPrecoEstoqueFullSearch(_preco, _prices)
+                    End If
+
+                    If Assigned(_stocks) Then
+                        me.PreencherPrecoEstoqueFullSearch(_preco, _stocks)
+                    End If
+
+                    _ok = _preco
+                    _preco = NULL
+                End If
+            Catch ex As Exception
+                If Assigned(_preco) Then
+                    _preco.Free()
+                    _preco = NULL
+                End If
+
+                If Assigned(_prices) Then
+                    _prices.Free()
+                    _prices = NULL
+                End If
+
+                If Assigned(_stocks) Then
+                    _stocks.Free()
+                    _stocks = NULL
+                End If
+
+                Throw ex
+            End Try
+
+            If Assigned(_prices) Then
+                _prices.Free()
+            End If
+
+            If Assigned(_stocks) Then
+                _stocks.Free()
+            End If
+
+            MapearPrecoEstoqueFullSearch = _ok
+        End Function
+
+        Private Sub PreencherPrecoEstoqueFullSearch(pPreco As RedeAncoraProdutoPrecoEstoqueModel, pJson As TJSONObject)
+            Dim _empresa As Integer = 0
+            Dim _estado As Integer = 0
+            Dim _qtdDisponivel As Integer = 0
+            Dim _qtdProjetada As Integer = 0
+            Dim _texto As String = ""
+
+            _empresa = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "empresa")
+
+            If _empresa > 0 Then
+                pPreco.CodCentroDistribuicao = _empresa
+            End If
+
+            _estado = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "estado")
+
+            If _estado > 0 Then
+                pPreco.CodEstado = _estado
+            End If
+
+            _texto = RedeAncoraJsonHelper.ObterTextoJson(pJson, "qtd_disponivel")
+
+            If _texto.Trim() <> "" Then
+                _qtdDisponivel = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "qtd_disponivel")
+                pPreco.QtdDisponivel = _qtdDisponivel
+            End If
+
+            _texto = RedeAncoraJsonHelper.ObterTextoJson(pJson, "qtd_projetada")
+
+            If _texto.Trim() <> "" Then
+                _qtdProjetada = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "qtd_projetada")
+                pPreco.QtdProjetada = _qtdProjetada
+            End If
+
+            me.PreencherDecimalPrecoSeInformado(pPreco, pJson, "preco_tabela")
+            me.PreencherDecimalPrecoSeInformado(pPreco, pJson, "st_tabela")
+            me.PreencherDecimalPrecoSeInformado(pPreco, pJson, "preco_cross_docking")
+            me.PreencherDecimalPrecoSeInformado(pPreco, pJson, "preco_compra_junto")
+        End Sub
+
+        Private Sub PreencherDecimalPrecoSeInformado(pPreco As RedeAncoraProdutoPrecoEstoqueModel, pJson As TJSONObject, pKey As String)
+            Dim _texto As String = RedeAncoraJsonHelper.ObterTextoJson(pJson, pKey)
+            Dim _valor As Double = 0
+
+            If _texto.Trim() = "" Then
+                Exit Sub
+            End If
+
+            _valor = RedeAncoraJsonHelper.ObterDecimalJson(pJson, pKey)
+
+            If pKey = "preco_tabela" Then
+                pPreco.PrecoTabela = _valor
+            End If
+
+            If pKey = "st_tabela" Then
+                pPreco.StTabela = _valor
+            End If
+
+            If pKey = "preco_cross_docking" Then
+                pPreco.PrecoCrossDocking = _valor
+            End If
+
+            If pKey = "preco_compra_junto" Then
+                pPreco.PrecoCompraJunto = _valor
+            End If
+        End Sub
 
         Function BuscarProdutoBulkSearch(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCodEstado As Integer, pCnas As RedeAncoraProdutoCnasModel, pPagina As Integer, pTamanhoPagina As Integer) As String
             Dim _api As RedeAncoraApiClient = NULL
             Dim _response As HttpResponse = NULL
+            Dim _body As String = ""
+            Dim _ok As String = ""
 
             Try
                 pCnas.ValidarTodos()
@@ -292,36 +796,51 @@ Namespace rede_ancora_produto_service
                 End If
 
                 _api = New RedeAncoraApiClient(pCodUsuario, me._authService)
+                DiagStack.Push("bulk-search.PostJson")
                 _response = _api.PostJson(RedeAncoraApiConfig.IntegrationUrl("/products/bulk-search"), me.MontarPayloadBulkSearch(pCodCentroDistribuicao, pCodEstado, pCnas, pPagina, pTamanhoPagina))
+                DiagStack.Pop()
+
+                If Not Assigned(_response) Then
+                    Throw New System.Exception("POST /products/bulk-search resposta nula")
+                End If
 
                 If Not _response.IsSuccess Then
                     Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("POST /products/bulk-search", _response.StatusCode, _response.Body))
                 End If
 
-                RedeAncoraHttpErroHelper.ExigirCorpoJson("POST /products/bulk-search", _response.StatusCode, _response.Body)
-
-                BuscarProdutoBulkSearch = _response.Body
+                _body = _response.Body
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("POST /products/bulk-search", _response.StatusCode, _body)
+                me.ExigirCorpoJsonContrato("POST /products/bulk-search", _body)
                 _response.Free()
+                _response = NULL
                 _api.Free()
+                _api = NULL
+                _ok = _body
             Catch ex As Exception
                 RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService.BuscarProdutoBulkSearch", ex)
 
                 If Assigned(_response) Then
                     _response.Free()
+                    _response = NULL
                 End If
 
                 If Assigned(_api) Then
                     _api.Free()
+                    _api = NULL
                 End If
 
                 Throw New System.Exception("Erro na busca bulk-search Rede Ancora: " + ex._getMessage())
             End Try
+
+            BuscarProdutoBulkSearch = _ok
         End Function
 
         Function ConsultarCentrosComEstoque(pCodUsuario As Integer, pCna As Integer, pCodEstado As Integer, pCodCentroDistribuicao As Integer) As String
             Dim _api As RedeAncoraApiClient = NULL
             Dim _response As HttpResponse = NULL
             Dim _payload As TJSONObject = NULL
+            Dim _body As String = ""
+            Dim _ok As String = ""
 
             Try
                 If pCna <= 0 Then
@@ -341,35 +860,50 @@ Namespace rede_ancora_produto_service
                 _payload.PutInteger("empresa", pCodCentroDistribuicao)
 
                 _api = New RedeAncoraApiClient(pCodUsuario, me._authService)
-                _response = _api.PostJson(RedeAncoraApiConfig.IntegrationUrl("/products/warehouses/" + pCna.ToString()), _payload.ToString())
+                DiagStack.Push("warehouses.PostJson")
+                _response = _api.PostJson(RedeAncoraApiConfig.IntegrationUrl("/products/warehouses/" + Parser.IntegerToString(pCna)), _payload.ToString())
+                DiagStack.Pop()
+                _payload.Free()
+                _payload = NULL
+
+                If Not Assigned(_response) Then
+                    Throw New System.Exception("POST /products/warehouses resposta nula")
+                End If
 
                 If Not _response.IsSuccess Then
                     Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem("POST /products/warehouses", _response.StatusCode, _response.Body))
                 End If
 
-                RedeAncoraHttpErroHelper.ExigirCorpoJson("POST /products/warehouses", _response.StatusCode, _response.Body)
-
-                ConsultarCentrosComEstoque = _response.Body
-                _payload.Free()
+                _body = _response.Body
+                RedeAncoraHttpErroHelper.ExigirCorpoJson("POST /products/warehouses", _response.StatusCode, _body)
+                me.ExigirCorpoJsonContrato("POST /products/warehouses", _body)
                 _response.Free()
+                _response = NULL
                 _api.Free()
+                _api = NULL
+                _ok = _body
             Catch ex As Exception
                 RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService.ConsultarCentrosComEstoque", ex)
 
                 If Assigned(_payload) Then
                     _payload.Free()
+                    _payload = NULL
                 End If
 
                 If Assigned(_response) Then
                     _response.Free()
+                    _response = NULL
                 End If
 
                 If Assigned(_api) Then
                     _api.Free()
+                    _api = NULL
                 End If
 
                 Throw New System.Exception("Erro ao consultar centros com estoque Rede Ancora: " + ex._getMessage())
             End Try
+
+            ConsultarCentrosComEstoque = _ok
         End Function
 
         Function BuscarProdutos(pInput As RedeAncoraInputBuscarProdutos) As String
@@ -590,9 +1124,22 @@ Namespace rede_ancora_produto_service
         End Sub
 
         Sub DesativarProdutoAncora(pCna As Integer)
-            me._vinculoRepository.DesativarPorCna(pCna)
-            me._produtoRepository.DesativarPorCna(pCna)
-            me._imagemRepository.ExcluirPorCna(pCna)
+            Dim _tx As Transaction = Transaction.Instance()
+
+            Try
+                _tx.OffAutoCommit()
+                _tx.StartTransaction("Integracao.RedeAncoraProduto Desativar Cna")
+                me.DesativarProdutoAncoraSemTransacao(pCna)
+                _tx.OnAutoCommit()
+                _tx.AutoCommit()
+            Catch ex As Exception
+                If Assigned(_tx) Then
+                    _tx.Rollback()
+                    _tx.OnAutoCommit()
+                End If
+
+                Throw New System.Exception("Erro ao desativar produto Rede Ancora: " & ex._getMessage())
+            End Try
         End Sub
 
         Sub DesativarProdutoAncoraSemTransacao(pCna As Integer)
@@ -727,7 +1274,7 @@ Namespace rede_ancora_produto_service
             Dim _result As Integer = 3
 
             Try
-                _statusCadastro = me.UpsertProdutoCadastro(pCadastro, pUsarTransacao)
+                _statusCadastro = me.UpsertProdutoCadastro(pCadastro, pUsarTransacao, True)
 
                 _vinculo = New RedeAncoraProdutoVinculoModel()
                 _vinculo.Cna = pCadastro.Cna
@@ -786,7 +1333,7 @@ Namespace rede_ancora_produto_service
                 _cadastro.CodLinha = pVinculo.CodLinha
                 _cadastro.CodFamilia = pVinculo.CodFamilia
                 _cadastro.Ativo = pVinculo.Ativo
-                me.UpsertProdutoCadastro(_cadastro, pUsarTransacao)
+                me.UpsertProdutoCadastro(_cadastro, pUsarTransacao, False)
                 _cadastro.Free()
                 _cadastro = NULL
             Catch ex As Exception
@@ -798,7 +1345,7 @@ Namespace rede_ancora_produto_service
             End Try
         End Sub
 
-        Private Function UpsertProdutoCadastro(pCadastro As RedeAncoraProdutoModel, pUsarTransacao As Boolean) As Integer
+        Private Function UpsertProdutoCadastro(pCadastro As RedeAncoraProdutoModel, pUsarTransacao As Boolean, pPreservarAtivoManual As Boolean) As Integer
             Dim _existente As RedeAncoraProdutoModel = NULL
             Dim _result As Integer = 0
 
@@ -811,6 +1358,14 @@ Namespace rede_ancora_produto_service
 
                 If me._produtoRepository.TryObterPorCna(pCadastro.Cna, _existente) Then
                     me.MesclarCadastroExistente(_existente, pCadastro)
+
+                    If pPreservarAtivoManual Then
+                        If me._vinculoRepository.PossuiVinculoManual(pCadastro.Cna) Then
+                            If _existente.Ativo = "S" Or _existente.Ativo = "N" Then
+                                pCadastro.Ativo = _existente.Ativo
+                            End If
+                        End If
+                    End If
 
                     If me.CadastroTemAlteracao(_existente, pCadastro) Then
                         If pUsarTransacao Then
@@ -1203,9 +1758,9 @@ Namespace rede_ancora_produto_service
                         _result = False
                     Else
                         If pUsarTransacao Then
-                            me._imagemRepository.SubstituirPorCna(pCna, _imagens)
+                            me._imagemRepository.MesclarPorCna(pCna, _imagens)
                         Else
-                            me._imagemRepository.SubstituirPorCnaSemTransacao(pCna, _imagens)
+                            me._imagemRepository.MesclarPorCnaSemTransacao(pCna, _imagens)
                         End If
 
                         _imagens.Free()
@@ -1379,68 +1934,120 @@ Namespace rede_ancora_produto_service
         End Function
 
         Private Function ProcessarProdutoAncoraPorBusca(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCna As Integer, pCodigo As String, pQuery As String, pCodProduto As Integer, pOrigem As String) As RedeAncoraProdutoVinculoModel
-            Dim _body As String = ""
-            Dim _json As TJSONObject = NULL
-            Dim _data As TJSONArray = NULL
-            Dim _itemJson As TJSONObject = NULL
+            Dim _filtro As RedeAncoraProdutoFullSearchFiltroModel = NULL
+            Dim _resultado As RedeAncoraProdutoFullSearchResultadoModel = NULL
+            Dim _item As RedeAncoraProdutoFullSearchItemModel = NULL
             Dim _model As RedeAncoraProdutoVinculoModel = NULL
+            Dim _cnaSalvo As Integer = 0
 
             Try
-                _body = me.BuscarProdutoFullSearch(pCodUsuario, pCodCentroDistribuicao, pCna, pCodigo, pQuery)
-                _json = New TJSONObject(_body)
-                _data = RedeAncoraJsonHelper.ObterDataArray(_json)
-
-                If Not Assigned(_data) Then
-                    Throw New System.Exception("Nenhum produto encontrado na Rede Ancora para cadastro")
-                End If
-
-                If _data.Length() <= 0 Then
-                    Throw New System.Exception("Nenhum produto encontrado na Rede Ancora para cadastro")
-                End If
-
-                _itemJson = _data.GetJSONObject(0)
-                _model = me.MapearProdutoAncoraDeJson(_itemJson, pCna)
+                _filtro = New RedeAncoraProdutoFullSearchFiltroModel()
+                _filtro.CodUsuario = pCodUsuario
+                _filtro.CodCentroDistribuicao = pCodCentroDistribuicao
+                _filtro.Cna = pCna
+                _filtro.Codigo = pCodigo
+                _filtro.Query = pQuery
+                _filtro.Pagina = 1
+                _filtro.TamanhoPagina = 100
+                _filtro.IncluirDetalhes = True
+                _resultado = me.BuscarProdutoFullSearch(_filtro)
+                _item = me.SelecionarItemFullSearchParaCadastro(_resultado, pCna)
 
                 If pCodProduto > 0 Then
-                    _model.CodProduto = pCodProduto
-                    _model.Ativo = "S"
-                    _model.OrigemVinculo = pOrigem
+                    me.UpsertProdutoCadastro(_item.Cadastro, True, True)
+                    _model = me.MontarVinculoDeCadastroFullSearch(_item.Cadastro, pCodProduto, pOrigem)
                     me.SalvarVinculo(_model)
                 Else
-                    Dim _cnaSalvo As Integer = _model.Cna
-
-                    me.UpsertProdutoAncoraDeApiComTransacao(_itemJson, pOrigem, True)
-                    _model.Free()
+                    _cnaSalvo = _item.Cadastro.Cna
+                    me.UpsertCadastroProdutoEVinculo(_item.Cadastro, pOrigem, True)
                     _model = me._vinculoRepository.ObterPorCna(_cnaSalvo)
                 End If
 
-                If _model.Cna > 0 Then
-                    me.PersistirImagensProdutoDeApiComTransacao(_itemJson, _model.Cna, True)
+                If Assigned(_model) Then
+                    If _model.Cna > 0 Then
+                        If Assigned(_item.Imagens) Then
+                            If _item.Imagens.Length > 0 Then
+                                me._imagemRepository.MesclarPorCna(_model.Cna, _item.Imagens)
+                            End If
+                        End If
+                    End If
                 End If
 
-                _itemJson.Free()
-                _data.Free()
-                _json.Free()
-                ProcessarProdutoAncoraPorBusca = _model
+                _resultado.Free()
+                _resultado = NULL
+                _filtro.Free()
+                _filtro = NULL
             Catch ex As Exception
                 If Assigned(_model) Then
                     _model.Free()
+                    _model = NULL
                 End If
 
-                If Assigned(_itemJson) Then
-                    _itemJson.Free()
+                If Assigned(_resultado) Then
+                    _resultado.Free()
+                    _resultado = NULL
                 End If
 
-                If Assigned(_data) Then
-                    _data.Free()
-                End If
-
-                If Assigned(_json) Then
-                    _json.Free()
+                If Assigned(_filtro) Then
+                    _filtro.Free()
+                    _filtro = NULL
                 End If
 
                 Throw New System.Exception("Erro ao processar produto Ancora por busca: " + ex._getMessage())
             End Try
+
+            ProcessarProdutoAncoraPorBusca = _model
+        End Function
+
+        Private Function SelecionarItemFullSearchParaCadastro(pResultado As RedeAncoraProdutoFullSearchResultadoModel, pCna As Integer) As RedeAncoraProdutoFullSearchItemModel
+            Dim _item As RedeAncoraProdutoFullSearchItemModel = NULL
+
+            If Not Assigned(pResultado) Then
+                Throw New System.Exception("Nenhum produto encontrado na Rede Ancora para cadastro")
+            End If
+
+            If Not Assigned(pResultado.Itens) Then
+                Throw New System.Exception("Nenhum produto encontrado na Rede Ancora para cadastro")
+            End If
+
+            If pResultado.Itens.Length <= 0 Then
+                Throw New System.Exception("Nenhum produto encontrado na Rede Ancora para cadastro")
+            End If
+
+            If pCna > 0 Then
+                _item = pResultado.Itens.ObterPorCna(pCna)
+
+                If Not Assigned(_item) Then
+                    Throw New System.Exception("Produto nao encontrado na pagina. Informe um filtro mais especifico")
+                End If
+            Else
+                If pResultado.Itens.Length <> 1 Then
+                    Throw New System.Exception("A busca retornou varios produtos. Informe um filtro mais especifico")
+                End If
+
+                If pResultado.TemProximaPagina() Then
+                    Throw New System.Exception("A busca tem mais paginas. Informe um filtro mais especifico")
+                End If
+
+                _item = pResultado.Itens.Take(0)
+            End If
+
+            SelecionarItemFullSearchParaCadastro = _item
+        End Function
+
+        Private Function MontarVinculoDeCadastroFullSearch(pCadastro As RedeAncoraProdutoModel, pCodProduto As Integer, pOrigem As String) As RedeAncoraProdutoVinculoModel
+            Dim _model As New RedeAncoraProdutoVinculoModel()
+
+            _model.Cna = pCadastro.Cna
+            _model.CodigoAncora = pCadastro.CodigoReferencia
+            _model.DescricaoAncora = pCadastro.NomeProduto
+            _model.CodMarca = pCadastro.CodMarcaParaVinculo()
+            _model.CodLinha = pCadastro.CodLinha
+            _model.CodFamilia = pCadastro.CodFamilia
+            _model.CodProduto = pCodProduto
+            _model.Ativo = "S"
+            _model.OrigemVinculo = pOrigem
+            MontarVinculoDeCadastroFullSearch = _model
         End Function
 
         Private Function FlagDeBooleanJson(pJson As TJSONObject, pKey As String) As String
@@ -1575,6 +2182,7 @@ Namespace rede_ancora_produto_service
         Private Function MapearProdutoCadastroDeJson(pItemJson As TJSONObject, pCna As Integer) As RedeAncoraProdutoModel
             Dim _cadastro As New RedeAncoraProdutoModel()
             Dim _details As TJSONObject = NULL
+            Dim _ok As RedeAncoraProdutoModel = NULL
 
             Try
                 _cadastro.Cna = pCna
@@ -1600,7 +2208,8 @@ Namespace rede_ancora_produto_service
                     _cadastro.NomeProduto = _cadastro.NomeErp
                 End If
 
-                MapearProdutoCadastroDeJson = _cadastro
+                _ok = _cadastro
+                _cadastro = NULL
             Catch ex As Exception
                 If Assigned(_details) Then
                     _details.Free()
@@ -1612,6 +2221,8 @@ Namespace rede_ancora_produto_service
 
                 Throw ex
             End Try
+
+            MapearProdutoCadastroDeJson = _ok
         End Function
 
         Private Function MapearProdutoAncoraDeJson(pItemJson As TJSONObject, pCna As Integer) As RedeAncoraProdutoVinculoModel
@@ -1822,65 +2433,95 @@ Namespace rede_ancora_produto_service
         Private Function ExecutarGetPassThrough(pCodUsuario As Integer, pUrl As String, pOperacao As String) As String
             Dim _api As RedeAncoraApiClient = NULL
             Dim _response As HttpResponse = NULL
+            Dim _body As String = ""
+            Dim _ok As String = ""
 
             Try
                 _api = New RedeAncoraApiClient(pCodUsuario, me._authService)
+                DiagStack.Push("pass-through.GetRequest")
                 _response = _api.GetRequest(pUrl)
+                DiagStack.Pop()
+
+                If Not Assigned(_response) Then
+                    Throw New System.Exception(pOperacao & " resposta nula")
+                End If
 
                 If Not _response.IsSuccess Then
                     Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem(pOperacao, _response.StatusCode, _response.Body))
                 End If
 
-                RedeAncoraHttpErroHelper.ExigirCorpoJson(pOperacao, _response.StatusCode, _response.Body)
-
-                ExecutarGetPassThrough = _response.Body
+                _body = _response.Body
+                RedeAncoraHttpErroHelper.ExigirCorpoJson(pOperacao, _response.StatusCode, _body)
+                me.ExigirCorpoJsonContrato(pOperacao, _body)
                 _response.Free()
+                _response = NULL
                 _api.Free()
+                _api = NULL
+                _ok = _body
             Catch ex As Exception
                 RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService." & pOperacao, ex)
 
                 If Assigned(_response) Then
                     _response.Free()
+                    _response = NULL
                 End If
 
                 If Assigned(_api) Then
                     _api.Free()
+                    _api = NULL
                 End If
 
                 Throw ex
             End Try
+
+            ExecutarGetPassThrough = _ok
         End Function
 
         Private Function ExecutarPostPassThrough(pCodUsuario As Integer, pUrl As String, pPayload As String, pOperacao As String) As String
             Dim _api As RedeAncoraApiClient = NULL
             Dim _response As HttpResponse = NULL
+            Dim _body As String = ""
+            Dim _ok As String = ""
 
             Try
                 _api = New RedeAncoraApiClient(pCodUsuario, me._authService)
+                DiagStack.Push("pass-through.PostJson")
                 _response = _api.PostJson(pUrl, pPayload)
+                DiagStack.Pop()
+
+                If Not Assigned(_response) Then
+                    Throw New System.Exception(pOperacao & " resposta nula")
+                End If
 
                 If Not _response.IsSuccess Then
                     Throw New System.Exception(RedeAncoraHttpErroHelper.MontarMensagem(pOperacao, _response.StatusCode, _response.Body))
                 End If
 
-                RedeAncoraHttpErroHelper.ExigirCorpoJson(pOperacao, _response.StatusCode, _response.Body)
-
-                ExecutarPostPassThrough = _response.Body
+                _body = _response.Body
+                RedeAncoraHttpErroHelper.ExigirCorpoJson(pOperacao, _response.StatusCode, _body)
+                me.ExigirCorpoJsonContrato(pOperacao, _body)
                 _response.Free()
+                _response = NULL
                 _api.Free()
+                _api = NULL
+                _ok = _body
             Catch ex As Exception
                 RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService." & pOperacao, ex)
 
                 If Assigned(_response) Then
                     _response.Free()
+                    _response = NULL
                 End If
 
                 If Assigned(_api) Then
                     _api.Free()
+                    _api = NULL
                 End If
 
                 Throw ex
             End Try
+
+            ExecutarPostPassThrough = _ok
         End Function
 
         Private Function AnexarQueryInteiroSePositivo(pUrl As String, pNome As String, pValor As Integer) As String
@@ -1937,10 +2578,12 @@ Namespace rede_ancora_produto_service
 
                 _imagens = me.MapearImagensProdutoDeJson(pItemJson, pCna)
 
-                If pUsarTransacao Then
-                    me._imagemRepository.SubstituirPorCna(pCna, _imagens)
-                Else
-                    me._imagemRepository.SubstituirPorCnaSemTransacao(pCna, _imagens)
+                If _imagens.Length > 0 Then
+                    If pUsarTransacao Then
+                        me._imagemRepository.MesclarPorCna(pCna, _imagens)
+                    Else
+                        me._imagemRepository.MesclarPorCnaSemTransacao(pCna, _imagens)
+                    End If
                 End If
 
                 PersistirImagensProdutoDeApiComTransacao = _imagens.Length > 0
@@ -2014,57 +2657,49 @@ Namespace rede_ancora_produto_service
 
         Private Sub ProcessarChunkImagens(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCodEstado As Integer, pChunk As RedeAncoraProdutoCnasModel, pNumeroChunk As Integer, pResultado As RedeAncoraProdutoImagemSincronizacaoResultadoModel)
             Dim _body As String = ""
-            Dim _json As TJSONObject = NULL
-            Dim _data As TJSONArray = NULL
+            Dim _pagina As Integer = 1
+            Dim _ultima As Integer = 1
+            Dim _continuar As Boolean = True
+            Dim _achados As RedeAncoraProdutoCnasModel = NULL
             Dim _i As Integer
-            Dim _itemJson As TJSONObject = NULL
             Dim _cna As Integer
-            Dim _comImagem As Boolean = False
 
             Try
                 pChunk.ValidarTodos()
-                _body = me.BuscarProdutoBulkSearch(pCodUsuario, pCodCentroDistribuicao, pCodEstado, pChunk, 1, pChunk.Length)
-                pResultado.QtdChunksApi = pResultado.QtdChunksApi + 1
-                _json = New TJSONObject(_body)
-                _data = RedeAncoraJsonHelper.ObterDataArray(_json)
+                _achados = New RedeAncoraProdutoCnasModel()
 
-                If Assigned(_data) Then
-                    For _i = 0 To _data.Length() - 1
-                        _itemJson = _data.GetJSONObject(_i)
-                        _cna = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_itemJson, "cna")
+                While _continuar
+                    _body = me.BuscarProdutoBulkSearch(pCodUsuario, pCodCentroDistribuicao, pCodEstado, pChunk, _pagina, pChunk.Length)
+                    pResultado.QtdChunksApi = pResultado.QtdChunksApi + 1
+                    me.PersistirImagensBulkDeBlob(_body, _achados, pResultado)
+                    _ultima = RedeAncoraJsonHelper.ObterInteiroNoSufixo(_body, "last_page")
 
-                        If _cna > 0 Then
-                            _comImagem = me.PersistirImagensProdutoDeApiComTransacao(_itemJson, _cna, True)
-                            pResultado.QtdProcessados = pResultado.QtdProcessados + 1
+                    If _ultima <= 0 Then
+                        _ultima = 1
+                    End If
 
-                            If _comImagem Then
-                                pResultado.QtdComImagem = pResultado.QtdComImagem + 1
-                            Else
-                                pResultado.QtdSemImagem = pResultado.QtdSemImagem + 1
-                            End If
+                    If _ultima <= _pagina Then
+                        _continuar = False
+                    Else
+                        _pagina = _pagina + 1
+                        If _pagina > 20 Then
+                            _continuar = False
                         End If
+                    End If
+                Wend
 
-                        _itemJson.Free()
-                        _itemJson = NULL
-                    Next
+                For _i = 0 To pChunk.Length - 1
+                    _cna = pChunk.Take(_i)
+                    If Not _achados.Contem(_cna) Then
+                        pResultado.QtdNaoEncontrados = pResultado.QtdNaoEncontrados + 1
+                    End If
+                Next
 
-                    _data.Free()
-                    _data = NULL
-                End If
-
-                _json.Free()
-                _json = NULL
+                _achados.Free()
+                _achados = NULL
             Catch ex As Exception
-                If Assigned(_itemJson) Then
-                    _itemJson.Free()
-                End If
-
-                If Assigned(_data) Then
-                    _data.Free()
-                End If
-
-                If Assigned(_json) Then
-                    _json.Free()
+                If Assigned(_achados) Then
+                    _achados.Free()
                 End If
 
                 Throw New System.Exception("Chunk " + Parser.IntegerToString(pNumeroChunk) + ": " + ex._getMessage())
@@ -2094,6 +2729,538 @@ Namespace rede_ancora_produto_service
             End If
 
             CalcularTotalChunksImagens = Int((pTotalCnas + pTamanhoChunk - 1) / pTamanhoChunk)
+        End Function
+
+        ' Bulk-search de imagens: janela de 200 no blob. Sem TJSONObject na pagina inteira.
+        Private Sub PersistirImagensBulkDeBlob(pBody As String, pAchados As RedeAncoraProdutoCnasModel, pResultado As RedeAncoraProdutoImagemSincronizacaoResultadoModel)
+            Dim _arrayStart As Integer = 0
+            Dim _bodyLen As Integer = 0
+            Dim _pos As Integer = 0
+            Dim _janela As String = ""
+            Dim _idxAbre As Integer = 0
+            Dim _objStart As Integer = 0
+            Dim _objFim As Integer = 0
+            Dim _cna As Integer = 0
+            Dim _urlReal As String = ""
+            Dim _urlIlustrativa As String = ""
+            Dim _tecnicas As String = ""
+            Dim _comImagem As Boolean = False
+            Dim _acabou As Boolean = False
+
+            _arrayStart = me.PosicaoArrayDataImagens(pBody)
+            If _arrayStart <= 0 Then
+                Throw New System.Exception("Resposta /products/bulk-search sem array data")
+            End If
+
+            _bodyLen = Len(pBody)
+            _pos = _arrayStart + 1
+
+            While _pos <= _bodyLen
+                If _acabou Then
+                    _pos = _bodyLen + 1
+                Else
+                    _janela = me.CopiarJanelaImagens(pBody, _pos, 200)
+                    If _janela = "" Then
+                        _acabou = True
+                    Else
+                        _idxAbre = me.PosicaoAbreObjetoImagens(_janela)
+                        If _idxAbre < 0 Then
+                            _acabou = True
+                        Else
+                            If _idxAbre = 0 Then
+                                _pos = _pos + Len(_janela)
+                            Else
+                                _objStart = _pos + _idxAbre - 1
+                                _objFim = me.AvancarFimObjetoImagens(pBody, _objStart)
+                                If _objFim <= _objStart Then
+                                    _acabou = True
+                                Else
+                                    _cna = me.ExtrairInteiroNoIntervaloImagens(pBody, _objStart, _objFim, "cna")
+                                    If _cna > 0 Then
+                                        If Not pAchados.Contem(_cna) Then
+                                            pAchados.PushDistinct(_cna)
+                                            _urlReal = me.ExtrairTextoNoIntervaloImagens(pBody, _objStart, _objFim, "imagemReal", 2000)
+                                            _urlIlustrativa = me.ExtrairTextoNoIntervaloImagens(pBody, _objStart, _objFim, "imagemIlustrativa", 2000)
+                                            _tecnicas = me.ExtrairArrayNoIntervaloImagens(pBody, _objStart, _objFim, "imagensTecnicas", 8000)
+                                            _comImagem = me.PersistirImagensProdutoDeCampos(_cna, _urlReal, _urlIlustrativa, _tecnicas, True)
+                                            pResultado.QtdProcessados = pResultado.QtdProcessados + 1
+                                            If _comImagem Then
+                                                pResultado.QtdComImagem = pResultado.QtdComImagem + 1
+                                            Else
+                                                pResultado.QtdSemImagem = pResultado.QtdSemImagem + 1
+                                            End If
+                                        End If
+                                    End If
+                                    _pos = _objFim + 1
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            Wend
+        End Sub
+
+        Private Function CopiarJanelaImagens(pSrc As String, pStart As Integer, pLen As Integer) As String
+            Dim _bodyLen As Integer = 0
+            Dim _n As Integer = 0
+            Dim _result As String = ""
+
+            If pStart >= 1 Then
+                If pLen > 0 Then
+                    _bodyLen = Len(pSrc)
+                    If pStart <= _bodyLen Then
+                        _n = pLen
+                        If _n > 200 Then
+                            _n = 200
+                        End If
+                        If (pStart + _n - 1) > _bodyLen Then
+                            _n = _bodyLen - pStart + 1
+                        End If
+                        If _n > 0 Then
+                            _result = Mid(pSrc, pStart, _n)
+                        End If
+                    End If
+                End If
+            End If
+            CopiarJanelaImagens = _result
+        End Function
+
+        Private Function PosicaoArrayDataImagens(pBody As String) As Integer
+            Dim _base As Integer = 1
+            Dim _tentativa As Integer = 0
+            Dim _prefix As String = ""
+            Dim _q As String = Chr(34)
+            Dim _needle As String = ""
+            Dim _idx As Integer = 0
+            Dim _i As Integer = 0
+            Dim _ch As String = ""
+            Dim _achou As Boolean = False
+
+            PosicaoArrayDataImagens = 0
+            _needle = _q & "data" & _q
+
+            While _tentativa < 3
+                If _achou Then
+                    _tentativa = 3
+                Else
+                    _prefix = me.CopiarJanelaImagens(pBody, _base, 200)
+                    _idx = InStr(_prefix, _needle)
+                    If _idx > 0 Then
+                        _i = _idx + Len(_needle)
+                        While _i <= Len(_prefix)
+                            _ch = Mid(_prefix, _i, 1)
+                            If _ch = " " Or _ch = ":" Then
+                                _i = _i + 1
+                            Else
+                                Exit While
+                            End If
+                        Wend
+                        If _i <= Len(_prefix) Then
+                            If Mid(_prefix, _i, 1) = "[" Then
+                                PosicaoArrayDataImagens = _base + _i - 1
+                                _achou = True
+                            End If
+                        End If
+                    End If
+                    _tentativa = _tentativa + 1
+                    _base = _base + 160
+                End If
+            Wend
+        End Function
+
+        Private Function PosicaoAbreObjetoImagens(pJanela As String) As Integer
+            Dim _len As Integer = Len(pJanela)
+            Dim _i As Integer = 1
+            Dim _ch As String = ""
+            Dim _idx As Integer = 0
+            Dim _result As Integer = 0
+
+            While _i <= _len
+                If _idx = 0 Then
+                    _ch = Mid(pJanela, _i, 1)
+                    If _ch = " " Or _ch = "," Or _ch = Chr(9) Or _ch = Chr(10) Or _ch = Chr(13) Then
+                        _i = _i + 1
+                    Else
+                        _idx = _i
+                    End If
+                Else
+                    _i = _len + 1
+                End If
+            Wend
+
+            If _idx > 0 Then
+                _ch = Mid(pJanela, _idx, 1)
+                If _ch = "]" Then
+                    _result = -1
+                Else
+                    If _ch = "{" Then
+                        _result = _idx
+                    End If
+                End If
+            End If
+            PosicaoAbreObjetoImagens = _result
+        End Function
+
+        Private Function AvancarFimObjetoImagens(pBody As String, pStart As Integer) As Integer
+            Dim _bodyLen As Integer = Len(pBody)
+            Dim _pos As Integer = pStart
+            Dim _janela As String = ""
+            Dim _janelaLen As Integer = 0
+            Dim _i As Integer = 0
+            Dim _ch As String = ""
+            Dim _q As String = Chr(34)
+            Dim _depth As Integer = 0
+            Dim _inQuotes As Boolean = False
+            Dim _escape As Boolean = False
+            Dim _fim As Integer = 0
+            Dim _result As Integer = 0
+
+            If pStart >= 1 Then
+                If pStart <= _bodyLen Then
+                    While _pos <= _bodyLen
+                        If _fim = 0 Then
+                            _janela = me.CopiarJanelaImagens(pBody, _pos, 200)
+                            _janelaLen = Len(_janela)
+                            If _janelaLen <= 0 Then
+                                _fim = -1
+                            Else
+                                _i = 1
+                                While _i <= _janelaLen
+                                    If _fim = 0 Then
+                                        _ch = Mid(_janela, _i, 1)
+                                        If _escape Then
+                                            _escape = False
+                                        Else
+                                            If _inQuotes Then
+                                                If _ch = "\" Then
+                                                    _escape = True
+                                                Else
+                                                    If _ch = _q Then
+                                                        _inQuotes = False
+                                                    End If
+                                                End If
+                                            Else
+                                                If _ch = _q Then
+                                                    _inQuotes = True
+                                                Else
+                                                    If _ch = "{" Then
+                                                        _depth = _depth + 1
+                                                    Else
+                                                        If _ch = "}" Then
+                                                            _depth = _depth - 1
+                                                            If _depth = 0 Then
+                                                                _fim = _pos + _i - 1
+                                                            End If
+                                                        End If
+                                                    End If
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                    _i = _i + 1
+                                Wend
+                                If _fim = 0 Then
+                                    _pos = _pos + _janelaLen
+                                End If
+                            End If
+                        Else
+                            _pos = _bodyLen + 1
+                        End If
+                    Wend
+                End If
+            End If
+
+            If _fim > 0 Then
+                _result = _fim
+            End If
+            AvancarFimObjetoImagens = _result
+        End Function
+
+        Private Function ExtrairInteiroNoIntervaloImagens(pBody As String, pInicio As Integer, pFim As Integer, pChave As String) As Integer
+            Dim _pos As Integer = 0
+            Dim _fatia As String = ""
+            Dim _i As Integer = 1
+            Dim _ch As String = ""
+            Dim _n As Integer = 0
+            Dim _d As Integer = 0
+            Dim _j As Integer = 0
+            Dim _digits As String = "0123456789"
+            Dim _tem As Boolean = False
+            Dim _q As String = Chr(34)
+
+            ExtrairInteiroNoIntervaloImagens = 0
+            _pos = me.PosicaoChaveNoIntervaloImagens(pBody, pInicio, pFim, pChave)
+            If _pos <= 0 Then
+                Exit Function
+            End If
+
+            _fatia = me.CopiarJanelaImagens(pBody, _pos, 24)
+            If Mid(_fatia, 1, 1) = _q Then
+                _i = 2
+            End If
+
+            While _i <= Len(_fatia)
+                _ch = Mid(_fatia, _i, 1)
+                _d = -1
+                For _j = 1 To 10
+                    If Mid(_digits, _j, 1) = _ch Then
+                        _d = _j - 1
+                    End If
+                Next
+                If _d < 0 Then
+                    If _tem Then
+                        _i = Len(_fatia) + 1
+                    Else
+                        If _ch = " " Then
+                            _i = _i + 1
+                        Else
+                            _i = Len(_fatia) + 1
+                        End If
+                    End If
+                Else
+                    _tem = True
+                    _n = (_n * 10) + _d
+                    _i = _i + 1
+                End If
+            Wend
+
+            If _tem Then
+                ExtrairInteiroNoIntervaloImagens = _n
+            End If
+        End Function
+
+        Private Function ExtrairTextoNoIntervaloImagens(pBody As String, pInicio As Integer, pFim As Integer, pChave As String, pMax As Integer) As String
+            Dim _pos As Integer = 0
+            Dim _q As String = Chr(34)
+            Dim _result As String = ""
+            Dim _n As Integer = 0
+            Dim _abs As Integer = 0
+            Dim _janela As String = ""
+            Dim _k As Integer = 1
+            Dim _ch As String = ""
+            Dim _escape As Boolean = False
+            Dim _fechou As Boolean = False
+
+            ExtrairTextoNoIntervaloImagens = ""
+            _pos = me.PosicaoChaveNoIntervaloImagens(pBody, pInicio, pFim, pChave)
+            If _pos <= 0 Then
+                Exit Function
+            End If
+
+            If _pos > pFim Then
+                Exit Function
+            End If
+
+            _abs = _pos
+            While _abs <= pFim
+                _ch = Mid(me.CopiarJanelaImagens(pBody, _abs, 1), 1, 1)
+                If _ch = " " Or _ch = Chr(9) Then
+                    _abs = _abs + 1
+                Else
+                    Exit While
+                End If
+            Wend
+
+            If _abs > pFim Then
+                Exit Function
+            End If
+
+            If Mid(me.CopiarJanelaImagens(pBody, _abs, 1), 1, 1) <> _q Then
+                Exit Function
+            End If
+
+            _abs = _abs + 1
+            While _abs <= pFim
+                If _fechou Then
+                    _abs = pFim + 1
+                Else
+                    If _n >= pMax Then
+                        _fechou = True
+                    Else
+                        _janela = me.CopiarJanelaImagens(pBody, _abs, 200)
+                        If _janela = "" Then
+                            _fechou = True
+                        Else
+                            _k = 1
+                            While _k <= Len(_janela)
+                                If _fechou Then
+                                    _k = Len(_janela) + 1
+                                Else
+                                    If _n >= pMax Then
+                                        _fechou = True
+                                    Else
+                                        _ch = Mid(_janela, _k, 1)
+                                        If _escape Then
+                                            _result = _result & _ch
+                                            _n = _n + 1
+                                            _escape = False
+                                        Else
+                                            If _ch = "\" Then
+                                                _escape = True
+                                            Else
+                                                If _ch = _q Then
+                                                    _fechou = True
+                                                Else
+                                                    _result = _result & _ch
+                                                    _n = _n + 1
+                                                End If
+                                            End If
+                                        End If
+                                        _k = _k + 1
+                                        _abs = _abs + 1
+                                    End If
+                                End If
+                            Wend
+                        End If
+                    End If
+                End If
+            Wend
+
+            ExtrairTextoNoIntervaloImagens = _result
+        End Function
+
+        Private Function ExtrairArrayNoIntervaloImagens(pBody As String, pInicio As Integer, pFim As Integer, pChave As String, pMax As Integer) As String
+            Dim _pos As Integer = 0
+            Dim _q As String = Chr(34)
+            Dim _result As String = ""
+            Dim _n As Integer = 0
+            Dim _abs As Integer = 0
+            Dim _janela As String = ""
+            Dim _k As Integer = 0
+            Dim _ch As String = ""
+            Dim _depth As Integer = 0
+            Dim _inQuotes As Boolean = False
+            Dim _escape As Boolean = False
+            Dim _fechou As Boolean = False
+            Dim _comecou As Boolean = False
+
+            ExtrairArrayNoIntervaloImagens = ""
+            _pos = me.PosicaoChaveNoIntervaloImagens(pBody, pInicio, pFim, pChave)
+            If _pos <= 0 Then
+                Exit Function
+            End If
+
+            _abs = _pos
+            While _abs <= pFim
+                If _fechou Then
+                    _abs = pFim + 1
+                Else
+                    If _n >= pMax Then
+                        _fechou = True
+                    Else
+                        _janela = me.CopiarJanelaImagens(pBody, _abs, 200)
+                        If _janela = "" Then
+                            _fechou = True
+                        Else
+                            _k = 1
+                            While _k <= Len(_janela)
+                                If _fechou Or _n >= pMax Then
+                                    _k = Len(_janela) + 1
+                                    If _n >= pMax Then
+                                        _fechou = True
+                                    End If
+                                Else
+                                    _ch = Mid(_janela, _k, 1)
+                                    If Not _comecou Then
+                                        If _ch = " " Or _ch = ":" Then
+                                            _k = _k + 1
+                                            _abs = _abs + 1
+                                        Else
+                                            If _ch = "[" Then
+                                                _comecou = True
+                                                _depth = 1
+                                                _result = _result & _ch
+                                                _n = _n + 1
+                                                _k = _k + 1
+                                                _abs = _abs + 1
+                                            Else
+                                                _fechou = True
+                                            End If
+                                        End If
+                                    Else
+                                        _result = _result & _ch
+                                        _n = _n + 1
+                                        If _escape Then
+                                            _escape = False
+                                        Else
+                                            If _inQuotes Then
+                                                If _ch = "\" Then
+                                                    _escape = True
+                                                Else
+                                                    If _ch = _q Then
+                                                        _inQuotes = False
+                                                    End If
+                                                End If
+                                            Else
+                                                If _ch = _q Then
+                                                    _inQuotes = True
+                                                Else
+                                                    If _ch = "[" Then
+                                                        _depth = _depth + 1
+                                                    Else
+                                                        If _ch = "]" Then
+                                                            _depth = _depth - 1
+                                                            If _depth = 0 Then
+                                                                _fechou = True
+                                                            End If
+                                                        End If
+                                                    End If
+                                                End If
+                                            End If
+                                        End If
+                                        _k = _k + 1
+                                        _abs = _abs + 1
+                                    End If
+                                End If
+                            Wend
+                        End If
+                    End If
+                End If
+            Wend
+
+            ExtrairArrayNoIntervaloImagens = _result
+        End Function
+
+        Private Function PosicaoChaveNoIntervaloImagens(pBody As String, pInicio As Integer, pFim As Integer, pChave As String) As Integer
+            Dim _pos As Integer = pInicio
+            Dim _q As String = Chr(34)
+            Dim _needle As String = _q & pChave & _q & ":"
+            Dim _needleLen As Integer = Len(_needle)
+            Dim _janela As String = ""
+            Dim _idx As Integer = 0
+            Dim _achou As Boolean = False
+            Dim _overlap As Integer = _needleLen + 2
+
+            PosicaoChaveNoIntervaloImagens = 0
+            If _overlap < 16 Then
+                _overlap = 16
+            End If
+
+            While _pos <= pFim
+                If _achou Then
+                    _pos = pFim + 1
+                Else
+                    _janela = me.CopiarJanelaImagens(pBody, _pos, 200)
+                    If _janela = "" Then
+                        _pos = pFim + 1
+                    Else
+                        _idx = InStr(_janela, _needle)
+                        If _idx > 0 Then
+                            PosicaoChaveNoIntervaloImagens = _pos + _idx + _needleLen - 1
+                            _achou = True
+                        Else
+                            If Len(_janela) < 200 Then
+                                _pos = pFim + 1
+                            Else
+                                _pos = _pos + 200 - _overlap
+                                If _pos > pFim Then
+                                    _pos = pFim + 1
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            Wend
         End Function
 
         Private Function MapearImagensProdutoDeJson(pItemJson As TJSONObject, pCna As Integer) As RedeAncoraProdutoImagensModel

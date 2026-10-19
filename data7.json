@@ -914,6 +914,30 @@
       "ordemAbertura": 0,
       "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
     },
+    "rede_ancora_produto_full_search_filtro_model": {
+      "nome": "rede_ancora_produto_full_search_filtro_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_full_search_item_model": {
+      "nome": "rede_ancora_produto_full_search_item_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_full_search_itens_model": {
+      "nome": "rede_ancora_produto_full_search_itens_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_full_search_resultado_model": {
+      "nome": "rede_ancora_produto_full_search_resultado_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
     "rede_ancora_produto_imagem_model": {
       "nome": "rede_ancora_produto_imagem_model",
       "aberto": false,

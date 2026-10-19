@@ -10,6 +10,7 @@ Imports rede_ancora_produto_vinculos_model
 Imports rede_ancora_produto_cnas_model
 Imports rede_ancora_produto_codigos_model
 Imports rede_ancora_produto_precos_estoque_model
+Imports rede_ancora_produto_full_search_resultado_model
 Imports rede_ancora_carrinho_model
 Imports rede_ancora_carrinho_itens_solicitacao_model
 Imports rede_ancora_carrinho_item_solicitacao_model
@@ -386,7 +387,7 @@ Namespace rede_ancora_checkout_bootstrap
             Dim _cnas As RedeAncoraProdutoCnasModel = Null
             Dim _precos As RedeAncoraProdutoPrecosEstoqueModel = Null
             Dim _bulk As String = ""
-            Dim _full As String = ""
+            Dim _full As RedeAncoraProdutoFullSearchResultadoModel = Null
             Dim _warehouses As String = ""
             Dim _i As Integer = 0
             Dim _products As String = ""
@@ -421,8 +422,10 @@ Namespace rede_ancora_checkout_bootstrap
                 me.LogTextoTruncado("bulk-search", _bulk)
 
                 _full = pSvc.BuscarRedeAncoraProdutoFullSearch(pCodCentro, pCna, "", "")
-                mod_logger.Printe("Produto: GET /products/full-search OK (cna=" + Parser.IntegerToString(pCna) + ")")
-                me.LogTextoTruncado("full-search", _full)
+                me.ExigirFullSearchDeTeste(_full, pCna)
+                mod_logger.Printe("Produto: GET /products/full-search OK (cna=" + Parser.IntegerToString(pCna) + " itens=" + Parser.IntegerToString(_full.Itens.Length) + " pagina=" + Parser.IntegerToString(_full.Pagina) + " ultima=" + Parser.IntegerToString(_full.UltimaPagina) + ")")
+                _full.Free()
+                _full = Null
 
                 _warehouses = pSvc.ConsultarRedeAncoraProdutoCentrosComEstoque(pCna, pCodEstado, pCodCentro)
                 mod_logger.Printe("Produto: POST /products/warehouses/" + Parser.IntegerToString(pCna) + " OK")
@@ -452,6 +455,10 @@ Namespace rede_ancora_checkout_bootstrap
                 _precos.Free()
                 _cnas.Free()
             Catch ex As Exception
+                If Assigned(_full) Then
+                    _full.Free()
+                End If
+
                 If Assigned(_codes) Then
                     _codes.Free()
                 End If
@@ -466,6 +473,28 @@ Namespace rede_ancora_checkout_bootstrap
 
                 Throw New System.Exception("Erro nos testes complementares de produto: " + ex._getMessage())
             End Try
+        End Sub
+
+        Private Sub ExigirFullSearchDeTeste(pResultado As RedeAncoraProdutoFullSearchResultadoModel, pCna As Integer)
+            If Not Assigned(pResultado) Then
+                Throw New System.Exception("full-search sem resultado")
+            End If
+
+            If Not Assigned(pResultado.Itens) Then
+                Throw New System.Exception("full-search sem itens")
+            End If
+
+            If pResultado.Itens.Length <= 0 Then
+                Throw New System.Exception("full-search sem itens")
+            End If
+
+            If Not Assigned(pResultado.Itens.ObterPorCna(pCna)) Then
+                Throw New System.Exception("full-search nao retornou o CNA pedido")
+            End If
+
+            If pResultado.Pagina < 1 Then
+                Throw New System.Exception("full-search com pagina invalida")
+            End If
         End Sub
 
         Private Sub LimparItensTesteAoFinal(pSvc As UsuarioService, pIdCarrinhoSessao As String, pIdCarrinhoAtual As String, pItensIdsTeste As RedeAncoraCarrinhoItensIdsModel, pSilencioso As Boolean)

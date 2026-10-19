@@ -13,6 +13,7 @@ Namespace rede_ancora_empresa_model
         NomeFantasia As String
         Cnpj As String
         CodEstado As Integer
+        Uf As String
         CodCentroDistribuicaoPreferencial As Integer
         CpfResponsavel As String
         Bloqueado As String
@@ -29,6 +30,7 @@ Namespace rede_ancora_empresa_model
             me.RazaoSocial = ""
             me.NomeFantasia = ""
             me.Cnpj = ""
+            me.Uf = ""
             me.CpfResponsavel = ""
             me.Bloqueado = "N"
             me.MotivosBloqueio = ""
@@ -51,6 +53,7 @@ Namespace rede_ancora_empresa_model
                 me.NomeFantasia = pValue.NomeFantasia
                 me.Cnpj = pValue.Cnpj
                 me.CodEstado = pValue.CodEstado
+                me.Uf = pValue.Uf
                 me.CodCentroDistribuicaoPreferencial = pValue.CodCentroDistribuicaoPreferencial
                 me.CpfResponsavel = pValue.CpfResponsavel
                 me.Bloqueado = pValue.Bloqueado
@@ -193,6 +196,7 @@ Namespace rede_ancora_empresa_model
             _json.PutString("NomeFantasia", me.NomeFantasia)
             _json.PutString("Cnpj", me.CnpjFormatado())
             _json.PutInteger("CodEstado", me.CodEstado)
+            _json.PutString("Uf", me.Uf)
             _json.PutInteger("CodCentroDistribuicaoPreferencial", me.CodCentroDistribuicaoPreferencial)
             _json.PutString("CpfResponsavel", me.CpfResponsavel)
             _json.PutString("Bloqueado", me.Bloqueado)
@@ -221,6 +225,7 @@ Namespace rede_ancora_empresa_model
                 .Prop("NomeFantasia", me.NomeFantasia)
                 .Prop("Cnpj", me.CnpjFormatado())
                 .Prop("CodEstado", me.CodEstado)
+                .Prop("Uf", me.Uf)
                 .Prop("CodCentroDistribuicaoPreferencial", me.CodCentroDistribuicaoPreferencial)
                 .Prop("CpfResponsavel", me.CpfResponsavel)
                 .Prop("Bloqueado", me.Bloqueado)

@@ -119,6 +119,7 @@ Namespace rede_ancora_migration
             _columns.Add(New MigrationColumn(_tabela, "NomeFantasia", "VARCHAR(200)", True, False, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "Cnpj", "VARCHAR(14)", False, False, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "CodEstado", "INTEGER", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "Uf", "VARCHAR(2)", True, False, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "CodCentroDistribuicaoPreferencial", "INTEGER", True, False, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "CpfResponsavel", "VARCHAR(11)", True, False, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "Bloqueado", "VARCHAR(1)", True, False, pSchema))
@@ -146,6 +147,7 @@ Namespace rede_ancora_migration
             _controller.CreateColumn(pSchema, _tabela, "IdCarrinhoAtual", "VARCHAR(36)")
             _controller.CreateColumn(pSchema, _tabela, "Marketplace", "VARCHAR(1)")
             _controller.CreateColumn(pSchema, _tabela, "Permissoes", "VARCHAR(4000)")
+            _controller.CreateColumn(pSchema, _tabela, "Uf", "VARCHAR(2)")
         End Sub
 
         Private Sub RenomearCodEmpresaParaCodEmpresaAncora(pSchema As String)

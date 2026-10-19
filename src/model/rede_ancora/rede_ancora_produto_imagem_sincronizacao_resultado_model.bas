@@ -12,6 +12,7 @@ Namespace rede_ancora_produto_imagem_sincronizacao_resultado_model
         QtdProcessados As Integer
         QtdComImagem As Integer
         QtdSemImagem As Integer
+        QtdNaoEncontrados As Integer
         Sucesso As Boolean
         DataInicio As TDateTime
         DataFim As TDateTime
@@ -50,7 +51,8 @@ Namespace rede_ancora_produto_imagem_sincronizacao_resultado_model
             me.MensagemResumo = "Sync imagens: " +_
             Parser.IntegerToString(me.QtdProcessados) + " processados, " +_
             Parser.IntegerToString(me.QtdComImagem) + " com imagem, " +_
-            Parser.IntegerToString(me.QtdSemImagem) + " sem imagem"
+            Parser.IntegerToString(me.QtdSemImagem) + " sem imagem, " +_
+            Parser.IntegerToString(me.QtdNaoEncontrados) + " nao encontrados"
 
             If me.QtdChunksComErro > 0 Then
                 me.MensagemResumo = me.MensagemResumo + ", " + Parser.IntegerToString(me.QtdChunksComErro) + " chunks com erro"

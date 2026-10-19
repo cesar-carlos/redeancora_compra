@@ -24,6 +24,10 @@ Namespace rede_ancora_produto_imagem_repository
             SqlDeletePorCna = $"DELETE FROM {me.Tabela()} WHERE Cna = :Cna"
         End Function
 
+        Private Function SqlDeletePorCnaTipo() As String
+            SqlDeletePorCnaTipo = $"DELETE FROM {me.Tabela()} WHERE Cna = :Cna AND TipoImagem = :TipoImagem"
+        End Function
+
         Private Function SqlInsert() As String
             SqlInsert = $"INSERT INTO {me.Tabela()} (Cna, Item, TipoImagem, DataAtualizacao, Url) " +_
             $"VALUES (:Cna, :Item, :TipoImagem, :DataAtualizacao, :Url)"
@@ -76,6 +80,81 @@ Namespace rede_ancora_produto_imagem_repository
 
             Sub SubstituirPorCnaSemTransacao(pCna As Integer, pImagens As RedeAncoraProdutoImagensModel)
                 me.SubstituirPorCnaComTransacao(pCna, pImagens, False)
+            End Sub
+
+            ' Troca so os tipos que vieram com URL. Lista vazia nao apaga o que ja estava gravado.
+            Sub MesclarPorCna(pCna As Integer, pImagens As RedeAncoraProdutoImagensModel)
+                me.MesclarPorCnaComTransacao(pCna, pImagens, True)
+            End Sub
+
+            Sub MesclarPorCnaSemTransacao(pCna As Integer, pImagens As RedeAncoraProdutoImagensModel)
+                me.MesclarPorCnaComTransacao(pCna, pImagens, False)
+            End Sub
+
+            Private Sub MesclarPorCnaComTransacao(pCna As Integer, pImagens As RedeAncoraProdutoImagensModel, pUsarTransacao As Boolean)
+                Dim _tx As Transaction = Null
+                Dim _deleteQuery As SQL.Command = Null
+                Dim _insertQuery As SQL.Command = Null
+                Dim _i As Integer
+                Dim _tipos As String = ""
+                Dim _marca As String = ""
+
+                If Not Assigned(pImagens) Then
+                    Exit Sub
+                End If
+
+                If pImagens.Length <= 0 Then
+                    Exit Sub
+                End If
+
+                Try
+                    If pUsarTransacao Then
+                        _tx = Transaction.Instance()
+                        _tx.StartTransaction("Integracao.RedeAncoraProdutoImagem Merge")
+                    End If
+
+                    For _i = 0 To pImagens.Length - 1
+                        Dim _item As RedeAncoraProdutoImagemModel = pImagens.Take(_i)
+                        _item.Cna = pCna
+                        _item.Validate()
+                        _marca = "," + _item.TipoImagem + ","
+
+                        If Not _tipos.Contains(_marca) Then
+                            _deleteQuery = SqlHelper.OpenQuery(me.SqlDeletePorCnaTipo())
+                            _deleteQuery.Param("Cna").AsInteger = pCna
+                            _deleteQuery.Param("TipoImagem").AsString = _item.TipoImagem
+                            _deleteQuery.ExecSQL()
+                            SqlHelper.ReleaseQuery(_deleteQuery)
+                            _deleteQuery = Null
+                            _tipos = _tipos + _marca
+                        End If
+                    Next
+
+                    For _i = 0 To pImagens.Length - 1
+                        Dim _novo As RedeAncoraProdutoImagemModel = pImagens.Take(_i)
+                        _novo.Cna = pCna
+                        _insertQuery = SqlHelper.OpenQuery(me.SqlInsert())
+                        me.BindInsertParams(_insertQuery, _novo)
+                        _insertQuery.ExecSQL()
+                        SqlHelper.ReleaseQuery(_insertQuery)
+                        _insertQuery = Null
+                    Next
+
+                    If pUsarTransacao Then
+                        _tx.AutoCommit()
+                    End If
+                Catch ex As Exception
+                    SqlHelper.ReleaseQuery(_deleteQuery)
+                    SqlHelper.ReleaseQuery(_insertQuery)
+
+                    If pUsarTransacao Then
+                        If Assigned(_tx) Then
+                            _tx.Rollback()
+                        End If
+                    End If
+
+                    Throw New System.Exception("Erro ao mesclar Integracao.RedeAncoraProdutoImagem: " + Char(13) + ex._getMessage())
+                End Try
             End Sub
 
             Private Sub SubstituirPorCnaComTransacao(pCna As Integer, pImagens As RedeAncoraProdutoImagensModel, pUsarTransacao As Boolean)

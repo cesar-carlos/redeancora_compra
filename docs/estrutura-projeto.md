@@ -384,7 +384,7 @@ Models agrupados por domínio (cada par `*_model` / `*_models` quando aplicável
 |-------|----------|--------------|
 | Auth / empresa | `RedeAncoraAutenticacaoModel`, `RedeAncoraEmpresaModel`, `RedeAncoraCentroDistribuicaoModel` | Tabelas `Integracao` |
 | Catálogo | `RedeAncoraMarcaModel`, `RedeAncoraLinhaModel`, `RedeAncoraFamiliaModel`, `RedeAncoraModalidadeModel` | Tabelas `Integracao` |
-| Produto | `RedeAncoraProdutoModel`, `RedeAncoraProdutoVinculoModel`, `RedeAncoraProdutoImagemModel`, `RedeAncoraProdutoPrecoEstoqueModel`, `RedeAncoraProdutoCnasModel`, `RedeAncoraProdutoCodigosModel` | Cadastro e vínculo/imagens em banco; preços/códigos só em memória |
+| Produto | `RedeAncoraProdutoModel`, `RedeAncoraProdutoVinculoModel`, `RedeAncoraProdutoImagemModel`, `RedeAncoraProdutoPrecoEstoqueModel`, `RedeAncoraProdutoCnasModel`, `RedeAncoraProdutoCodigosModel`, `RedeAncoraProdutoFullSearchFiltroModel`, `RedeAncoraProdutoFullSearchItemModel`, `RedeAncoraProdutoFullSearchItensModel`, `RedeAncoraProdutoFullSearchResultadoModel` | Cadastro e vínculo/imagens em banco; preços, filtro e resultado de full-search só em memória |
 | Carrinho | `RedeAncoraCarrinhoModel`, `RedeAncoraCarrinhoItemModel`, `*SolicitacaoModel`, `*ItensIdsModel` | Carrinho/item em banco |
 | Checkout | `RedeAncoraCheckoutRevisaoModel`, `RedeAncoraCheckoutPagamentosModel`, `*Entrega*Model` | Só em memória (resposta API) |
 | Pedido | `RedeAncoraPedidoModel`, `RedeAncoraPedidosModel` | `RedeAncoraPedido` após confirmar |
@@ -429,7 +429,7 @@ Tabelas criadas em `Integracao`:
 | `RedeAncoraCentroDistribuicao` | CDs (`warehouses`) por usuário |
 | `RedeAncoraModalidade` | Cache de `GET /modalities` |
 | `RedeAncoraMarca`, `RedeAncoraLinha`, `RedeAncoraFamilia` | Catálogo de apoio para filtros e cadastro (códigos lógicos; sem FK SQL, como as demais tabelas `Integracao`) |
-| `RedeAncoraProduto` | Cadastro Âncora (fonte: `GET /products/full-search?fields=details`): **PK `Cna`**; FKs lógicas `CodMarca`/`CodMarcaErp` → Marca, `CodLinha` → Linha, `CodFamilia` → Família |
+| `RedeAncoraProduto` | Cadastro Âncora. Carga em massa: `GET /products/full-search?fields=details` por família. Consulta pontual: `RedeAncoraProdutoFullSearchResultadoModel`. **PK `Cna`**; FKs lógicas `CodMarca`/`CodMarcaErp` → Marca, `CodLinha` → Linha, `CodFamilia` → Família |
 | `RedeAncoraProdutoVinculo` | Vínculo ERP (`CodProduto`) + **espelho legado** de catálogo (`CodigoAncora`, `DescricaoAncora`, `CodMarca`…). Dual-write no sync |
 | `RedeAncoraProdutoImagem` | Imagens por CNA: **PK `(Cna, Item, TipoImagem)`**; `Item` VARCHAR(5) (`00001`…); `Url`, `DataAtualizacao` |
 | `RedeAncoraCarrinho` | Cabeçalho (`PK CodCarrinho`, `IdCarrinho` UUID da API, totais). **Sem `CodUsuario`** — o cart na API é da chave/franqueado (compartilhado); `IdCarrinhoAtual` é só cache local |

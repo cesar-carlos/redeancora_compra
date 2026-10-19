@@ -31,6 +31,8 @@ Imports rede_ancora_produto_cnas_model
 Imports rede_ancora_produto_codigos_model
 Imports rede_ancora_produto_imagens_model
 Imports rede_ancora_produto_imagem_sincronizacao_resultado_model
+Imports rede_ancora_produto_full_search_filtro_model
+Imports rede_ancora_produto_full_search_resultado_model
 Imports rede_ancora_carrinho_itens_ids_model
 Imports rede_ancora_checkout_service
 Imports rede_ancora_checkout_revisao_model
@@ -643,8 +645,37 @@ Namespace usuario_service
             ConsultarRedeAncoraProdutoPrecosEstoques = me._redeAncoraProdutoService.ConsultarPrecosEstoques(me.ObterCodUsuarioIntegracao(), pCodCentroDistribuicao, pCnas)
         End Function
 
-        Function BuscarRedeAncoraProdutoFullSearch(pCodCentroDistribuicao As Integer, pCna As Integer, pCodigo As String, pQuery As String) As String
-            BuscarRedeAncoraProdutoFullSearch = me._redeAncoraProdutoService.BuscarProdutoFullSearch(me.ObterCodUsuarioIntegracao(), pCodCentroDistribuicao, pCna, pCodigo, pQuery)
+        Function BuscarRedeAncoraProdutoFullSearch(pCodCentroDistribuicao As Integer, pCna As Integer, pCodigo As String, pQuery As String, pPagina As Integer = 1, pTamanhoPagina As Integer = 0) As RedeAncoraProdutoFullSearchResultadoModel
+            Dim _filtro As RedeAncoraProdutoFullSearchFiltroModel = NULL
+            Dim _ok As RedeAncoraProdutoFullSearchResultadoModel = NULL
+
+            Try
+                _filtro = New RedeAncoraProdutoFullSearchFiltroModel()
+                _filtro.CodUsuario = me.ObterCodUsuarioIntegracao()
+                _filtro.CodCentroDistribuicao = pCodCentroDistribuicao
+                _filtro.Cna = pCna
+                _filtro.Codigo = pCodigo
+                _filtro.Query = pQuery
+                _filtro.Pagina = pPagina
+                _filtro.TamanhoPagina = pTamanhoPagina
+                _ok = me._redeAncoraProdutoService.BuscarProdutoFullSearch(_filtro)
+                _filtro.Free()
+                _filtro = NULL
+            Catch ex As Exception
+                If Assigned(_ok) Then
+                    _ok.Free()
+                    _ok = NULL
+                End If
+
+                If Assigned(_filtro) Then
+                    _filtro.Free()
+                    _filtro = NULL
+                End If
+
+                Throw ex
+            End Try
+
+            BuscarRedeAncoraProdutoFullSearch = _ok
         End Function
 
         Function BuscarRedeAncoraProdutoBulkSearch(pCodCentroDistribuicao As Integer, pCodEstado As Integer, pCnas As RedeAncoraProdutoCnasModel, pPagina As Integer, pTamanhoPagina As Integer) As String

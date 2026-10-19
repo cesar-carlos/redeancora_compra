@@ -329,7 +329,7 @@ Namespace rede_ancora_produto_sincronizacao_service
                                 Throw New System.Exception("Erro ao persistir pagina full-search familia=" & Parser.IntegerToString(_codFamilia) & " pagina=" & Parser.IntegerToString(_pagina) & ": " & me.MensagemExcecaoSegura(exPersistir))
                             End Try
 
-                            _ultimaPagina = me.ObterLastPageDoSufixo(_body)
+                            _ultimaPagina = RedeAncoraJsonHelper.ObterInteiroNoSufixo(_body, "last_page")
                             If _ultimaPagina <= 0 Then
                                 If _qtdItens < _tamanhoPagina Then
                                     _ultimaPagina = _pagina
@@ -1044,6 +1044,8 @@ Namespace rede_ancora_produto_sincronizacao_service
             Dim _chave As String = ""
             Dim _valor As String = ""
             Dim _chaveDepth As Integer = 0
+            Dim _capturandoTecnicas As Boolean = False
+            Dim _tecnicasArrAlvo As Integer = 0
             Dim _fim As Integer = 0
             Dim _result As Integer = 0
 
@@ -1062,7 +1064,7 @@ Namespace rede_ancora_produto_sincronizacao_service
                                 While _i <= _janelaLen
                                     If _fim = 0 Then
                                         _ch = Mid(_janela, _i, 1)
-                                        me.ConsumirCharJsonObjeto(_ch, _q, _depth, _arrDepth, _inQuotes, _escape, _esperandoChave, _lendoChave, _depoisDeChave, _lendoValor, _valorString, _chave, _valor, _chaveDepth, pCadastro, pImagemReal, pImagemIlustrativa)
+                                        me.ConsumirCharJsonObjeto(_ch, _q, _depth, _arrDepth, _inQuotes, _escape, _esperandoChave, _lendoChave, _depoisDeChave, _lendoValor, _valorString, _chave, _valor, _chaveDepth, pCadastro, pImagemReal, pImagemIlustrativa, pTecnicasBlob, _capturandoTecnicas, _tecnicasArrAlvo)
                                         If _depth = 0 Then
                                             If Not _inQuotes Then
                                                 If _ch = "}" Then
@@ -1090,8 +1092,15 @@ Namespace rede_ancora_produto_sincronizacao_service
             AvancarFimObjetoEExtrair = _result
         End Function
 
-        Private Sub ConsumirCharJsonObjeto(pCh As String, pQ As String, ByRef pDepth As Integer, ByRef pArrDepth As Integer, ByRef pInQuotes As Boolean, ByRef pEscape As Boolean, ByRef pEsperandoChave As Boolean, ByRef pLendoChave As Boolean, ByRef pDepoisDeChave As Boolean, ByRef pLendoValor As Boolean, ByRef pValorString As Boolean, ByRef pChave As String, ByRef pValor As String, ByRef pChaveDepth As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String)
+        Private Sub ConsumirCharJsonObjeto(pCh As String, pQ As String, ByRef pDepth As Integer, ByRef pArrDepth As Integer, ByRef pInQuotes As Boolean, ByRef pEscape As Boolean, ByRef pEsperandoChave As Boolean, ByRef pLendoChave As Boolean, ByRef pDepoisDeChave As Boolean, ByRef pLendoValor As Boolean, ByRef pValorString As Boolean, ByRef pChave As String, ByRef pValor As String, ByRef pChaveDepth As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String, ByRef pTecnicasBlob As String, ByRef pCapturandoTecnicas As Boolean, ByRef pTecnicasArrAlvo As Integer)
             Dim _ehBranco As Boolean = False
+            Dim _tetoValor As Integer = 0
+
+            If pCapturandoTecnicas Then
+                If Len(pTecnicasBlob) < 8000 Then
+                    pTecnicasBlob = pTecnicasBlob & pCh
+                End If
+            End If
 
             If pEscape Then
                 If pLendoChave Then
@@ -1101,7 +1110,8 @@ Namespace rede_ancora_produto_sincronizacao_service
                 Else
                     If pLendoValor Then
                         If pValorString Then
-                            If Len(pValor) < 500 Then
+                            _tetoValor = me.TetoValorTextoJson(pChave)
+                            If Len(pValor) < _tetoValor Then
                                 pValor = pValor & pCh
                             End If
                         End If
@@ -1136,7 +1146,8 @@ Namespace rede_ancora_produto_sincronizacao_service
                             Else
                                 If pLendoValor Then
                                     If pValorString Then
-                                        If Len(pValor) < 500 Then
+                                        _tetoValor = me.TetoValorTextoJson(pChave)
+                                        If Len(pValor) < _tetoValor Then
                                             pValor = pValor & pCh
                                         End If
                                     End If
@@ -1179,6 +1190,15 @@ Namespace rede_ancora_produto_sincronizacao_service
                             Else
                                 If pCh = "[" Then
                                     If pLendoValor Then
+                                        If pChaveDepth = 1 Then
+                                            If pChave = "imagensTecnicas" Then
+                                                If Not pCapturandoTecnicas Then
+                                                    pCapturandoTecnicas = True
+                                                    pTecnicasBlob = "["
+                                                    pTecnicasArrAlvo = pArrDepth
+                                                End If
+                                            End If
+                                        End If
                                         pLendoValor = False
                                     End If
                                     pArrDepth = pArrDepth + 1
@@ -1186,6 +1206,11 @@ Namespace rede_ancora_produto_sincronizacao_service
                                     If pCh = "]" Then
                                         If pArrDepth > 0 Then
                                             pArrDepth = pArrDepth - 1
+                                        End If
+                                        If pCapturandoTecnicas Then
+                                            If pArrDepth = pTecnicasArrAlvo Then
+                                                pCapturandoTecnicas = False
+                                            End If
                                         End If
                                     Else
                                         If pCh = ":" Then
@@ -1228,6 +1253,19 @@ Namespace rede_ancora_produto_sincronizacao_service
                 End If
             End If
         End Sub
+
+        Private Function TetoValorTextoJson(pChave As String) As Integer
+            Dim _teto As Integer = 500
+
+            If pChave = "imagemReal" Then
+                _teto = 2000
+            Else
+                If pChave = "imagemIlustrativa" Then
+                    _teto = 2000
+                End If
+            End If
+            TetoValorTextoJson = _teto
+        End Function
 
         Private Function EhBrancoJsonChar(pCh As String) As Boolean
             Dim _result As Boolean = False
@@ -1642,52 +1680,6 @@ Namespace rede_ancora_produto_sincronizacao_service
                 _result = _fim
             End If
             AvancarFimObjeto = _result
-        End Function
-
-        Private Function ObterLastPageDoSufixo(pBody As String) As Integer
-            Dim _bodyLen As Integer = 0
-            Dim _janelaMax As Integer = 200
-            Dim _janela As String = ""
-            Dim _pos As Integer = 0
-            Dim _n As Integer = 0
-            Dim _passos As Integer = 0
-
-            ObterLastPageDoSufixo = 0
-            _bodyLen = Len(pBody)
-            If _bodyLen <= 0 Then
-                Exit Function
-            End If
-
-            If _bodyLen <= _janelaMax Then
-                ObterLastPageDoSufixo = me.ExtrairInteiroDoPrefixoAscii(me.CopiarJanelaAscii(pBody, 1, _bodyLen), "last_page")
-                Exit Function
-            End If
-
-            _pos = _bodyLen - _janelaMax + 1
-            While _pos >= 1
-                If _passos > 20 Then
-                    Exit Function
-                End If
-                _passos = _passos + 1
-
-                _janela = me.CopiarJanelaAscii(pBody, _pos, 200)
-                If _janela = "" Then
-                    Exit Function
-                End If
-                _n = me.ExtrairInteiroDoPrefixoAscii(_janela, "last_page")
-                If _n > 0 Then
-                    ObterLastPageDoSufixo = _n
-                    Exit Function
-                End If
-
-                If _pos <= 1 Then
-                    Exit Function
-                End If
-                _pos = _pos - (_janelaMax - 20)
-                If _pos < 1 Then
-                    _pos = 1
-                End If
-            Wend
         End Function
 
         Private Function PosicaoArrayDataAscii(pBody As String) As Integer

@@ -107,7 +107,7 @@ flowchart LR
 | 1 — Auth | ✅ | `rede_ancora_autenticacao_service` | `PingRedeAncora`, `SalvarChaveApiRedeAncora`, `SincronizarRedeAncoraUsuarioApi`, `InicializarRedeAncora` (+ catálogo). JWT/login **não** implementado (produção usa só `X-API-KEY`) |
 | 2 — Profile | ✅ | `rede_ancora_empresa_service` | `SincronizarRedeAncoraPerfil`, `ValidarRedeAncoraPodeOperar`, `ListarRedeAncoraCentrosDistribuicao` |
 | 3 — Modalidades / catálogo | ✅ | `rede_ancora_modalidade_service`, `rede_ancora_catalogo_service` | `SincronizarRedeAncoraModalidades`, `SincronizarRedeAncoraCatalogo`, `ListarRedeAncoraMarcas/Linhas/Familias` |
-| 4 — Produtos | ✅ | `rede_ancora_produto_service` | `ConsultarRedeAncoraProdutoCondicoes`, `ConsultarRedeAncoraProdutoPrecosEstoques`, `BuscarRedeAncoraProdutoFullSearch`, `BuscarRedeAncoraProdutoBulkSearch`, `ConsultarRedeAncoraProdutoCentrosComEstoque`, `BuscarRedeAncoraProdutos`, `ConsultarRedeAncoraProdutoSimilares`, `BuscarRedeAncoraProdutosPorLote`, `ConsultarRedeAncoraProdutoPrecosEstoquesTodosCds` + cadastro/vínculo CNA |
+| 4 — Produtos | ✅ | `rede_ancora_produto_service` | `ConsultarRedeAncoraProdutoCondicoes`, `ConsultarRedeAncoraProdutoPrecosEstoques`, `BuscarRedeAncoraProdutoFullSearch` (resultado tipado), `BuscarRedeAncoraProdutoBulkSearch`, `ConsultarRedeAncoraProdutoCentrosComEstoque`, `BuscarRedeAncoraProdutos`, `ConsultarRedeAncoraProdutoSimilares`, `BuscarRedeAncoraProdutosPorLote`, `ConsultarRedeAncoraProdutoPrecosEstoquesTodosCds` + cadastro/vínculo CNA. Bulk, produtos, similares, lote e warehouses seguem JSON bruto |
 | 5 — Carrinho | ✅ | `rede_ancora_carrinho_service` | `AbrirRedeAncoraCarrinho`, `AdicionarItensRedeAncoraCarrinho`, `AtualizarItem*`, `RemoverItem*`, `DeletarRedeAncoraCarrinho`, `ReordenarRedeAncoraCarrinho` |
 | 6 — Checkout | ✅ | `rede_ancora_checkout_service` | `RevisarRedeAncoraCarrinho`, `ConsultarRedeAncoraPagamentos`, `AplicarRedeAncoraCondicaoPagamento`, `ListarRedeAncoraTransportadores`, `ConsultarRedeAncoraEntregasLogistica`, `ConsultarRedeAncoraTransportador`, `CriarRedeAncoraTransportador`, `AtualizarRedeAncoraTransportador`, `ExcluirRedeAncoraTransportador`, `ListarRedeAncoraTiposVeiculo` |
 | 7 — Pedido | ✅ | `rede_ancora_checkout_service` | `ConfirmarRedeAncoraPedido`, `ListarRedeAncoraPedidosLocal` |
@@ -512,10 +512,14 @@ Content-Type: application/json
 **Parâmetro obrigatório:** `empresa` (seller)
 
 ```http
-GET https://app.redeancora.com.br/b2b/api/integration/v1/products/full-search?empresa=9&cna=849766&fields=prices,stocks,details
+GET https://app.redeancora.com.br/b2b/api/integration/v1/products/full-search?empresa=9&cna=849766&fields=prices,stocks,details&page=1&page_size=100
 Authorization: Bearer {access_token}
 X-API-KEY: {sua_chave_api}
 ```
+
+> **No projeto:** `UsuarioService.BuscarRedeAncoraProdutoFullSearch(codCentro, cna, codigo, query, pagina = 1, tamanhoPagina = 0)` devolve `RedeAncoraProdutoFullSearchResultadoModel`. `tamanhoPagina` 0 usa o chunk configurado, limitado a 100. O resultado traz `Itens`, `Pagina`, `TamanhoPagina`, `UltimaPagina`, `Total` e `TemProximaPagina`. Cada item tem cadastro, imagens e, quando o bloco veio na resposta, preço/estoque. Preço ausente fica nulo; zero é valor informado. Quem recebe o modelo chama `Free`.
+>
+> `RedeAncoraProdutoService.BuscarProdutoFullSearch` recebe `RedeAncoraProdutoFullSearchFiltroModel` (`cna`, `code`, `query` ou `family`, mais `page` e `page_size`). A carga completa por família continua em `BuscarProdutoFullSearchPorFamilia` (`fields=details`, corpo cru, parse em janela).
 
 **Busca em massa:**
 
@@ -557,6 +561,8 @@ Não existe endpoint separado de imagem na API. As URLs vêm no JSON de `GET /pr
 **Consulta local:** `UsuarioService.ListarRedeAncoraImagensProduto(cna)`.
 
 URLs placeholder (`.../default.png`) são ignoradas. Produto desativado remove linhas de imagem via `ExcluirPorCna`.
+
+A busca pontual (`BuscarRedeAncoraProdutoFullSearch`) grava imagem só quando a lista tipada tem URL válida. Lista vazia não apaga a imagem local.
 
 ---
 
@@ -1350,7 +1356,7 @@ Legenda: `[x]` feito no código · `[ ]` pendente ou parcial
 - [x] `GET /products/brands`, `/lines`, `/families` em cache
 - [x] `GET /products/conditions/{cna}`
 - [x] `POST /products/prices-stocks` (cnas como strings)
-- [x] `GET /products/full-search`
+- [x] `GET /products/full-search` — busca pontual em `RedeAncoraProdutoFullSearchResultadoModel` (`page` / `page_size`); carga por família segue corpo cru e parse em janela
 - [x] `POST /products/bulk-search`
 - [x] `POST /products/warehouses/{cna}`
 - [x] `GET /products`, `POST /products/similares`, `POST /products/bulk`, `POST /products/prices-stocks-warehouses`

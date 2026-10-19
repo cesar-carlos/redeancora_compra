@@ -20,6 +20,7 @@ Namespace rede_ancora_empresa_repository
             $"       NomeFantasia, " +_
             $"       Cnpj, " +_
             $"       CodEstado, " +_
+            $"       Uf, " +_
             $"       CodCentroDistribuicaoPreferencial, " +_
             $"       CpfResponsavel, " +_
             $"       Bloqueado, " +_
@@ -44,8 +45,8 @@ Namespace rede_ancora_empresa_repository
         End Function
 
         Private Function SqlInsert() As String
-            SqlInsert = $"INSERT INTO {me.Tabela()} (CodEmpresaAncora, CodUsuario, CodInterno, RazaoSocial, NomeFantasia, Cnpj, CodEstado, CodCentroDistribuicaoPreferencial, CpfResponsavel, Bloqueado, MotivosBloqueio, SaldoAtual, LimiteCredito, LimiteUtilizado, IdCarrinhoAtual, Marketplace, Permissoes) " +_
-            $"VALUES (:CodEmpresaAncora, :CodUsuario, :CodInterno, :RazaoSocial, :NomeFantasia, :Cnpj, :CodEstado, :CodCentroDistribuicaoPreferencial, :CpfResponsavel, :Bloqueado, :MotivosBloqueio, :SaldoAtual, :LimiteCredito, :LimiteUtilizado, :IdCarrinhoAtual, :Marketplace, :Permissoes)"
+            SqlInsert = $"INSERT INTO {me.Tabela()} (CodEmpresaAncora, CodUsuario, CodInterno, RazaoSocial, NomeFantasia, Cnpj, CodEstado, Uf, CodCentroDistribuicaoPreferencial, CpfResponsavel, Bloqueado, MotivosBloqueio, SaldoAtual, LimiteCredito, LimiteUtilizado, IdCarrinhoAtual, Marketplace, Permissoes) " +_
+            $"VALUES (:CodEmpresaAncora, :CodUsuario, :CodInterno, :RazaoSocial, :NomeFantasia, :Cnpj, :CodEstado, :Uf, :CodCentroDistribuicaoPreferencial, :CpfResponsavel, :Bloqueado, :MotivosBloqueio, :SaldoAtual, :LimiteCredito, :LimiteUtilizado, :IdCarrinhoAtual, :Marketplace, :Permissoes)"
         End Function
 
         Private Function SqlUpdate() As String
@@ -56,6 +57,7 @@ Namespace rede_ancora_empresa_repository
             $"    NomeFantasia = :NomeFantasia, " +_
             $"    Cnpj = :Cnpj, " +_
             $"    CodEstado = :CodEstado, " +_
+            $"    Uf = :Uf, " +_
             $"    CodCentroDistribuicaoPreferencial = :CodCentroDistribuicaoPreferencial, " +_
             $"    CpfResponsavel = :CpfResponsavel, " +_
             $"    Bloqueado = :Bloqueado, " +_
@@ -77,6 +79,7 @@ Namespace rede_ancora_empresa_repository
             pItem.NomeFantasia = pQuery.Field("NomeFantasia").AsString
             pItem.Cnpj = pQuery.Field("Cnpj").AsString
             pItem.CodEstado = pQuery.Field("CodEstado").AsInteger
+            pItem.Uf = pQuery.Field("Uf").AsString
             pItem.CodCentroDistribuicaoPreferencial = pQuery.Field("CodCentroDistribuicaoPreferencial").AsInteger
             pItem.CpfResponsavel = pQuery.Field("CpfResponsavel").AsString
             pItem.Bloqueado = pQuery.Field("Bloqueado").AsString
@@ -97,6 +100,7 @@ Namespace rede_ancora_empresa_repository
             pQuery.Param("NomeFantasia").AsString = pModel.NomeFantasia
             pQuery.Param("Cnpj").AsString = pModel.Cnpj
             pQuery.Param("CodEstado").AsInteger = pModel.CodEstado
+            pQuery.Param("Uf").AsString = pModel.Uf
             pQuery.Param("CodCentroDistribuicaoPreferencial").AsInteger = pModel.CodCentroDistribuicaoPreferencial
             pQuery.Param("CpfResponsavel").AsString = pModel.CpfResponsavel
             pQuery.Param("Bloqueado").AsString = pModel.Bloqueado

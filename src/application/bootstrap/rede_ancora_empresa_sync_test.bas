@@ -125,6 +125,8 @@ Namespace rede_ancora_empresa_sync_test
             mod_logger.Printe(_msg)
             _msg = "CodEstado: " + Parser.IntegerToString(pModel.CodEstado)
             mod_logger.Printe(_msg)
+            _msg = "UF: " + pModel.Uf
+            mod_logger.Printe(_msg)
             _msg = "CD preferencial: " + Parser.IntegerToString(pModel.CodCentroDistribuicaoPreferencial)
             mod_logger.Printe(_msg)
             _msg = "Bloqueado: " + pModel.Bloqueado

@@ -1103,6 +1103,98 @@ Namespace rede_ancora_json_helper
             TextoParaInteiro = _sign * _n
         End Function
 
+        ' Procura um inteiro no fim do JSON (meta/last_page) em janelas de 200, sem DOM.
+        Shared Function ObterInteiroNoSufixo(pBody As String, pKey As String) As Integer
+            Dim _bodyLen As Integer = 0
+            Dim _janelaMax As Integer = 200
+            Dim _janela As String = ""
+            Dim _pos As Integer = 0
+            Dim _n As Integer = 0
+            Dim _passos As Integer = 0
+            Dim _result As Integer = 0
+
+            _bodyLen = Len(pBody)
+
+            If _bodyLen <= 0 Then
+                ObterInteiroNoSufixo = 0
+                Exit Function
+            End If
+
+            If pKey.Trim() = "" Then
+                ObterInteiroNoSufixo = 0
+                Exit Function
+            End If
+
+            If _bodyLen <= _janelaMax Then
+                ObterInteiroNoSufixo = ObterInteiroJsonDeBlob(pBody, pKey)
+                Exit Function
+            End If
+
+            _pos = _bodyLen - _janelaMax + 1
+
+            While _pos >= 1
+                If _passos > 20 Then
+                    _pos = 0
+                Else
+                    _passos = _passos + 1
+                    _janela = CopiarJanelaSufixo(pBody, _pos, _janelaMax)
+
+                    If _janela = "" Then
+                        _pos = 0
+                    Else
+                        _n = ObterInteiroJsonDeBlob(_janela, pKey)
+
+                        If _n > 0 Then
+                            _result = _n
+                            _pos = 0
+                        Else
+                            If _pos <= 1 Then
+                                _pos = 0
+                            Else
+                                _pos = _pos - (_janelaMax - 20)
+
+                                If _pos < 1 Then
+                                    _pos = 1
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            Wend
+
+            ObterInteiroNoSufixo = _result
+        End Function
+
+        Private Shared Function CopiarJanelaSufixo(pSrc As String, pStart As Integer, pLen As Integer) As String
+            Dim _bodyLen As Integer = 0
+            Dim _n As Integer = 0
+            Dim _result As String = ""
+
+            If pStart >= 1 Then
+                If pLen > 0 Then
+                    _bodyLen = Len(pSrc)
+
+                    If pStart <= _bodyLen Then
+                        _n = pLen
+
+                        If _n > 200 Then
+                            _n = 200
+                        End If
+
+                        If (pStart + _n - 1) > _bodyLen Then
+                            _n = _bodyLen - pStart + 1
+                        End If
+
+                        If _n > 0 Then
+                            _result = Mid(pSrc, pStart, _n)
+                        End If
+                    End If
+                End If
+            End If
+
+            CopiarJanelaSufixo = _result
+        End Function
+
         Shared Function ObterInteiroJsonDeBlob(pBlob As String, pKey As String) As Integer
             ObterInteiroJsonDeBlob = TextoParaInteiro(RedeAncoraJsonHelper.ObterTextoJsonDeBlob(pBlob, pKey))
         End Function
