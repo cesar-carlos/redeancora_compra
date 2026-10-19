@@ -8,7 +8,6 @@ Namespace rede_ancora_marca_model
         Nome As String
         CodCatalogo As Integer
         CodErp As Integer
-        CodMarcaData7 As Integer
 
         Sub New()
             MyBase.New()

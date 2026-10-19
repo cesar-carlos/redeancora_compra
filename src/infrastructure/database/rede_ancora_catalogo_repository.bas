@@ -38,43 +38,6 @@ Namespace rede_ancora_catalogo_repository
             me.SubstituirListaFamilias(pItens)
         End Sub
 
-        Sub DefinirCodMarcaData7(pCodMarca As Integer, pCodMarcaData7 As Integer)
-            Dim _tx As Transaction = Transaction.Instance()
-            Dim _query As SQL.Command = NULL
-
-            If pCodMarca <= 0 Then
-                Throw New System.Exception("CodMarca invalido para vinculo Data7 em Integracao.RedeAncoraMarca")
-            End If
-
-            Try
-                _tx.StartTransaction("Integracao.RedeAncoraMarca CodMarcaData7")
-                _query = SqlHelper.OpenQuery($"SELECT CodMarca FROM {me.TabelaMarca()} WHERE CodMarca = :CodMarca")
-                _query.Param("CodMarca").AsInteger = pCodMarca
-                _query.Open()
-
-                If _query.EOF Then
-                    SqlHelper.ReleaseQuery(_query)
-                    _query = NULL
-                    Throw New System.Exception("Marca " + pCodMarca.ToString() + " nao encontrada em Integracao.RedeAncoraMarca")
-                End If
-
-                SqlHelper.ReleaseQuery(_query)
-                _query = NULL
-                me.ExigirCodigoData7Livre(me.TabelaMarca(), "CodMarca", "CodMarcaData7", pCodMarca, pCodMarcaData7)
-                _query = SqlHelper.OpenQuery($"UPDATE {me.TabelaMarca()} SET CodMarcaData7 = CASE WHEN :CodMarcaData7 = 0 THEN NULL ELSE :CodMarcaData7 END WHERE CodMarca = :CodMarca")
-                _query.Param("CodMarca").AsInteger = pCodMarca
-                _query.Param("CodMarcaData7").AsInteger = pCodMarcaData7
-                _query.ExecSQL()
-                SqlHelper.ReleaseQuery(_query)
-                _query = NULL
-                _tx.AutoCommit()
-            Catch ex As Exception
-                SqlHelper.ReleaseQuery(_query)
-                _tx.Rollback()
-                Throw New System.Exception("Erro ao gravar CodMarcaData7 em Integracao.RedeAncoraMarca: " + Char(13) + ex._getMessage())
-            End Try
-        End Sub
-
         Sub DefinirCodLinhaData7(pCodLinha As Integer, pCodLinhaData7 As Integer)
             me.DefinirCodigoData7(me.TabelaLinha(), "CodLinha", "CodLinhaData7", pCodLinha, pCodLinhaData7, "Linha", "Integracao.RedeAncoraLinha")
         End Sub
@@ -98,7 +61,7 @@ Namespace rede_ancora_catalogo_repository
         Private Function ListarMarcasInterno() As RedeAncoraMarcasModel
             Dim _result As New RedeAncoraMarcasModel()
             Dim _query As SQL.Command = NULL
-            Dim _sql As String = $"SELECT CodMarca, Nome, CodCatalogo, CodErp, CodMarcaData7 FROM {me.TabelaMarca()} ORDER BY Nome"
+            Dim _sql As String = $"SELECT CodMarca, Nome, CodCatalogo, CodErp FROM {me.TabelaMarca()} ORDER BY Nome"
 
             Try
                 _query = SqlHelper.OpenQuery(_sql)
@@ -110,7 +73,6 @@ Namespace rede_ancora_catalogo_repository
                     _item.Nome = _query.Field("Nome").AsString
                     _item.CodCatalogo = _query.Field("CodCatalogo").AsInteger
                     _item.CodErp = _query.Field("CodErp").AsInteger
-                    _item.CodMarcaData7 = _query.Field("CodMarcaData7").AsInteger
                     _result.Push(_item)
                     _query.Next()
                 Wend
@@ -198,14 +160,13 @@ Namespace rede_ancora_catalogo_repository
             Dim _atual As RedeAncoraMarcaModel = NULL
             Dim _api As RedeAncoraMarcaModel = NULL
             Dim _i As Integer
-            Dim _preservadas As Integer = 0
 
             If Not Assigned(pItens) Then
-                Throw New System.Exception("Lista de marcas vazia. CodMarcaData7 preservado; nenhuma marca foi apagada.")
+                Throw New System.Exception("Lista de marcas vazia. Nenhuma marca foi apagada.")
             End If
 
             If pItens.Length <= 0 Then
-                Throw New System.Exception("Sincronizacao de marcas sem itens. CodMarcaData7 preservado; nenhuma marca foi apagada.")
+                Throw New System.Exception("Sincronizacao de marcas sem itens. Nenhuma marca foi apagada.")
             End If
 
             _existentes = me.ListarMarcasInterno()
@@ -238,15 +199,11 @@ Namespace rede_ancora_catalogo_repository
                     _api = pItens.ObterPorCodigo(_atual.CodMarca)
 
                     If Not Assigned(_api) Then
-                        If _atual.CodMarcaData7 > 0 Then
-                            _preservadas = _preservadas + 1
-                        Else
-                            _query = SqlHelper.OpenQuery($"DELETE FROM {me.TabelaMarca()} WHERE CodMarca = :CodMarca")
-                            _query.Param("CodMarca").AsInteger = _atual.CodMarca
-                            _query.ExecSQL()
-                            SqlHelper.ReleaseQuery(_query)
-                            _query = NULL
-                        End If
+                        _query = SqlHelper.OpenQuery($"DELETE FROM {me.TabelaMarca()} WHERE CodMarca = :CodMarca")
+                        _query.Param("CodMarca").AsInteger = _atual.CodMarca
+                        _query.ExecSQL()
+                        SqlHelper.ReleaseQuery(_query)
+                        _query = NULL
                     End If
                 Next
 
@@ -263,10 +220,6 @@ Namespace rede_ancora_catalogo_repository
                 _tx.Rollback()
                 Throw New System.Exception("Erro ao sincronizar Integracao.RedeAncoraMarca: " + Char(13) + ex._getMessage())
             End Try
-
-            If _preservadas > 0 Then
-                mod_logger.Printe("Rede Ancora sync marcas: " + _preservadas.ToString() + " marca(s) fora da API mantida(s) por CodMarcaData7.")
-            End If
         End Sub
 
         Private Sub SubstituirLinhasInterno(pItens As RedeAncoraLinhasModel)

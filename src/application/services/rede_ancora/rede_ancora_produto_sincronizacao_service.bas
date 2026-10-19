@@ -135,7 +135,7 @@ Namespace rede_ancora_produto_sincronizacao_service
 
                 mod_logger.Printe("=== Cadastro completo de produtos Rede Ancora :: inicio ===")
                 mod_logger.Printe("Ordem: 1) marcas 2) linhas 3) familias 4) produtos full-search por familia (upsert). Sem DELETE /checkout.")
-                mod_logger.Printe("Vinculo manual preservado: CodMarcaData7 na marca e CodProduto no produto.")
+                mod_logger.Printe("Vinculo manual preservado: CodProduto no produto.")
                 mod_logger.Printe("Usuario: " & Parser.IntegerToString(pCodUsuario) & " | CD: " & Parser.IntegerToString(pCodCentroDistribuicao) & " | Estado: " & Parser.IntegerToString(pCodEstado))
                 If pReiniciar Then
                     me._progressoRepository.LimparTodos()

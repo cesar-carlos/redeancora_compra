@@ -42,6 +42,10 @@ Namespace integracao_schema
             TabelaMarca = "RedeAncoraMarca"
         End Function
 
+        Shared Function TabelaMarcaVinculo() As String
+            TabelaMarcaVinculo = "RedeAncoraMarcaVinculo"
+        End Function
+
         Shared Function TabelaLinha() As String
             TabelaLinha = "RedeAncoraLinha"
         End Function
@@ -100,6 +104,10 @@ Namespace integracao_schema
 
         Shared Function TabelaMarcaQualificada() As String
             TabelaMarcaQualificada = IntegracaoSchema.NomeQualificado(IntegracaoSchema.TabelaMarca())
+        End Function
+
+        Shared Function TabelaMarcaVinculoQualificada() As String
+            TabelaMarcaVinculoQualificada = IntegracaoSchema.NomeQualificado(IntegracaoSchema.TabelaMarcaVinculo())
         End Function
 
         Shared Function TabelaLinhaQualificada() As String

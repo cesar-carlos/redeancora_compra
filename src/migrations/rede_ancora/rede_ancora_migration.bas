@@ -40,8 +40,7 @@ Namespace rede_ancora_migration
             me.CriarTabelaCentroDistribuicao(_schema)
             me.CriarTabelaModalidade(_schema)
             me.CriarTabelaMarca(_schema)
-            me.AtualizarColunasMarca(_schema)
-            me.CriarIndiceMarcaData7(_schema)
+            me.CriarTabelaMarcaVinculo(_schema)
             me.CriarTabelaLinha(_schema)
             me.AtualizarColunasLinha(_schema)
             me.CriarIndiceLinhaData7(_schema)
@@ -272,17 +271,24 @@ Namespace rede_ancora_migration
             _columns.Add(New MigrationColumn(_tabela, "Nome", "VARCHAR(120)", False, False, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "CodCatalogo", "INTEGER", True, False, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "CodErp", "INTEGER", True, False, pSchema))
-            _columns.Add(New MigrationColumn(_tabela, "CodMarcaData7", "INTEGER", True, False, pSchema))
             _table = New MigrationTable(_tabela, _columns, pSchema)
             _controller.CreateTable(_table)
             _table.Free()
             _columns.Free()
         End Sub
 
-        Private Sub AtualizarColunasMarca(pSchema As String)
-            Dim _tabela As String = IntegracaoSchema.TabelaMarca()
+        Private Sub CriarTabelaMarcaVinculo(pSchema As String)
+            Dim _columns As MigrationColumns = Null
+            Dim _table As MigrationTable = Null
+            Dim _tabela As String = IntegracaoSchema.TabelaMarcaVinculo()
 
-            _controller.CreateColumn(pSchema, _tabela, "CodMarcaData7", "INTEGER")
+            _columns = New MigrationColumns()
+            _columns.Add(New MigrationColumn(_tabela, "CodMarcaData7", "INTEGER", False, True, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "CodMarcaAncora", "INTEGER", False, True, pSchema))
+            _table = New MigrationTable(_tabela, _columns, pSchema)
+            _controller.CreateTable(_table)
+            _table.Free()
+            _columns.Free()
         End Sub
 
         Private Sub AtualizarColunasLinha(pSchema As String)
@@ -295,10 +301,6 @@ Namespace rede_ancora_migration
             Dim _tabela As String = IntegracaoSchema.TabelaFamilia()
 
             _controller.CreateColumn(pSchema, _tabela, "CodFamiliaData7", "INTEGER")
-        End Sub
-
-        Private Sub CriarIndiceMarcaData7(pSchema As String)
-            me.CriarIndiceUnicoFiltrado(pSchema, IntegracaoSchema.TabelaMarca(), "UX_RedeAncoraMarca_CodMarcaData7", "CodMarcaData7")
         End Sub
 
         Private Sub CriarIndiceLinhaData7(pSchema As String)

@@ -41,7 +41,7 @@ Namespace rede_ancora_catalogo_service
 
                 me._repository.SubstituirMarcas(_marcas)
                 mod_logger.Info("sync-marcas: gravadas")
-                mod_logger.Printe("Rede Ancora sync marcas concluido. Registros: " & Parser.IntegerToString(_marcas.Length) & ". CodMarcaData7 manual preservado.")
+                mod_logger.Printe("Rede Ancora sync marcas concluido. Registros: " & Parser.IntegerToString(_marcas.Length) & ".")
 
                 _result = _marcas
                 _marcas = NULL
@@ -165,10 +165,6 @@ Namespace rede_ancora_catalogo_service
         Function ListarMarcas() As RedeAncoraMarcasModel
             ListarMarcas = me._repository.ListarMarcas()
         End Function
-
-        Sub VincularMarcaData7(pCodMarca As Integer, pCodMarcaData7 As Integer)
-            me._repository.DefinirCodMarcaData7(pCodMarca, pCodMarcaData7)
-        End Sub
 
         Sub VincularLinhaData7(pCodLinha As Integer, pCodLinhaData7 As Integer)
             me._repository.DefinirCodLinhaData7(pCodLinha, pCodLinhaData7)
