@@ -13,6 +13,7 @@ Namespace rede_ancora_produto_preco_estoque_model
         StTabela As Double
         PrecoCrossDocking As Double
         PrecoCompraJunto As Double
+        DataAtualizacao As TDateTime
 
         Sub New()
             MyBase.New()

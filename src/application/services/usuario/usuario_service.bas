@@ -31,6 +31,8 @@ Imports rede_ancora_produto_cnas_model
 Imports rede_ancora_produto_codigos_model
 Imports rede_ancora_produto_imagens_model
 Imports rede_ancora_produto_imagem_sincronizacao_resultado_model
+Imports rede_ancora_produto_preco_estoque_sincronizacao_resultado_model
+Imports rede_ancora_produto_similar_sincronizacao_resultado_model
 Imports rede_ancora_produto_full_search_filtro_model
 Imports rede_ancora_produto_full_search_resultado_model
 Imports rede_ancora_carrinho_itens_ids_model
@@ -925,6 +927,18 @@ Namespace usuario_service
             SincronizarRedeAncoraImagensProdutos = me._redeAncoraProdutoService.SincronizarImagensProdutosPorCnas(me.ObterCodUsuarioIntegracao(), pCodCentroDistribuicao, pCodEstado, pCnas, pTamanhoChunk)
         End Function
 
+        Function SincronizarRedeAncoraImagensCompleto(pTamanhoChunk As Integer) As RedeAncoraProdutoImagemSincronizacaoResultadoModel
+            SincronizarRedeAncoraImagensCompleto = me._redeAncoraProdutoService.SincronizarImagensCompleto(me.ObterCodUsuarioIntegracao(), pTamanhoChunk)
+        End Function
+
+        Function SincronizarRedeAncoraPrecosEstoquesCompleto(pTamanhoChunk As Integer) As RedeAncoraProdutoPrecoEstoqueSincronizacaoResultadoModel
+            SincronizarRedeAncoraPrecosEstoquesCompleto = me._redeAncoraProdutoService.SincronizarPrecosEstoquesCompleto(me.ObterCodUsuarioIntegracao(), pTamanhoChunk)
+        End Function
+
+        Function SincronizarRedeAncoraSimilaresCompleto(pTamanhoChunk As Integer) As RedeAncoraProdutoSimilarSincronizacaoResultadoModel
+            SincronizarRedeAncoraSimilaresCompleto = me._redeAncoraProdutoService.SincronizarSimilaresCompleto(me.ObterCodUsuarioIntegracao(), pTamanhoChunk)
+        End Function
+
         Function ListarRedeAncoraImagensProduto(pCna As Integer) As RedeAncoraProdutoImagensModel
             ListarRedeAncoraImagensProduto = me._redeAncoraProdutoService.ListarImagensProdutoPorCna(pCna)
         End Function
@@ -952,14 +966,6 @@ Namespace usuario_service
         Function ListarRedeAncoraMarcas() As RedeAncoraMarcasModel
             ListarRedeAncoraMarcas = me._redeAncoraCatalogoService.ListarMarcas()
         End Function
-
-        Sub VincularRedeAncoraLinhaData7(pCodLinha As Integer, pCodLinhaData7 As Integer)
-            me._redeAncoraCatalogoService.VincularLinhaData7(pCodLinha, pCodLinhaData7)
-        End Sub
-
-        Sub VincularRedeAncoraFamiliaData7(pCodFamilia As Integer, pCodFamiliaData7 As Integer)
-            me._redeAncoraCatalogoService.VincularFamiliaData7(pCodFamilia, pCodFamiliaData7)
-        End Sub
 
         Function ListarRedeAncoraLinhas() As RedeAncoraLinhasModel
             ListarRedeAncoraLinhas = me._redeAncoraCatalogoService.ListarLinhas()

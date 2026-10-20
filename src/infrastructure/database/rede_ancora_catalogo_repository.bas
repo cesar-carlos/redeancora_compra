@@ -8,7 +8,6 @@ Imports rede_ancora_familias_model
 Imports integracao_schema
 Imports sql_helper
 Imports transactions
-Imports mod_logger
 
 Namespace rede_ancora_catalogo_repository
     Class RedeAncoraCatalogoRepository
@@ -36,14 +35,6 @@ Namespace rede_ancora_catalogo_repository
 
         Sub SubstituirFamilias(pItens As RedeAncoraFamiliasModel)
             me.SubstituirListaFamilias(pItens)
-        End Sub
-
-        Sub DefinirCodLinhaData7(pCodLinha As Integer, pCodLinhaData7 As Integer)
-            me.DefinirCodigoData7(me.TabelaLinha(), "CodLinha", "CodLinhaData7", pCodLinha, pCodLinhaData7, "Linha", "Integracao.RedeAncoraLinha")
-        End Sub
-
-        Sub DefinirCodFamiliaData7(pCodFamilia As Integer, pCodFamiliaData7 As Integer)
-            me.DefinirCodigoData7(me.TabelaFamilia(), "CodFamilia", "CodFamiliaData7", pCodFamilia, pCodFamiliaData7, "Familia", "Integracao.RedeAncoraFamilia")
         End Sub
 
         Private Function TabelaMarca() As String
@@ -89,7 +80,7 @@ Namespace rede_ancora_catalogo_repository
         Private Function ListarLinhasInterno() As RedeAncoraLinhasModel
             Dim _result As New RedeAncoraLinhasModel()
             Dim _query As SQL.Command = NULL
-            Dim _sql As String = $"SELECT CodLinha, Nome, CodLinhaData7 FROM {me.TabelaLinha()} ORDER BY Nome"
+            Dim _sql As String = $"SELECT CodLinha, Nome FROM {me.TabelaLinha()} ORDER BY Nome"
 
             Try
                 _query = SqlHelper.OpenQuery(_sql)
@@ -99,7 +90,6 @@ Namespace rede_ancora_catalogo_repository
                     Dim _item As New RedeAncoraLinhaModel()
                     _item.CodLinha = _query.Field("CodLinha").AsInteger
                     _item.Nome = _query.Field("Nome").AsString
-                    _item.CodLinhaData7 = _query.Field("CodLinhaData7").AsInteger
                     _result.Push(_item)
                     _query.Next()
                 Wend
@@ -116,7 +106,7 @@ Namespace rede_ancora_catalogo_repository
         Private Function ListarFamiliasInterno() As RedeAncoraFamiliasModel
             Dim _result As New RedeAncoraFamiliasModel()
             Dim _query As SQL.Command = NULL
-            Dim _sql As String = $"SELECT CodFamilia, Nome, CodFamiliaData7 FROM {me.TabelaFamilia()} ORDER BY Nome"
+            Dim _sql As String = $"SELECT CodFamilia, Nome FROM {me.TabelaFamilia()} ORDER BY Nome"
 
             Try
                 _query = SqlHelper.OpenQuery(_sql)
@@ -126,7 +116,6 @@ Namespace rede_ancora_catalogo_repository
                     Dim _item As New RedeAncoraFamiliaModel()
                     _item.CodFamilia = _query.Field("CodFamilia").AsInteger
                     _item.Nome = _query.Field("Nome").AsString
-                    _item.CodFamiliaData7 = _query.Field("CodFamiliaData7").AsInteger
                     _result.Push(_item)
                     _query.Next()
                 Wend
@@ -230,14 +219,13 @@ Namespace rede_ancora_catalogo_repository
             Dim _atual As RedeAncoraLinhaModel = NULL
             Dim _api As RedeAncoraLinhaModel = NULL
             Dim _i As Integer
-            Dim _preservadas As Integer = 0
 
             If Not Assigned(pItens) Then
-                Throw New System.Exception("Lista de linhas vazia. CodLinhaData7 preservado; nenhuma linha foi apagada.")
+                Throw New System.Exception("Lista de linhas vazia. Nenhuma linha foi apagada.")
             End If
 
             If pItens.Length <= 0 Then
-                Throw New System.Exception("Sincronizacao de linhas sem itens. CodLinhaData7 preservado; nenhuma linha foi apagada.")
+                Throw New System.Exception("Sincronizacao de linhas sem itens. Nenhuma linha foi apagada.")
             End If
 
             _existentes = me.ListarLinhasInterno()
@@ -268,15 +256,11 @@ Namespace rede_ancora_catalogo_repository
                     _api = pItens.ObterPorCodigo(_atual.CodLinha)
 
                     If Not Assigned(_api) Then
-                        If _atual.CodLinhaData7 > 0 Then
-                            _preservadas = _preservadas + 1
-                        Else
-                            _query = SqlHelper.OpenQuery($"DELETE FROM {me.TabelaLinha()} WHERE CodLinha = :CodLinha")
-                            _query.Param("CodLinha").AsInteger = _atual.CodLinha
-                            _query.ExecSQL()
-                            SqlHelper.ReleaseQuery(_query)
-                            _query = NULL
-                        End If
+                        _query = SqlHelper.OpenQuery($"DELETE FROM {me.TabelaLinha()} WHERE CodLinha = :CodLinha")
+                        _query.Param("CodLinha").AsInteger = _atual.CodLinha
+                        _query.ExecSQL()
+                        SqlHelper.ReleaseQuery(_query)
+                        _query = NULL
                     End If
                 Next
 
@@ -293,10 +277,6 @@ Namespace rede_ancora_catalogo_repository
                 _tx.Rollback()
                 Throw New System.Exception("Erro ao sincronizar Integracao.RedeAncoraLinha: " + Char(13) + ex._getMessage())
             End Try
-
-            If _preservadas > 0 Then
-                mod_logger.Printe("Rede Ancora sync linhas: " + _preservadas.ToString() + " linha(s) fora da API mantida(s) por CodLinhaData7.")
-            End If
         End Sub
 
         Private Sub SubstituirFamiliasInterno(pItens As RedeAncoraFamiliasModel)
@@ -307,14 +287,13 @@ Namespace rede_ancora_catalogo_repository
             Dim _atual As RedeAncoraFamiliaModel = NULL
             Dim _api As RedeAncoraFamiliaModel = NULL
             Dim _i As Integer
-            Dim _preservadas As Integer = 0
 
             If Not Assigned(pItens) Then
-                Throw New System.Exception("Lista de familias vazia. CodFamiliaData7 preservado; nenhuma familia foi apagada.")
+                Throw New System.Exception("Lista de familias vazia. Nenhuma familia foi apagada.")
             End If
 
             If pItens.Length <= 0 Then
-                Throw New System.Exception("Sincronizacao de familias sem itens. CodFamiliaData7 preservado; nenhuma familia foi apagada.")
+                Throw New System.Exception("Sincronizacao de familias sem itens. Nenhuma familia foi apagada.")
             End If
 
             _existentes = me.ListarFamiliasInterno()
@@ -345,15 +324,11 @@ Namespace rede_ancora_catalogo_repository
                     _api = pItens.ObterPorCodigo(_atual.CodFamilia)
 
                     If Not Assigned(_api) Then
-                        If _atual.CodFamiliaData7 > 0 Then
-                            _preservadas = _preservadas + 1
-                        Else
-                            _query = SqlHelper.OpenQuery($"DELETE FROM {me.TabelaFamilia()} WHERE CodFamilia = :CodFamilia")
-                            _query.Param("CodFamilia").AsInteger = _atual.CodFamilia
-                            _query.ExecSQL()
-                            SqlHelper.ReleaseQuery(_query)
-                            _query = NULL
-                        End If
+                        _query = SqlHelper.OpenQuery($"DELETE FROM {me.TabelaFamilia()} WHERE CodFamilia = :CodFamilia")
+                        _query.Param("CodFamilia").AsInteger = _atual.CodFamilia
+                        _query.ExecSQL()
+                        SqlHelper.ReleaseQuery(_query)
+                        _query = NULL
                     End If
                 Next
 
@@ -370,81 +345,6 @@ Namespace rede_ancora_catalogo_repository
                 _tx.Rollback()
                 Throw New System.Exception("Erro ao sincronizar Integracao.RedeAncoraFamilia: " + Char(13) + ex._getMessage())
             End Try
-
-            If _preservadas > 0 Then
-                mod_logger.Printe("Rede Ancora sync familias: " + _preservadas.ToString() + " familia(s) fora da API mantida(s) por CodFamiliaData7.")
-            End If
-        End Sub
-
-        Private Sub DefinirCodigoData7(pTabela As String, pColunaChave As String, pColunaData7 As String, pChave As Integer, pCodigoData7 As Integer, pRotulo As String, pTabelaErro As String)
-            Dim _tx As Transaction = Transaction.Instance()
-            Dim _query As SQL.Command = NULL
-            Dim _chave As String = SqlHelper.ValidateIdentifier(pColunaChave)
-            Dim _data7 As String = SqlHelper.ValidateIdentifier(pColunaData7)
-
-            If pChave <= 0 Then
-                Throw New System.Exception(pRotulo + " invalido para vinculo Data7 em " + pTabelaErro)
-            End If
-
-            Try
-                _tx.StartTransaction(pTabelaErro + " " + _data7)
-                _query = SqlHelper.OpenQuery("SELECT " + _chave + " FROM " + pTabela + " WHERE " + _chave + " = :Chave")
-                _query.Param("Chave").AsInteger = pChave
-                _query.Open()
-
-                If _query.EOF Then
-                    SqlHelper.ReleaseQuery(_query)
-                    _query = NULL
-                    Throw New System.Exception(pRotulo + " " + pChave.ToString() + " nao encontrada em " + pTabelaErro)
-                End If
-
-                SqlHelper.ReleaseQuery(_query)
-                _query = NULL
-                me.ExigirCodigoData7Livre(pTabela, _chave, _data7, pChave, pCodigoData7)
-                _query = SqlHelper.OpenQuery("UPDATE " + pTabela + " SET " + _data7 + " = CASE WHEN :CodigoData7 = 0 THEN NULL ELSE :CodigoData7 END WHERE " + _chave + " = :Chave")
-                _query.Param("Chave").AsInteger = pChave
-                _query.Param("CodigoData7").AsInteger = pCodigoData7
-                _query.ExecSQL()
-                SqlHelper.ReleaseQuery(_query)
-                _query = NULL
-                _tx.AutoCommit()
-            Catch ex As Exception
-                SqlHelper.ReleaseQuery(_query)
-                _tx.Rollback()
-                Throw New System.Exception("Erro ao gravar " + _data7 + " em " + pTabelaErro + ": " + Char(13) + ex._getMessage())
-            End Try
-        End Sub
-
-        Private Sub ExigirCodigoData7Livre(pTabela As String, pColunaChave As String, pColunaData7 As String, pChave As Integer, pCodigoData7 As Integer)
-            Dim _query As SQL.Command = NULL
-            Dim _chave As String = SqlHelper.ValidateIdentifier(pColunaChave)
-            Dim _data7 As String = SqlHelper.ValidateIdentifier(pColunaData7)
-            Dim _ocupada As Integer = 0
-
-            If pCodigoData7 <= 0 Then
-                Exit Sub
-            End If
-
-            Try
-                _query = SqlHelper.OpenQuery("SELECT " + _chave + " AS Chave FROM " + pTabela + " WHERE " + _data7 + " = :CodigoData7 AND " + _chave + " <> :Chave")
-                _query.Param("CodigoData7").AsInteger = pCodigoData7
-                _query.Param("Chave").AsInteger = pChave
-                _query.Open()
-
-                If Not _query.EOF Then
-                    _ocupada = _query.Field("Chave").AsInteger
-                End If
-
-                SqlHelper.ReleaseQuery(_query)
-                _query = NULL
-            Catch ex As Exception
-                SqlHelper.ReleaseQuery(_query)
-                Throw ex
-            End Try
-
-            If _ocupada > 0 Then
-                Throw New System.Exception(_data7 + " " + pCodigoData7.ToString() + " ja vinculado ao codigo " + _ocupada.ToString())
-            End If
         End Sub
 
         Overrides Sub Dispose()

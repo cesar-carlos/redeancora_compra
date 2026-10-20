@@ -49,7 +49,7 @@
   },
   "virtualFolders": [
     {
-      "nome": "Unidades (153)",
+      "nome": "Unidades (157)",
       "id": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
       "pastaId": "",
       "aberta": "Sim"
@@ -454,7 +454,7 @@
     },
     "rede_ancora_json_helper": {
       "nome": "rede_ancora_json_helper",
-      "aberto": false,
+      "aberto": true,
       "ordemAbertura": 0,
       "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
     },
@@ -616,6 +616,18 @@
     },
     "rede_ancora_produto_imagem_repository": {
       "nome": "rede_ancora_produto_imagem_repository",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_produto_preco_estoque_repository": {
+      "nome": "rede_ancora_produto_preco_estoque_repository",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
+    },
+    "rede_ancora_produto_similar_repository": {
+      "nome": "rede_ancora_produto_similar_repository",
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
@@ -970,6 +982,30 @@
     },
     "rede_ancora_produto_preco_estoque_model": {
       "nome": "rede_ancora_produto_preco_estoque_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_preco_estoque_sincronizacao_resultado_model": {
+      "nome": "rede_ancora_produto_preco_estoque_sincronizacao_resultado_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_similar_model": {
+      "nome": "rede_ancora_produto_similar_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_similar_sincronizacao_resultado_model": {
+      "nome": "rede_ancora_produto_similar_sincronizacao_resultado_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
+    "rede_ancora_produto_similares_model": {
+      "nome": "rede_ancora_produto_similares_model",
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10012-0012-4012-8012-000000000012}"

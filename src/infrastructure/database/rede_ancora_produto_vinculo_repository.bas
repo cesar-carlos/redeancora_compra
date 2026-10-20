@@ -122,6 +122,10 @@ Namespace rede_ancora_produto_vinculo_repository
             $"WHERE Cna = :Cna"
         End Function
 
+        Private Function SqlMarcarDataAtualizacao() As String
+            SqlMarcarDataAtualizacao = $"UPDATE {me.Tabela()} SET DataAtualizacao = :DataAtualizacao WHERE Cna = :Cna"
+        End Function
+
         Private Function SqlDesativarPorCna() As String
             SqlDesativarPorCna = $"UPDATE {me.Tabela()} " +_
             $"SET Ativo = " + SqlHelper.SqlText("N") + ", DataAtualizacao = :DataAtualizacao " +_
@@ -430,6 +434,46 @@ Namespace rede_ancora_produto_vinculo_repository
 
         Sub AtualizarMetadadosApiSemTransacao(pModel As RedeAncoraProdutoVinculoModel)
             me.AtualizarMetadadosApiComTransacao(pModel, False)
+        End Sub
+
+        Sub MarcarDataAtualizacao(pCna As Integer)
+            me.MarcarDataAtualizacaoComTransacao(pCna, True)
+        End Sub
+
+        Sub MarcarDataAtualizacaoSemTransacao(pCna As Integer)
+            me.MarcarDataAtualizacaoComTransacao(pCna, False)
+        End Sub
+
+        Private Sub MarcarDataAtualizacaoComTransacao(pCna As Integer, pUsarTransacao As Boolean)
+            Dim _tx As Transaction = NULL
+            Dim _query As SQL.Command = NULL
+
+            Try
+                If pUsarTransacao Then
+                    _tx = Transaction.Instance()
+                    _tx.StartTransaction("Integracao.RedeAncoraProdutoVinculo DataAtualizacao")
+                End If
+
+                _query = SqlHelper.OpenQuery(me.SqlMarcarDataAtualizacao())
+                _query.Param("Cna").AsInteger = pCna
+                _query.Param("DataAtualizacao").AsDateTime = DateTime()
+                _query.ExecSQL()
+                SqlHelper.ReleaseQuery(_query)
+
+                If pUsarTransacao Then
+                    _tx.AutoCommit()
+                End If
+            Catch ex As Exception
+                SqlHelper.ReleaseQuery(_query)
+
+                If pUsarTransacao Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                    End If
+                End If
+
+                Throw New System.Exception("Erro ao marcar DataAtualizacao em Integracao.RedeAncoraProdutoVinculo: " + Char(13) + ex._getMessage())
+            End Try
         End Sub
 
         Private Sub SalvarComTransacao(pModel As RedeAncoraProdutoVinculoModel, pUsarTransacao As Boolean)

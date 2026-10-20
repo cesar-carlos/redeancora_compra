@@ -1,5 +1,6 @@
 Imports mod_tobject
 Imports rede_ancora_produto_model
+Imports rede_ancora_produto_cnas_model
 Imports integracao_schema
 Imports sql_helper
 Imports transactions
@@ -38,6 +39,10 @@ Namespace rede_ancora_produto_repository
                 "       END result " +_
                 "FROM " & me.Tabela() & " " +_
                 "WHERE Cna = :Cna"
+        End Function
+
+        Private Function SqlSelectCnas() As String
+            SqlSelectCnas = "SELECT Cna FROM " & me.Tabela() & " ORDER BY Cna"
         End Function
 
         Private Function SqlCampoInteiroOuNull(pParametro As String) As String
@@ -97,6 +102,10 @@ Namespace rede_ancora_produto_repository
         Private Function SqlDesativarPorCna() As String
             SqlDesativarPorCna = "UPDATE " & me.Tabela() & " SET Ativo = " & SqlHelper.SqlText("N") +_
                 ", DataAtualizacao = :DataAtualizacao WHERE Cna = :Cna"
+        End Function
+
+        Private Function SqlMarcarDataAtualizacao() As String
+            SqlMarcarDataAtualizacao = "UPDATE " & me.Tabela() & " SET DataAtualizacao = :DataAtualizacao WHERE Cna = :Cna"
         End Function
 
         Private Function Truncar(pValor As String, pMax As Integer) As String
@@ -292,6 +301,37 @@ Namespace rede_ancora_produto_repository
             ObterPorCna = _item
         End Function
 
+        Function ListarCnas() As RedeAncoraProdutoCnasModel
+            Dim _result As New RedeAncoraProdutoCnasModel()
+            Dim _query As SQL.Command = NULL
+            Dim _ok As RedeAncoraProdutoCnasModel = NULL
+
+            Try
+                _query = SqlHelper.OpenQuery(me.SqlSelectCnas())
+                _query.Open()
+
+                While Not _query.EOF
+                    _result.Push(_query.Field("Cna").AsInteger)
+                    _query.Next()
+                Wend
+
+                SqlHelper.ReleaseQuery(_query)
+                _query = NULL
+                _ok = _result
+                _result = NULL
+            Catch ex As Exception
+                SqlHelper.ReleaseQuery(_query)
+
+                If Assigned(_result) Then
+                    _result.Free()
+                End If
+
+                SqlHelper.HandleQueryError(ex, "Erro ao listar CNAs de Integracao.RedeAncoraProduto", "9174")
+            End Try
+
+            ListarCnas = _ok
+        End Function
+
         Sub Salvar(pModel As RedeAncoraProdutoModel)
             me.SalvarComTransacao(pModel, True)
         End Sub
@@ -373,6 +413,46 @@ Namespace rede_ancora_produto_repository
                 End If
 
                 Throw New System.Exception("Erro ao atualizar Integracao.RedeAncoraProduto: " & Char(13) & ex._getMessage())
+            End Try
+        End Sub
+
+        Sub MarcarDataAtualizacao(pCna As Integer)
+            me.MarcarDataAtualizacaoComTransacao(pCna, True)
+        End Sub
+
+        Sub MarcarDataAtualizacaoSemTransacao(pCna As Integer)
+            me.MarcarDataAtualizacaoComTransacao(pCna, False)
+        End Sub
+
+        Private Sub MarcarDataAtualizacaoComTransacao(pCna As Integer, pUsarTransacao As Boolean)
+            Dim _tx As Transaction = NULL
+            Dim _query As SQL.Command = NULL
+
+            Try
+                If pUsarTransacao Then
+                    _tx = Transaction.Instance()
+                    _tx.StartTransaction("Integracao.RedeAncoraProduto DataAtualizacao")
+                End If
+
+                _query = SqlHelper.OpenQuery(me.SqlMarcarDataAtualizacao())
+                _query.Param("Cna").AsInteger = pCna
+                _query.Param("DataAtualizacao").AsDateTime = DateTime()
+                _query.ExecSQL()
+                SqlHelper.ReleaseQuery(_query)
+
+                If pUsarTransacao Then
+                    _tx.AutoCommit()
+                End If
+            Catch ex As Exception
+                SqlHelper.ReleaseQuery(_query)
+
+                If pUsarTransacao Then
+                    If Assigned(_tx) Then
+                        _tx.Rollback()
+                    End If
+                End If
+
+                Throw New System.Exception("Erro ao marcar DataAtualizacao em Integracao.RedeAncoraProduto: " & Char(13) & ex._getMessage())
             End Try
         End Sub
 

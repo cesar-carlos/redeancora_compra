@@ -58,6 +58,14 @@ Namespace integracao_schema
             TabelaProduto = "RedeAncoraProduto"
         End Function
 
+        Shared Function TabelaProdutoPrecoEstoque() As String
+            TabelaProdutoPrecoEstoque = "RedeAncoraProdutoPrecoEstoque"
+        End Function
+
+        Shared Function TabelaProdutoSimilar() As String
+            TabelaProdutoSimilar = "RedeAncoraProdutoSimilar"
+        End Function
+
         Shared Function TabelaProdutoVinculo() As String
             TabelaProdutoVinculo = "RedeAncoraProdutoVinculo"
         End Function
@@ -120,6 +128,14 @@ Namespace integracao_schema
 
         Shared Function TabelaProdutoQualificada() As String
             TabelaProdutoQualificada = IntegracaoSchema.NomeQualificado(IntegracaoSchema.TabelaProduto())
+        End Function
+
+        Shared Function TabelaProdutoPrecoEstoqueQualificada() As String
+            TabelaProdutoPrecoEstoqueQualificada = IntegracaoSchema.NomeQualificado(IntegracaoSchema.TabelaProdutoPrecoEstoque())
+        End Function
+
+        Shared Function TabelaProdutoSimilarQualificada() As String
+            TabelaProdutoSimilarQualificada = IntegracaoSchema.NomeQualificado(IntegracaoSchema.TabelaProdutoSimilar())
         End Function
 
         Shared Function TabelaProdutoVinculoQualificada() As String

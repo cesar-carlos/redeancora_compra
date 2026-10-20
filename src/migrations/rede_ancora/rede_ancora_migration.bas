@@ -42,12 +42,12 @@ Namespace rede_ancora_migration
             me.CriarTabelaMarca(_schema)
             me.CriarTabelaMarcaVinculo(_schema)
             me.CriarTabelaLinha(_schema)
-            me.AtualizarColunasLinha(_schema)
-            me.CriarIndiceLinhaData7(_schema)
+            me.RemoverColunaLinhaData7(_schema)
             me.CriarTabelaFamilia(_schema)
-            me.AtualizarColunasFamilia(_schema)
-            me.CriarIndiceFamiliaData7(_schema)
+            me.RemoverColunaFamiliaData7(_schema)
             me.CriarTabelaProduto(_schema)
+            me.CriarTabelaProdutoPrecoEstoque(_schema)
+            me.CriarTabelaProdutoSimilar(_schema)
             me.CriarTabelaProdutoVinculo(_schema)
             me.AtualizarColunasProdutoVinculo(_schema)
             me.CriarIndiceProdutoVinculo(_schema)
@@ -291,41 +291,38 @@ Namespace rede_ancora_migration
             _columns.Free()
         End Sub
 
-        Private Sub AtualizarColunasLinha(pSchema As String)
+        Private Sub RemoverColunaLinhaData7(pSchema As String)
             Dim _tabela As String = IntegracaoSchema.TabelaLinha()
-
-            _controller.CreateColumn(pSchema, _tabela, "CodLinhaData7", "INTEGER")
-        End Sub
-
-        Private Sub AtualizarColunasFamilia(pSchema As String)
-            Dim _tabela As String = IntegracaoSchema.TabelaFamilia()
-
-            _controller.CreateColumn(pSchema, _tabela, "CodFamiliaData7", "INTEGER")
-        End Sub
-
-        Private Sub CriarIndiceLinhaData7(pSchema As String)
-            me.CriarIndiceUnicoFiltrado(pSchema, IntegracaoSchema.TabelaLinha(), "UX_RedeAncoraLinha_CodLinhaData7", "CodLinhaData7")
-        End Sub
-
-        Private Sub CriarIndiceFamiliaData7(pSchema As String)
-            me.CriarIndiceUnicoFiltrado(pSchema, IntegracaoSchema.TabelaFamilia(), "UX_RedeAncoraFamilia_CodFamiliaData7", "CodFamiliaData7")
-        End Sub
-
-        Private Sub CriarIndiceUnicoFiltrado(pSchema As String, pTabela As String, pIndice As String, pColuna As String)
-            Dim _qualificada As String = IntegracaoSchema.NomeQualificado(pTabela)
-            Dim _indice As String = SqlHelper.ValidateIdentifier(pIndice)
-            Dim _coluna As String = SqlHelper.ValidateIdentifier(pColuna)
+            Dim _qualificada As String = IntegracaoSchema.TabelaLinhaQualificada()
+            Dim _indice As String = "UX_RedeAncoraLinha_CodLinhaData7"
             Dim _sql As String = ""
 
-            _sql = "SET ANSI_WARNINGS ON; " +_
-                "IF NOT EXISTS (SELECT 1 FROM sys.indexes i " +_
+            _sql = "IF EXISTS (SELECT 1 FROM sys.indexes i " +_
                 "INNER JOIN sys.tables t ON i.object_id = t.object_id " +_
                 "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " +_
-                "WHERE s.name = " + SqlHelper.SqlText(pSchema) + " AND t.name = " + SqlHelper.SqlText(pTabela) + " " +_
+                "WHERE s.name = " + SqlHelper.SqlText(pSchema) + " AND t.name = " + SqlHelper.SqlText(_tabela) + " " +_
                 "AND i.name = " + SqlHelper.SqlText(_indice) + ") " +_
-                "CREATE UNIQUE INDEX " + _indice + " ON " + _qualificada + " (" + _coluna + ") WHERE " + _coluna + " IS NOT NULL"
+                "DROP INDEX " + SqlHelper.ValidateIdentifier(_indice) + " ON " + _qualificada
 
             _controller.ExecuteSql(_sql)
+            _controller.DropColumnIfExists(pSchema, _tabela, "CodLinhaData7")
+        End Sub
+
+        Private Sub RemoverColunaFamiliaData7(pSchema As String)
+            Dim _tabela As String = IntegracaoSchema.TabelaFamilia()
+            Dim _qualificada As String = IntegracaoSchema.TabelaFamiliaQualificada()
+            Dim _indice As String = "UX_RedeAncoraFamilia_CodFamiliaData7"
+            Dim _sql As String = ""
+
+            _sql = "IF EXISTS (SELECT 1 FROM sys.indexes i " +_
+                "INNER JOIN sys.tables t ON i.object_id = t.object_id " +_
+                "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " +_
+                "WHERE s.name = " + SqlHelper.SqlText(pSchema) + " AND t.name = " + SqlHelper.SqlText(_tabela) + " " +_
+                "AND i.name = " + SqlHelper.SqlText(_indice) + ") " +_
+                "DROP INDEX " + SqlHelper.ValidateIdentifier(_indice) + " ON " + _qualificada
+
+            _controller.ExecuteSql(_sql)
+            _controller.DropColumnIfExists(pSchema, _tabela, "CodFamiliaData7")
         End Sub
 
         Private Sub CriarTabelaLinha(pSchema As String)
@@ -336,7 +333,6 @@ Namespace rede_ancora_migration
             _columns = New MigrationColumns()
             _columns.Add(New MigrationColumn(_tabela, "CodLinha", "INTEGER", False, True, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "Nome", "VARCHAR(120)", False, False, pSchema))
-            _columns.Add(New MigrationColumn(_tabela, "CodLinhaData7", "INTEGER", True, False, pSchema))
             _table = New MigrationTable(_tabela, _columns, pSchema)
             _controller.CreateTable(_table)
             _table.Free()
@@ -351,7 +347,6 @@ Namespace rede_ancora_migration
             _columns = New MigrationColumns()
             _columns.Add(New MigrationColumn(_tabela, "CodFamilia", "INTEGER", False, True, pSchema))
             _columns.Add(New MigrationColumn(_tabela, "Nome", "VARCHAR(120)", False, False, pSchema))
-            _columns.Add(New MigrationColumn(_tabela, "CodFamiliaData7", "INTEGER", True, False, pSchema))
             _table = New MigrationTable(_tabela, _columns, pSchema)
             _controller.CreateTable(_table)
             _table.Free()
@@ -473,6 +468,49 @@ Namespace rede_ancora_migration
                 "CREATE UNIQUE INDEX UX_RedeAncoraProdutoVinculo_CodProdutoAtivo ON " + _tabela + " (CodProduto) WHERE CodProduto > 0 AND Ativo = " + SqlHelper.SqlText("S")
 
             _controller.ExecuteSql(_sql)
+        End Sub
+
+        Private Sub CriarTabelaProdutoPrecoEstoque(pSchema As String)
+            Dim _columns As MigrationColumns = Null
+            Dim _table As MigrationTable = Null
+            Dim _tabela As String = IntegracaoSchema.TabelaProdutoPrecoEstoque()
+
+            _columns = New MigrationColumns()
+            _columns.Add(New MigrationColumn(_tabela, "Cna", "INTEGER", False, True, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "CodCentroDistribuicao", "INTEGER", False, True, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "CodEstado", "INTEGER", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "QtdDisponivel", "INTEGER", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "QtdProjetada", "INTEGER", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "PrecoTabela", "DECIMAL(18,4)", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "StTabela", "DECIMAL(18,4)", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "PrecoCrossDocking", "DECIMAL(18,4)", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "PrecoCompraJunto", "DECIMAL(18,4)", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "DataAtualizacao", "DATETIME", False, False, pSchema))
+            _table = New MigrationTable(_tabela, _columns, pSchema)
+            _controller.CreateTable(_table)
+            _table.Free()
+            _columns.Free()
+        End Sub
+
+        Private Sub CriarTabelaProdutoSimilar(pSchema As String)
+            Dim _columns As MigrationColumns = Null
+            Dim _table As MigrationTable = Null
+            Dim _tabela As String = IntegracaoSchema.TabelaProdutoSimilar()
+
+            _columns = New MigrationColumns()
+            _columns.Add(New MigrationColumn(_tabela, "Cna", "INTEGER", False, True, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "CodCentroDistribuicao", "INTEGER", False, True, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "CnaSimilar", "INTEGER", False, True, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "CodEstado", "INTEGER", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "CodigoReferencia", "VARCHAR(30)", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "Nome", "VARCHAR(255)", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "NomeMarca", "VARCHAR(120)", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "CodMarca", "INTEGER", True, False, pSchema))
+            _columns.Add(New MigrationColumn(_tabela, "DataAtualizacao", "DATETIME", False, False, pSchema))
+            _table = New MigrationTable(_tabela, _columns, pSchema)
+            _controller.CreateTable(_table)
+            _table.Free()
+            _columns.Free()
         End Sub
 
         Private Sub CriarTabelaProdutoImagem(pSchema As String)

@@ -23,6 +23,15 @@ Imports rede_ancora_produto_imagens_model
 Imports rede_ancora_produto_imagem_tipo
 Imports rede_ancora_produto_imagem_repository
 Imports rede_ancora_produto_imagem_sincronizacao_resultado_model
+Imports rede_ancora_produto_preco_estoque_repository
+Imports rede_ancora_produto_preco_estoque_sincronizacao_resultado_model
+Imports rede_ancora_produto_similar_model
+Imports rede_ancora_produto_similares_model
+Imports rede_ancora_produto_similar_repository
+Imports rede_ancora_produto_similar_sincronizacao_resultado_model
+Imports rede_ancora_empresa_service
+Imports rede_ancora_centros_distribuicao_model
+Imports rede_ancora_centro_distribuicao_model
 Imports rede_ancora_produto_full_search_filtro_model
 Imports rede_ancora_produto_full_search_item_model
 Imports rede_ancora_produto_full_search_itens_model
@@ -43,6 +52,8 @@ Namespace rede_ancora_produto_service
         Private _vinculoRepository As RedeAncoraProdutoVinculoRepository
         Private _produtoRepository As RedeAncoraProdutoRepository
         Private _imagemRepository As RedeAncoraProdutoImagemRepository
+        Private _precoEstoqueRepository As RedeAncoraProdutoPrecoEstoqueRepository
+        Private _similarRepository As RedeAncoraProdutoSimilarRepository
         ' Estado da leitura interativa. Nao e dono de _parsePreco.
         Private _parsePricesInicio As Integer
         Private _parsePricesFim As Integer
@@ -60,6 +71,8 @@ Namespace rede_ancora_produto_service
             me._vinculoRepository = New RedeAncoraProdutoVinculoRepository()
             me._produtoRepository = New RedeAncoraProdutoRepository()
             me._imagemRepository = New RedeAncoraProdutoImagemRepository()
+            me._precoEstoqueRepository = New RedeAncoraProdutoPrecoEstoqueRepository()
+            me._similarRepository = New RedeAncoraProdutoSimilarRepository()
             me._parsePricesInicio = 0
             me._parsePricesFim = 0
             me._parseStocksInicio = 0
@@ -191,6 +204,590 @@ Namespace rede_ancora_produto_service
             End Try
 
             ConsultarPrecosEstoques = _ok
+        End Function
+
+        Function SincronizarPrecosEstoquesCompleto(pCodUsuario As Integer, pTamanhoChunk As Integer) As RedeAncoraProdutoPrecoEstoqueSincronizacaoResultadoModel
+            Dim _resultado As New RedeAncoraProdutoPrecoEstoqueSincronizacaoResultadoModel()
+            Dim _ok As RedeAncoraProdutoPrecoEstoqueSincronizacaoResultadoModel = NULL
+            Dim _cnas As RedeAncoraProdutoCnasModel = NULL
+            Dim _centros As RedeAncoraCentrosDistribuicaoModel = NULL
+            Dim _empresa As RedeAncoraEmpresaService = NULL
+            Dim _chunk As RedeAncoraProdutoCnasModel = NULL
+            Dim _precos As RedeAncoraProdutoPrecosEstoqueModel = NULL
+            Dim _centro As RedeAncoraCentroDistribuicaoModel = NULL
+            Dim _tamanhoChunk As Integer = pTamanhoChunk
+            Dim _centrosValidos As Integer = 0
+            Dim _iCentro As Integer
+            Dim _inicio As Integer
+            Dim _numeroChunk As Integer
+            Dim _codCentro As Integer
+
+            Try
+                If pCodUsuario <= 0 Then
+                    Throw New System.Exception("CodUsuario invalido para sincronizacao de precos")
+                End If
+
+                _resultado.DataInicio = DateTime()
+                _cnas = me._produtoRepository.ListarCnas()
+                _empresa = New RedeAncoraEmpresaService()
+                _centros = _empresa.ListarCentrosDistribuicao(pCodUsuario)
+                _empresa.Free()
+                _empresa = NULL
+
+                If Assigned(_centros) Then
+                    For _iCentro = 0 To _centros.Length - 1
+                        _centro = _centros.Take(_iCentro)
+                        If _centro.CodCentroDistribuicao > 0 Then
+                            _centrosValidos = _centrosValidos + 1
+                        End If
+                    Next
+                End If
+
+                _resultado.QtdCnasSolicitados = _cnas.Length
+                _resultado.QtdCentros = _centrosValidos
+
+                If _cnas.Length > 0 Then
+                    If _centrosValidos > 0 Then
+                        If _tamanhoChunk <= 0 Then
+                            _tamanhoChunk = RedeAncoraApiConfig.TamanhoChunkSincronizacaoProdutos()
+                        End If
+
+                        _resultado.QtdChunks = _centrosValidos * me.CalcularTotalChunksImagens(_cnas.Length, _tamanhoChunk)
+
+                        For _iCentro = 0 To _centros.Length - 1
+                            _centro = _centros.Take(_iCentro)
+                            _codCentro = _centro.CodCentroDistribuicao
+
+                            If _codCentro > 0 Then
+                                _inicio = 0
+                                _numeroChunk = 0
+
+                                While _inicio < _cnas.Length
+                                    _numeroChunk = _numeroChunk + 1
+                                    _chunk = me.ExtrairChunkImagens(_cnas, _inicio, _tamanhoChunk)
+
+                                    Try
+                                        _precos = me.ConsultarPrecosEstoques(pCodUsuario, _codCentro, _chunk)
+                                        _resultado.QtdChunksApi = _resultado.QtdChunksApi + 1
+                                        me.PersistirPrecosBloco(_precos, _chunk, _codCentro, _resultado)
+                                        _precos.Free()
+                                        _precos = NULL
+                                    Catch exChunk As Exception
+                                        If Assigned(_precos) Then
+                                            _precos.Free()
+                                            _precos = NULL
+                                        End If
+
+                                        _resultado.RegistrarErroChunk(_codCentro, _numeroChunk, exChunk._getMessage())
+                                    End Try
+
+                                    _chunk.Free()
+                                    _chunk = NULL
+                                    _inicio = _inicio + _tamanhoChunk
+                                Wend
+                            End If
+                        Next
+                    End If
+                End If
+
+                _resultado.Finalizar()
+                _cnas.Free()
+                _cnas = NULL
+
+                If Assigned(_centros) Then
+                    _centros.Free()
+                    _centros = NULL
+                End If
+
+                _ok = _resultado
+                _resultado = NULL
+            Catch ex As Exception
+                If Assigned(_chunk) Then
+                    _chunk.Free()
+                End If
+
+                If Assigned(_precos) Then
+                    _precos.Free()
+                End If
+
+                If Assigned(_empresa) Then
+                    _empresa.Free()
+                End If
+
+                If Assigned(_cnas) Then
+                    _cnas.Free()
+                End If
+
+                If Assigned(_centros) Then
+                    _centros.Free()
+                End If
+
+                If Assigned(_resultado) Then
+                    _resultado.Free()
+                End If
+
+                Throw New System.Exception("Erro ao sincronizar precos e estoques Rede Ancora: " + ex._getMessage())
+            End Try
+
+            SincronizarPrecosEstoquesCompleto = _ok
+        End Function
+
+        Private Sub PersistirPrecosBloco(pPrecos As RedeAncoraProdutoPrecosEstoqueModel, pChunk As RedeAncoraProdutoCnasModel, pCodCentroDistribuicao As Integer, pResultado As RedeAncoraProdutoPrecoEstoqueSincronizacaoResultadoModel)
+            Dim _tx As Transaction = NULL
+            Dim _achados As RedeAncoraProdutoCnasModel = NULL
+            Dim _item As RedeAncoraProdutoPrecoEstoqueModel = NULL
+            Dim _i As Integer
+            Dim _aberta As Boolean = False
+
+            If Not Assigned(pPrecos) Then
+                pResultado.QtdNaoEncontrados = pResultado.QtdNaoEncontrados + pChunk.Length
+                Exit Sub
+            End If
+
+            If pPrecos.Length <= 0 Then
+                pResultado.QtdNaoEncontrados = pResultado.QtdNaoEncontrados + pChunk.Length
+                Exit Sub
+            End If
+
+            _achados = New RedeAncoraProdutoCnasModel()
+            _tx = Transaction.Instance()
+
+            Try
+                _tx.StartTransaction("Integracao.RedeAncoraProdutoPrecoEstoque Bloco")
+                _aberta = True
+
+                For _i = 0 To pPrecos.Length - 1
+                    _item = pPrecos.Take(_i)
+
+                    If _item.Cna > 0 Then
+                        If _item.CodCentroDistribuicao <= 0 Then
+                            _item.CodCentroDistribuicao = pCodCentroDistribuicao
+                        End If
+
+                        me._precoEstoqueRepository.SalvarSemTransacao(_item)
+                        _achados.PushDistinct(_item.Cna)
+                        pResultado.QtdProcessados = pResultado.QtdProcessados + 1
+                    End If
+                Next
+
+                For _i = 0 To pChunk.Length - 1
+                    If Not _achados.Contem(pChunk.Take(_i)) Then
+                        pResultado.QtdNaoEncontrados = pResultado.QtdNaoEncontrados + 1
+                    End If
+                Next
+
+                _achados.Free()
+                _achados = NULL
+                _tx.AutoCommit()
+                _aberta = False
+            Catch ex As Exception
+                If Assigned(_achados) Then
+                    _achados.Free()
+                End If
+
+                If _aberta Then
+                    _tx.Rollback()
+                End If
+
+                Throw ex
+            End Try
+        End Sub
+
+        Function SincronizarSimilaresCompleto(pCodUsuario As Integer, pTamanhoChunk As Integer) As RedeAncoraProdutoSimilarSincronizacaoResultadoModel
+            Dim _resultado As New RedeAncoraProdutoSimilarSincronizacaoResultadoModel()
+            Dim _ok As RedeAncoraProdutoSimilarSincronizacaoResultadoModel = NULL
+            Dim _cnas As RedeAncoraProdutoCnasModel = NULL
+            Dim _centros As RedeAncoraCentrosDistribuicaoModel = NULL
+            Dim _empresa As RedeAncoraEmpresaService = NULL
+            Dim _chunk As RedeAncoraProdutoCnasModel = NULL
+            Dim _centro As RedeAncoraCentroDistribuicaoModel = NULL
+            Dim _tamanhoChunk As Integer = pTamanhoChunk
+            Dim _centrosValidos As Integer = 0
+            Dim _iCentro As Integer
+            Dim _inicio As Integer
+            Dim _numeroChunk As Integer
+            Dim _codCentro As Integer
+            Dim _codEstado As Integer
+
+            Try
+                If pCodUsuario <= 0 Then
+                    Throw New System.Exception("CodUsuario invalido para sincronizacao de similares")
+                End If
+
+                _resultado.DataInicio = DateTime()
+                _cnas = me._produtoRepository.ListarCnas()
+                _empresa = New RedeAncoraEmpresaService()
+                _centros = _empresa.ListarCentrosDistribuicao(pCodUsuario)
+                _empresa.Free()
+                _empresa = NULL
+
+                If Assigned(_centros) Then
+                    For _iCentro = 0 To _centros.Length - 1
+                        _centro = _centros.Take(_iCentro)
+                        If _centro.CodCentroDistribuicao > 0 Then
+                            If _centro.CodEstado > 0 Then
+                                _centrosValidos = _centrosValidos + 1
+                            End If
+                        End If
+                    Next
+                End If
+
+                _resultado.QtdCnasSolicitados = _cnas.Length
+                _resultado.QtdCentros = _centrosValidos
+
+                If _cnas.Length > 0 Then
+                    If _centrosValidos > 0 Then
+                        If _tamanhoChunk <= 0 Then
+                            _tamanhoChunk = RedeAncoraApiConfig.TamanhoChunkSincronizacaoProdutos()
+                        End If
+
+                        _resultado.QtdChunks = _centrosValidos * me.CalcularTotalChunksImagens(_cnas.Length, _tamanhoChunk)
+
+                        For _iCentro = 0 To _centros.Length - 1
+                            _centro = _centros.Take(_iCentro)
+                            _codCentro = _centro.CodCentroDistribuicao
+                            _codEstado = _centro.CodEstado
+
+                            If _codCentro > 0 Then
+                                If _codEstado > 0 Then
+                                    _inicio = 0
+                                    _numeroChunk = 0
+
+                                    While _inicio < _cnas.Length
+                                        _numeroChunk = _numeroChunk + 1
+                                        _chunk = me.ExtrairChunkImagens(_cnas, _inicio, _tamanhoChunk)
+
+                                        Try
+                                            me.ProcessarChunkSimilares(pCodUsuario, _codCentro, _codEstado, _chunk, _resultado)
+                                            _resultado.QtdChunksApi = _resultado.QtdChunksApi + 1
+                                        Catch exChunk As Exception
+                                            _resultado.RegistrarErroChunk(_codCentro, _numeroChunk, exChunk._getMessage())
+                                        End Try
+
+                                        _chunk.Free()
+                                        _chunk = NULL
+                                        _inicio = _inicio + _tamanhoChunk
+                                    Wend
+                                End If
+                            End If
+                        Next
+                    End If
+                End If
+
+                _resultado.Finalizar()
+                _cnas.Free()
+                _cnas = NULL
+
+                If Assigned(_centros) Then
+                    _centros.Free()
+                    _centros = NULL
+                End If
+
+                _ok = _resultado
+                _resultado = NULL
+            Catch ex As Exception
+                If Assigned(_chunk) Then
+                    _chunk.Free()
+                End If
+
+                If Assigned(_empresa) Then
+                    _empresa.Free()
+                End If
+
+                If Assigned(_cnas) Then
+                    _cnas.Free()
+                End If
+
+                If Assigned(_centros) Then
+                    _centros.Free()
+                End If
+
+                If Assigned(_resultado) Then
+                    _resultado.Free()
+                End If
+
+                Throw New System.Exception("Erro ao sincronizar similares Rede Ancora: " + ex._getMessage())
+            End Try
+
+            SincronizarSimilaresCompleto = _ok
+        End Function
+
+        Private Sub ProcessarChunkSimilares(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCodEstado As Integer, pChunk As RedeAncoraProdutoCnasModel, pResultado As RedeAncoraProdutoSimilarSincronizacaoResultadoModel)
+            Dim _input As RedeAncoraInputConsultarSimilares = NULL
+            Dim _body As String = ""
+            Dim _pais As RedeAncoraProdutoCnasModel = NULL
+            Dim _itens As RedeAncoraProdutoSimilaresModel = NULL
+            Dim _tx As Transaction = NULL
+            Dim _aberta As Boolean = False
+            Dim _i As Integer
+            Dim _cna As Integer
+            Dim _qtd As Integer = 0
+            Dim _processados As Integer = 0
+            Dim _similares As Integer = 0
+            Dim _ausentes As Integer = 0
+
+            Try
+                _input = New RedeAncoraInputConsultarSimilares()
+                _input.CodUsuario = pCodUsuario
+                _input.Cnas = pChunk
+                _input.CodEstado = pCodEstado
+                _input.CodCentroDistribuicao = pCodCentroDistribuicao
+                _body = me.ConsultarSimilares(_input)
+                _input.Free()
+                _input = NULL
+
+                _pais = New RedeAncoraProdutoCnasModel()
+                _itens = New RedeAncoraProdutoSimilaresModel()
+                me.MapearSimilaresDeBlob(_body, pCodCentroDistribuicao, pCodEstado, _pais, _itens)
+
+                _tx = Transaction.Instance()
+                _tx.StartTransaction("Integracao.RedeAncoraProdutoSimilar Bloco")
+                _aberta = True
+
+                For _i = 0 To pChunk.Length - 1
+                    _cna = pChunk.Take(_i)
+
+                    If _pais.Contem(_cna) Then
+                        me._similarRepository.SubstituirPorCnaCentroSemTransacao(_cna, pCodCentroDistribuicao, _itens)
+                        _qtd = me.ContarSimilaresDoCna(_itens, _cna, pCodCentroDistribuicao)
+                        _processados = _processados + 1
+                        _similares = _similares + _qtd
+                    Else
+                        _ausentes = _ausentes + 1
+                    End If
+                Next
+
+                _tx.AutoCommit()
+                _aberta = False
+                pResultado.QtdProcessados = pResultado.QtdProcessados + _processados
+                pResultado.QtdSimilares = pResultado.QtdSimilares + _similares
+                pResultado.QtdNaoEncontrados = pResultado.QtdNaoEncontrados + _ausentes
+                _pais.Free()
+                _pais = NULL
+                _itens.Free()
+                _itens = NULL
+            Catch ex As Exception
+                If Assigned(_input) Then
+                    _input.Free()
+                End If
+
+                If _aberta Then
+                    _tx.Rollback()
+                End If
+
+                If Assigned(_pais) Then
+                    _pais.Free()
+                End If
+
+                If Assigned(_itens) Then
+                    _itens.Free()
+                End If
+
+                Throw ex
+            End Try
+        End Sub
+
+        Private Function ContarSimilaresDoCna(pItens As RedeAncoraProdutoSimilaresModel, pCna As Integer, pCodCentroDistribuicao As Integer) As Integer
+            Dim _i As Integer
+            Dim _qtd As Integer = 0
+            Dim _item As RedeAncoraProdutoSimilarModel = NULL
+
+            If Assigned(pItens) Then
+                For _i = 0 To pItens.Length - 1
+                    _item = pItens.Take(_i)
+
+                    If _item.Cna = pCna Then
+                        If _item.CodCentroDistribuicao = pCodCentroDistribuicao Then
+                            If _item.CnaSimilar > 0 Then
+                                _qtd = _qtd + 1
+                            End If
+                        End If
+                    End If
+                Next
+            End If
+
+            ContarSimilaresDoCna = _qtd
+        End Function
+
+        Private Sub MapearSimilaresDeBlob(pBody As String, pCodCentroDistribuicao As Integer, pCodEstado As Integer, pPais As RedeAncoraProdutoCnasModel, pItens As RedeAncoraProdutoSimilaresModel)
+            Dim _arrStart As Integer = 0
+            Dim _elemStart As Integer = 0
+            Dim _elemFim As Integer = 0
+            Dim _arrSim As Integer = 0
+            Dim _childStart As Integer = 0
+            Dim _childFim As Integer = 0
+            Dim _i As Integer = 0
+            Dim _j As Integer = 0
+            Dim _seguirPai As Boolean = True
+            Dim _seguirFilho As Boolean = True
+            Dim _cna As Integer = 0
+            Dim _similar As Integer = 0
+
+            _arrStart = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlob(pBody, "data")
+
+            If _arrStart <= 0 Then
+                Throw New System.Exception("Resposta /products/similares sem array data")
+            End If
+
+            While _seguirPai
+                If _i > 9999 Then
+                    _seguirPai = False
+                Else
+                    _elemStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(pBody, _arrStart, _i)
+
+                    If _elemStart <= 0 Then
+                        _seguirPai = False
+                    Else
+                        _elemFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, _elemStart)
+                        _cna = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(pBody, "cna", _elemStart, _elemFim)
+
+                        If _cna > 0 Then
+                            pPais.PushDistinct(_cna)
+                            _arrSim = me.PosicaoArraySimilares(pBody, _elemStart, _elemFim)
+
+                            If _arrSim > 0 Then
+                                _j = 0
+                                _seguirFilho = True
+
+                                While _seguirFilho
+                                    If _j > 99 Then
+                                        _seguirFilho = False
+                                    Else
+                                        _childStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(pBody, _arrSim, _j)
+
+                                        If _childStart <= 0 Then
+                                            _seguirFilho = False
+                                        Else
+                                            If _childStart >= _elemFim Then
+                                                _seguirFilho = False
+                                            Else
+                                                _childFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, _childStart)
+
+                                                If _childFim > _elemFim Then
+                                                    _childFim = _elemFim
+                                                End If
+
+                                                _similar = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(pBody, "cna", _childStart, _childFim)
+                                                me.AdicionarSimilarMapeado(pItens, _cna, _similar, pCodCentroDistribuicao, pCodEstado, pBody, _childStart, _childFim)
+                                                _j = _j + 1
+                                            End If
+                                        End If
+                                    End If
+                                Wend
+                            Else
+                                _similar = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(pBody, "cna_similar", _elemStart, _elemFim)
+
+                                If _similar <= 0 Then
+                                    _similar = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(pBody, "similar_cna", _elemStart, _elemFim)
+                                End If
+
+                                me.AdicionarSimilarMapeado(pItens, _cna, _similar, pCodCentroDistribuicao, pCodEstado, pBody, _elemStart, _elemFim)
+                            End If
+                        End If
+
+                        _i = _i + 1
+                    End If
+                End If
+            Wend
+        End Sub
+
+        Private Function PosicaoArraySimilares(pBody As String, pInicio As Integer, pFim As Integer) As Integer
+            Dim _pos As Integer = 0
+
+            _pos = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(pBody, "similares", pInicio)
+
+            If _pos <= 0 Then
+                _pos = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(pBody, "similars", pInicio)
+            End If
+
+            If _pos <= 0 Then
+                _pos = RedeAncoraJsonHelper.PosicaoInicioArrayJsonDeBlobApos(pBody, "similar", pInicio)
+            End If
+
+            If _pos >= pFim Then
+                _pos = 0
+            End If
+
+            PosicaoArraySimilares = _pos
+        End Function
+
+        Private Sub AdicionarSimilarMapeado(pItens As RedeAncoraProdutoSimilaresModel, pCna As Integer, pCnaSimilar As Integer, pCodCentroDistribuicao As Integer, pCodEstado As Integer, pBody As String, pInicio As Integer, pFim As Integer)
+            Dim _item As RedeAncoraProdutoSimilarModel = NULL
+            Dim _codigo As String = ""
+            Dim _nome As String = ""
+            Dim _marca As String = ""
+            Dim _codMarca As Integer = 0
+
+            If pCnaSimilar > 0 Then
+                If pCnaSimilar <> pCna Then
+                    If Not me.SimilarJaMapeado(pItens, pCna, pCodCentroDistribuicao, pCnaSimilar) Then
+                        _codigo = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "codigo", pInicio, pFim)
+
+                        If _codigo = "" Then
+                            _codigo = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "code", pInicio, pFim)
+                        End If
+
+                        If _codigo = "" Then
+                            _codigo = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "codigoReferencia", pInicio, pFim)
+                        End If
+
+                        _nome = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "nome", pInicio, pFim)
+
+                        If _nome = "" Then
+                            _nome = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "name", pInicio, pFim)
+                        End If
+
+                        If _nome = "" Then
+                            _nome = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "descricao", pInicio, pFim)
+                        End If
+
+                        _marca = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "marca", pInicio, pFim)
+
+                        If _marca = "" Then
+                            _marca = RedeAncoraJsonHelper.ObterTextoJsonDeBlobEntre(pBody, "brand", pInicio, pFim)
+                        End If
+
+                        _codMarca = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(pBody, "marca_id", pInicio, pFim)
+
+                        If _codMarca <= 0 Then
+                            _codMarca = RedeAncoraJsonHelper.ObterInteiroJsonDeBlobEntre(pBody, "brand_id", pInicio, pFim)
+                        End If
+
+                        _item = New RedeAncoraProdutoSimilarModel()
+                        _item.Cna = pCna
+                        _item.CodCentroDistribuicao = pCodCentroDistribuicao
+                        _item.CodEstado = pCodEstado
+                        _item.CnaSimilar = pCnaSimilar
+                        _item.CodigoReferencia = _codigo
+                        _item.Nome = _nome
+                        _item.NomeMarca = _marca
+                        _item.CodMarca = _codMarca
+                        pItens.Push(_item)
+                    End If
+                End If
+            End If
+        End Sub
+
+        Private Function SimilarJaMapeado(pItens As RedeAncoraProdutoSimilaresModel, pCna As Integer, pCodCentroDistribuicao As Integer, pCnaSimilar As Integer) As Boolean
+            Dim _i As Integer
+            Dim _item As RedeAncoraProdutoSimilarModel = NULL
+            Dim _achou As Boolean = False
+
+            If Assigned(pItens) Then
+                For _i = 0 To pItens.Length - 1
+                    _item = pItens.Take(_i)
+
+                    If _item.Cna = pCna Then
+                        If _item.CodCentroDistribuicao = pCodCentroDistribuicao Then
+                            If _item.CnaSimilar = pCnaSimilar Then
+                                _achou = True
+                            End If
+                        End If
+                    End If
+                Next
+            End If
+
+            SimilarJaMapeado = _achou
         End Function
 
         Function BuscarProdutoFullSearchPorFamilia(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCodFamilia As Integer, pPagina As Integer, pTamanhoPagina As Integer) As String
@@ -1245,6 +1842,9 @@ Namespace rede_ancora_produto_service
 
             Try
                 _statusCadastro = me.UpsertProdutoCadastro(pCadastro, pUsarTransacao, True)
+                If _statusCadastro = 3 Then
+                    me.MarcarDataAtualizacaoCadastro(pCadastro.Cna, pUsarTransacao)
+                End If
 
                 _vinculo = New RedeAncoraProdutoVinculoModel()
                 _vinculo.Cna = pCadastro.Cna
@@ -1254,6 +1854,9 @@ Namespace rede_ancora_produto_service
                 _vinculo.CodLinha = pCadastro.CodLinha
                 _vinculo.CodFamilia = pCadastro.CodFamilia
                 _statusVinculo = me.UpsertProdutoAncoraDeModelo(_vinculo, pOrigem, pUsarTransacao)
+                If _statusVinculo = 3 Then
+                    me.MarcarDataAtualizacaoVinculo(pCadastro.Cna, pUsarTransacao)
+                End If
                 _vinculo.Free()
                 _vinculo = NULL
 
@@ -1370,6 +1973,22 @@ Namespace rede_ancora_produto_service
 
             UpsertProdutoCadastro = _result
         End Function
+
+        Private Sub MarcarDataAtualizacaoCadastro(pCna As Integer, pUsarTransacao As Boolean)
+            If pUsarTransacao Then
+                me._produtoRepository.MarcarDataAtualizacao(pCna)
+            Else
+                me._produtoRepository.MarcarDataAtualizacaoSemTransacao(pCna)
+            End If
+        End Sub
+
+        Private Sub MarcarDataAtualizacaoVinculo(pCna As Integer, pUsarTransacao As Boolean)
+            If pUsarTransacao Then
+                me._vinculoRepository.MarcarDataAtualizacao(pCna)
+            Else
+                me._vinculoRepository.MarcarDataAtualizacaoSemTransacao(pCna)
+            End If
+        End Sub
 
         Private Sub MesclarCadastroExistente(pExistente As RedeAncoraProdutoModel, pApi As RedeAncoraProdutoModel)
             If pApi.CatalogoId <= 0 Then
@@ -1924,7 +2543,9 @@ Namespace rede_ancora_produto_service
                 _item = me.SelecionarItemFullSearchParaCadastro(_resultado, pCna)
 
                 If pCodProduto > 0 Then
-                    me.UpsertProdutoCadastro(_item.Cadastro, True, True)
+                    If me.UpsertProdutoCadastro(_item.Cadastro, True, True) = 3 Then
+                        me.MarcarDataAtualizacaoCadastro(_item.Cadastro.Cna, True)
+                    End If
                     _model = me.MontarVinculoDeCadastroFullSearch(_item.Cadastro, pCodProduto, pOrigem)
                     me.SalvarVinculo(_model)
                 Else
@@ -3611,6 +4232,98 @@ Namespace rede_ancora_produto_service
             End Try
         End Function
 
+        Function SincronizarImagensCompleto(pCodUsuario As Integer, pTamanhoChunk As Integer) As RedeAncoraProdutoImagemSincronizacaoResultadoModel
+            Dim _resultado As RedeAncoraProdutoImagemSincronizacaoResultadoModel = NULL
+            Dim _ok As RedeAncoraProdutoImagemSincronizacaoResultadoModel = NULL
+            Dim _cnas As RedeAncoraProdutoCnasModel = NULL
+            Dim _centros As RedeAncoraCentrosDistribuicaoModel = NULL
+            Dim _empresa As RedeAncoraEmpresaService = NULL
+            Dim _centro As RedeAncoraCentroDistribuicaoModel = NULL
+            Dim _codCentro As Integer = 0
+            Dim _codEstado As Integer = 0
+            Dim _i As Integer
+
+            Try
+                If pCodUsuario <= 0 Then
+                    Throw New System.Exception("CodUsuario invalido para sincronizacao de imagens")
+                End If
+
+                _cnas = me._produtoRepository.ListarCnas()
+
+                If _cnas.Length <= 0 Then
+                    _resultado = New RedeAncoraProdutoImagemSincronizacaoResultadoModel()
+                    _resultado.DataInicio = DateTime()
+                    _resultado.Finalizar()
+                    _ok = _resultado
+                    _resultado = NULL
+                Else
+                    _empresa = New RedeAncoraEmpresaService()
+                    _centros = _empresa.ListarCentrosDistribuicao(pCodUsuario)
+                    _empresa.Free()
+                    _empresa = NULL
+
+                    If Assigned(_centros) Then
+                        For _i = 0 To _centros.Length - 1
+                            _centro = _centros.Take(_i)
+
+                            If _centro.CodCentroDistribuicao > 0 Then
+                                If _centro.CodEstado > 0 Then
+                                    If _centro.Preferencial = "S" Then
+                                        _codCentro = _centro.CodCentroDistribuicao
+                                        _codEstado = _centro.CodEstado
+                                    Else
+                                        If _codCentro <= 0 Then
+                                            _codCentro = _centro.CodCentroDistribuicao
+                                            _codEstado = _centro.CodEstado
+                                        End If
+                                    End If
+                                End If
+                            End If
+                        Next
+                    End If
+
+                    If _codCentro <= 0 Then
+                        Throw New System.Exception("Nenhum centro de distribuicao com estado para sincronizacao de imagens")
+                    End If
+
+                    _ok = me.SincronizarImagensProdutosPorCnas(pCodUsuario, _codCentro, _codEstado, _cnas, pTamanhoChunk)
+                End If
+
+                _cnas.Free()
+                _cnas = NULL
+
+                If Assigned(_centros) Then
+                    _centros.Free()
+                    _centros = NULL
+                End If
+            Catch ex As Exception
+                If Assigned(_resultado) Then
+                    _resultado.Free()
+                End If
+
+                If Assigned(_ok) Then
+                    _ok.Free()
+                    _ok = NULL
+                End If
+
+                If Assigned(_empresa) Then
+                    _empresa.Free()
+                End If
+
+                If Assigned(_cnas) Then
+                    _cnas.Free()
+                End If
+
+                If Assigned(_centros) Then
+                    _centros.Free()
+                End If
+
+                Throw New System.Exception("Erro ao sincronizar imagens Rede Ancora: " + ex._getMessage())
+            End Try
+
+            SincronizarImagensCompleto = _ok
+        End Function
+
         Function SincronizarImagensProdutosPorCnas(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCodEstado As Integer, pCnas As RedeAncoraProdutoCnasModel, pTamanhoChunk As Integer) As RedeAncoraProdutoImagemSincronizacaoResultadoModel
             Dim _resultado As New RedeAncoraProdutoImagemSincronizacaoResultadoModel()
             Dim _tamanhoChunk As Integer = pTamanhoChunk
@@ -4407,6 +5120,16 @@ Namespace rede_ancora_produto_service
                 If Assigned(me._imagemRepository) Then
                     me._imagemRepository.Free()
                     me._imagemRepository = NULL
+                End If
+
+                If Assigned(me._precoEstoqueRepository) Then
+                    me._precoEstoqueRepository.Free()
+                    me._precoEstoqueRepository = NULL
+                End If
+
+                If Assigned(me._similarRepository) Then
+                    me._similarRepository.Free()
+                    me._similarRepository = NULL
                 End If
 
                 me.Disposed = True
