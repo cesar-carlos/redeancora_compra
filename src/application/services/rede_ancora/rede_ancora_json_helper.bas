@@ -54,10 +54,12 @@ Namespace rede_ancora_json_helper
 
         ' Busca so com Mid curto (nunca InStr no blob: OleStr 00220000).
         ' Nao copia o haystack com Mid(hay, from) de cauda longa.
-        Private Shared Function PosicaoTexto(pHaystack As String, pNeedle As String, pFromPos As Integer) As Integer
+        ' pToPos > 0 limita o fim da busca (a chave precisa caber ate esse indice).
+        Private Shared Function PosicaoTexto(pHaystack As String, pNeedle As String, pFromPos As Integer, pToPos As Integer) As Integer
             Dim _from As Integer = pFromPos
             Dim _hayLen As Integer = Len(pHaystack)
             Dim _needleLen As Integer = Len(pNeedle)
+            Dim _limite As Integer = 0
             Dim _pos As Integer = 0
 
             PosicaoTexto = 0
@@ -74,7 +76,21 @@ Namespace rede_ancora_json_helper
                 Exit Function
             End If
 
-            For _pos = _from To _hayLen - _needleLen + 1
+            _limite = _hayLen - _needleLen + 1
+
+            If pToPos > 0 Then
+                If pToPos < _hayLen Then
+                    If (pToPos - _needleLen + 1) < _limite Then
+                        _limite = pToPos - _needleLen + 1
+                    End If
+                End If
+            End If
+
+            If _limite < _from Then
+                Exit Function
+            End If
+
+            For _pos = _from To _limite
                 If Mid(pHaystack, _pos, _needleLen) = pNeedle Then
                     PosicaoTexto = _pos
                     Exit Function
@@ -105,14 +121,15 @@ Namespace rede_ancora_json_helper
         End Function
 
         ' Mesmo que LocalizarInicioValor, mas comeca a busca em pFromPos (1-based).
-        Private Shared Function LocalizarInicioValorApartir(pBlob As String, pKey As String, pFromPos As Integer) As Integer
+        ' pToPos > 0 nao deixa a chave ser achada depois do fim do objeto.
+        Private Shared Function LocalizarInicioValorApartir(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As Integer
             Dim _marker As String = MontarMarcadorJson(pKey)
             Dim _pos As Integer = 0
             Dim _start As Integer = 0
 
             LocalizarInicioValorApartir = 0
 
-            _pos = PosicaoTexto(pBlob, _marker, pFromPos)
+            _pos = PosicaoTexto(pBlob, _marker, pFromPos, pToPos)
             If _pos <= 0 Then
                 Exit Function
             End If
@@ -140,7 +157,7 @@ Namespace rede_ancora_json_helper
                     Exit Function
                 End If
 
-                _start = LocalizarInicioValorApartir(pBlob, pKey, _searchFrom)
+                _start = LocalizarInicioValorApartir(pBlob, pKey, _searchFrom, 0)
 
                 If _start <= 0 Then
                     Exit Function
@@ -202,7 +219,7 @@ Namespace rede_ancora_json_helper
                     Exit Function
                 End If
 
-                _start = LocalizarInicioValorApartir(pBlob, pKey, _searchFrom)
+                _start = LocalizarInicioValorApartir(pBlob, pKey, _searchFrom, 0)
 
                 If _start <= 0 Then
                     Exit Function
@@ -234,13 +251,13 @@ Namespace rede_ancora_json_helper
         Shared Function ExisteChaveJsonDeBlob(pBlob As String, pKey As String) As Boolean
             ExisteChaveJsonDeBlob = False
 
-            If LocalizarInicioValorApartir(pBlob, pKey, 1) > 0 Then
+            If LocalizarInicioValorApartir(pBlob, pKey, 1, 0) > 0 Then
                 ExisteChaveJsonDeBlob = True
             End If
         End Function
 
         Shared Function ExisteChaveJsonDeBlobEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As Boolean
-            Dim _start As Integer = LocalizarInicioValorApartir(pBlob, pKey, pFromPos)
+            Dim _start As Integer = LocalizarInicioValorApartir(pBlob, pKey, pFromPos, pToPos)
 
             ExisteChaveJsonDeBlobEntre = False
 
@@ -935,7 +952,7 @@ Namespace rede_ancora_json_helper
         End Function
 
         Shared Function ObterTextoJsonDeBlobApos(pBlob As String, pKey As String, pFromPos As Integer) As String
-            Dim _start As Integer = LocalizarInicioValorApartir(pBlob, pKey, pFromPos)
+            Dim _start As Integer = LocalizarInicioValorApartir(pBlob, pKey, pFromPos, 0)
 
             ObterTextoJsonDeBlobApos = ""
 
@@ -948,7 +965,7 @@ Namespace rede_ancora_json_helper
 
         ' Le escalar no blob original entre pFromPos e pToPos (sem copiar janela unicode).
         Shared Function ObterTextoJsonDeBlobEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As String
-            Dim _start As Integer = LocalizarInicioValorApartir(pBlob, pKey, pFromPos)
+            Dim _start As Integer = LocalizarInicioValorApartir(pBlob, pKey, pFromPos, pToPos)
 
             ObterTextoJsonDeBlobEntre = ""
 
@@ -963,6 +980,149 @@ Namespace rede_ancora_json_helper
             End If
 
             ObterTextoJsonDeBlobEntre = TextoAposInicioValor(pBlob, _start)
+        End Function
+
+        ' Chave direta do objeto (depth = 1). Objeto ou array aninhado nao vaza para a raiz.
+        ' pFromPos deve apontar para o '{' do objeto. pToPos e o '}' inclusive.
+        Private Shared Function LocalizarValorRaizEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As Integer
+            Dim _marker As String = MontarMarcadorJson(pKey)
+            Dim _markerLen As Integer = Len(_marker)
+            Dim _quote As String = AspasJson()
+            Dim _from As Integer = pFromPos
+            Dim _to As Integer = pToPos
+            Dim _blobLen As Integer = Len(pBlob)
+            Dim _i As Integer = 0
+            Dim _depth As Integer = 0
+            Dim _inQuotes As Boolean = False
+            Dim _escape As Boolean = False
+            Dim _ch As String = ""
+            Dim _achou As Boolean = False
+            Dim _inicio As Integer = 0
+
+            LocalizarValorRaizEntre = 0
+
+            If _markerLen <= 0 Then
+                Exit Function
+            End If
+
+            If _from < 1 Then
+                _from = 1
+            End If
+
+            If _to <= 0 Then
+                _to = _blobLen
+            End If
+
+            If _to > _blobLen Then
+                _to = _blobLen
+            End If
+
+            _i = _from
+
+            While _i <= _to
+                If Not _achou Then
+                    _ch = Mid(pBlob, _i, 1)
+
+                    If _escape Then
+                        _escape = False
+                    Else
+                        If _inQuotes Then
+                            If _ch = "\" Then
+                                _escape = True
+                            Else
+                                If _ch = _quote Then
+                                    _inQuotes = False
+                                End If
+                            End If
+                        Else
+                            If _ch = _quote Then
+                                If _depth = 1 Then
+                                    If (_i + _markerLen - 1) <= _to Then
+                                        If Mid(pBlob, _i, _markerLen) = _marker Then
+                                            _inicio = PularBrancos(pBlob, _i + _markerLen)
+
+                                            If _inicio > 0 Then
+                                                If _inicio <= _to Then
+                                                    LocalizarValorRaizEntre = _inicio
+                                                    _achou = True
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                End If
+
+                                If Not _achou Then
+                                    _inQuotes = True
+                                End If
+                            Else
+                                If _ch = "{" Then
+                                    _depth = _depth + 1
+                                Else
+                                    If _ch = "[" Then
+                                        _depth = _depth + 1
+                                    Else
+                                        If _ch = "}" Then
+                                            If _depth > 0 Then
+                                                _depth = _depth - 1
+                                            End If
+                                        Else
+                                            If _ch = "]" Then
+                                                If _depth > 0 Then
+                                                    _depth = _depth - 1
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+
+                _i = _i + 1
+            Wend
+        End Function
+
+        Shared Function ObterTextoJsonRaizEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As String
+            Dim _start As Integer = LocalizarValorRaizEntre(pBlob, pKey, pFromPos, pToPos)
+
+            ObterTextoJsonRaizEntre = ""
+
+            If _start > 0 Then
+                ObterTextoJsonRaizEntre = TextoAposInicioValor(pBlob, _start)
+            End If
+        End Function
+
+        Shared Function ObterInteiroJsonRaizEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As Integer
+            ObterInteiroJsonRaizEntre = TextoParaInteiro(RedeAncoraJsonHelper.ObterTextoJsonRaizEntre(pBlob, pKey, pFromPos, pToPos))
+        End Function
+
+        Shared Function ObterDecimalJsonRaizEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As Double
+            ObterDecimalJsonRaizEntre = Parser.StringToDouble(RedeAncoraJsonHelper.ObterTextoJsonRaizEntre(pBlob, pKey, pFromPos, pToPos))
+        End Function
+
+        Shared Function PosicaoInicioObjetoRaizEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As Integer
+            Dim _start As Integer = LocalizarValorRaizEntre(pBlob, pKey, pFromPos, pToPos)
+
+            PosicaoInicioObjetoRaizEntre = 0
+
+            If _start > 0 Then
+                If Mid(pBlob, _start, 1) = "{" Then
+                    PosicaoInicioObjetoRaizEntre = _start
+                End If
+            End If
+        End Function
+
+        Shared Function PosicaoInicioArrayRaizEntre(pBlob As String, pKey As String, pFromPos As Integer, pToPos As Integer) As Integer
+            Dim _start As Integer = LocalizarValorRaizEntre(pBlob, pKey, pFromPos, pToPos)
+
+            PosicaoInicioArrayRaizEntre = 0
+
+            If _start > 0 Then
+                If Mid(pBlob, _start, 1) = "[" Then
+                    PosicaoInicioArrayRaizEntre = _start
+                End If
+            End If
         End Function
 
         Shared Function ObterTextoJsonEmPosicaoDeBlob(pBlob As String, pStart As Integer) As String

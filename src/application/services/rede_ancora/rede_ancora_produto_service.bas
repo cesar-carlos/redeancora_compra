@@ -43,6 +43,16 @@ Namespace rede_ancora_produto_service
         Private _vinculoRepository As RedeAncoraProdutoVinculoRepository
         Private _produtoRepository As RedeAncoraProdutoRepository
         Private _imagemRepository As RedeAncoraProdutoImagemRepository
+        ' Estado da leitura interativa. Nao e dono de _parsePreco.
+        Private _parsePricesInicio As Integer
+        Private _parsePricesFim As Integer
+        Private _parseStocksInicio As Integer
+        Private _parseStocksFim As Integer
+        Private _parseTemPreco As Boolean
+        Private _parseRegistrarBlocos As Boolean
+        Private _parseAplicarCadastro As Boolean
+        Private _parseCapturarPreco As Boolean
+        Private _parsePreco As RedeAncoraProdutoPrecoEstoqueModel
 
         Sub New()
             MyBase.New()
@@ -50,6 +60,15 @@ Namespace rede_ancora_produto_service
             me._vinculoRepository = New RedeAncoraProdutoVinculoRepository()
             me._produtoRepository = New RedeAncoraProdutoRepository()
             me._imagemRepository = New RedeAncoraProdutoImagemRepository()
+            me._parsePricesInicio = 0
+            me._parsePricesFim = 0
+            me._parseStocksInicio = 0
+            me._parseStocksFim = 0
+            me._parseTemPreco = False
+            me._parseRegistrarBlocos = False
+            me._parseAplicarCadastro = False
+            me._parseCapturarPreco = False
+            me._parsePreco = NULL
         End Sub
 
         Function ConsultarCondicoes(pCodUsuario As Integer, pCna As Integer) As String
@@ -467,16 +486,20 @@ Namespace rede_ancora_produto_service
             End If
         End Sub
 
+        ' Uma passagem em janelas de 200 no body original. Nao copia o produto com Mid.
         Private Function MapearFullSearch(pBody As String, pPagina As Integer, pTamanhoPagina As Integer) As RedeAncoraProdutoFullSearchResultadoModel
             Dim _result As RedeAncoraProdutoFullSearchResultadoModel = NULL
             Dim _ok As RedeAncoraProdutoFullSearchResultadoModel = NULL
             Dim _item As RedeAncoraProdutoFullSearchItemModel = NULL
             Dim _arrStart As Integer = 0
-            Dim _elemStart As Integer = 0
-            Dim _elemFim As Integer = 0
-            Dim _slice As String = ""
-            Dim _itemJson As TJSONObject = NULL
-            Dim _i As Integer = 0
+            Dim _bodyLen As Integer = 0
+            Dim _pos As Integer = 0
+            Dim _janela As String = ""
+            Dim _idxAbre As Integer = 0
+            Dim _objStart As Integer = 0
+            Dim _objFim As Integer = 0
+            Dim _passos As Integer = 0
+            Dim _acabou As Boolean = False
             Dim _n As Integer = 0
 
             Try
@@ -487,55 +510,91 @@ Namespace rede_ancora_produto_service
                 End If
 
                 _result = New RedeAncoraProdutoFullSearchResultadoModel()
+                _bodyLen = Len(pBody)
+                _pos = _arrStart + 1
 
-                For _i = 0 To 9999
-                    _elemStart = RedeAncoraJsonHelper.PosicaoElementoArrayJsonDeBlob(pBody, _arrStart, _i)
-
-                    If _elemStart <= 0 Then
-                        Exit For
-                    End If
-
-                    _elemFim = RedeAncoraJsonHelper.PosicaoFimBlocoJsonDeBlob(pBody, _elemStart)
-
-                    If _elemFim < _elemStart Then
-                        RedeAncoraHttpErroHelper.RegistrarFalha("GET /products/full-search item", 200, "objeto de produto incompleto")
+                While _pos <= _bodyLen
+                    If _acabou Then
+                        _pos = _bodyLen + 1
                     Else
-                        _slice = Mid(pBody, _elemStart, _elemFim - _elemStart + 1)
+                        If _passos >= 10000 Then
+                            _acabou = True
+                        Else
+                            _janela = me.CopiarJanelaAscii(pBody, _pos, 200)
 
-                        Try
-                            _itemJson = New TJSONObject(_slice)
-                            _item = me.MapearItemFullSearch(_itemJson)
+                            If _janela = "" Then
+                                _acabou = True
+                            Else
+                                _idxAbre = me.PosicaoAbreObjetoNaJanela(_janela)
 
-                            If Assigned(_item) Then
-                                If Assigned(_item.Cadastro) Then
-                                    If _item.Cadastro.Cna > 0 Then
-                                        _result.Itens.Push(_item)
-                                        _item = NULL
-                                    Else
-                                        RedeAncoraHttpErroHelper.RegistrarFalha("GET /products/full-search item", 200, "cna ausente ou invalido")
-                                        _item.Free()
-                                        _item = NULL
-                                    End If
+                                If _idxAbre < 0 Then
+                                    _acabou = True
                                 Else
-                                    _item.Free()
-                                    _item = NULL
+                                    If _idxAbre = 0 Then
+                                        _pos = _pos + Len(_janela)
+                                    Else
+                                        _objStart = _pos + _idxAbre - 1
+                                        _objFim = 0
+                                        _item = NULL
+                                        _passos = _passos + 1
+
+                                        Try
+                                            _item = me.MapearItemFullSearchDeBlob(pBody, _objStart, _objFim)
+
+                                            If _objFim <= 0 Then
+                                                RedeAncoraHttpErroHelper.RegistrarFalha("GET /products/full-search item", 200, "objeto de produto incompleto")
+                                                If Assigned(_item) Then
+                                                    _item.Free()
+                                                    _item = NULL
+                                                End If
+                                                _acabou = True
+                                            Else
+                                                If Assigned(_item) Then
+                                                    If Assigned(_item.Cadastro) Then
+                                                        If _item.Cadastro.Cna > 0 Then
+                                                            _result.Itens.Push(_item)
+                                                            _item = NULL
+                                                        Else
+                                                            RedeAncoraHttpErroHelper.RegistrarFalha("GET /products/full-search item", 200, "cna ausente ou invalido")
+                                                            _item.Free()
+                                                            _item = NULL
+                                                        End If
+                                                    Else
+                                                        _item.Free()
+                                                        _item = NULL
+                                                    End If
+                                                End If
+                                            End If
+                                        Catch exItem As Exception
+                                            RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService.MapearFullSearch.item", exItem)
+
+                                            If Assigned(_item) Then
+                                                _item.Free()
+                                                _item = NULL
+                                            End If
+
+                                            If _objFim <= 0 Then
+                                                _objFim = me.AvancarFimObjetoProduto(pBody, _objStart)
+                                            End If
+
+                                            If _objFim <= 0 Then
+                                                _acabou = True
+                                            End If
+                                        End Try
+
+                                        If Not _acabou Then
+                                            If _objFim <= 0 Then
+                                                _acabou = True
+                                            Else
+                                                _pos = _objFim + 1
+                                            End If
+                                        End If
+                                    End If
                                 End If
                             End If
-                        Catch exItem As Exception
-                            RedeAncoraHttpErroHelper.RegistrarExcecao("RedeAncoraProdutoService.MapearFullSearch.item", exItem)
-
-                            If Assigned(_item) Then
-                                _item.Free()
-                                _item = NULL
-                            End If
-                        End Try
-
-                        If Assigned(_itemJson) Then
-                            _itemJson.Free()
-                            _itemJson = NULL
                         End If
                     End If
-                Next
+                Wend
 
                 _n = RedeAncoraJsonHelper.ObterInteiroNoSufixo(pBody, "current_page")
 
@@ -567,11 +626,6 @@ Namespace rede_ancora_produto_service
                 _ok = _result
                 _result = NULL
             Catch ex As Exception
-                If Assigned(_itemJson) Then
-                    _itemJson.Free()
-                    _itemJson = NULL
-                End If
-
                 If Assigned(_item) Then
                     _item.Free()
                     _item = NULL
@@ -588,23 +642,36 @@ Namespace rede_ancora_produto_service
             MapearFullSearch = _ok
         End Function
 
-        Private Function MapearItemFullSearch(pItemJson As TJSONObject) As RedeAncoraProdutoFullSearchItemModel
+        Private Function MapearItemFullSearchDeBlob(pBody As String, pStart As Integer, ByRef pFim As Integer) As RedeAncoraProdutoFullSearchItemModel
             Dim _item As RedeAncoraProdutoFullSearchItemModel = NULL
             Dim _ok As RedeAncoraProdutoFullSearchItemModel = NULL
-            Dim _details As TJSONObject = NULL
+            Dim _preco As RedeAncoraProdutoPrecoEstoqueModel = NULL
+            Dim _imagens As RedeAncoraProdutoImagensModel = NULL
+            Dim _urlReal As String = ""
+            Dim _urlIlustrativa As String = ""
+            Dim _tecnicas As String = ""
+            Dim _img1 As String = ""
+            Dim _img2 As String = ""
+            Dim _tecIgnorar As String = ""
+            Dim _ignorar As Integer = 0
+            Dim _seqReal As Integer = 0
+            Dim _seqIlustrativa As Integer = 0
+            Dim _seqTecnica As Integer = 0
+
+            pFim = 0
 
             Try
                 _item = New RedeAncoraProdutoFullSearchItemModel()
                 _item.Cadastro = New RedeAncoraProdutoModel()
                 _item.Cadastro.Ativo = ""
-                me.PreencherCadastroDeObjetoJson(pItemJson, _item.Cadastro)
-                _details = RedeAncoraJsonHelper.ObterFilhoJson(pItemJson, "details")
-
-                If Assigned(_details) Then
-                    me.PreencherCadastroDeObjetoJson(_details, _item.Cadastro)
-                    _details.Free()
-                    _details = NULL
-                End If
+                _preco = New RedeAncoraProdutoPrecoEstoqueModel()
+                me._parsePricesInicio = 0
+                me._parsePricesFim = 0
+                me._parseStocksInicio = 0
+                me._parseStocksFim = 0
+                me._parseTemPreco = False
+                me._parsePreco = _preco
+                pFim = me.ExtrairProdutoNoBody(pBody, pStart, _item.Cadastro, _urlReal, _urlIlustrativa, _tecnicas, True, True, True, True, _preco)
 
                 If _item.Cadastro.Ativo.Trim() = "" Then
                     _item.Cadastro.Ativo = "S"
@@ -614,14 +681,54 @@ Namespace rede_ancora_produto_service
                     _item.Cadastro.NomeProduto = _item.Cadastro.NomeErp
                 End If
 
-                _item.PrecoEstoque = me.MapearPrecoEstoqueFullSearch(pItemJson, _item.Cadastro.Cna)
-                _item.Imagens = me.MapearImagensProdutoDeJson(pItemJson, _item.Cadastro.Cna)
+                If me._parseTemPreco Then
+                    _preco.Cna = _item.Cadastro.Cna
+
+                    If me._parsePricesInicio > 0 Then
+                        If me._parsePricesFim >= me._parsePricesInicio Then
+                            _img1 = ""
+                            _img2 = ""
+                            _tecIgnorar = ""
+                            _ignorar = me.ExtrairProdutoNoBody(pBody, me._parsePricesInicio, _item.Cadastro, _img1, _img2, _tecIgnorar, False, False, True, False, _preco)
+                        End If
+                    End If
+
+                    If me._parseStocksInicio > 0 Then
+                        If me._parseStocksFim >= me._parseStocksInicio Then
+                            _img1 = ""
+                            _img2 = ""
+                            _tecIgnorar = ""
+                            _ignorar = me.ExtrairProdutoNoBody(pBody, me._parseStocksInicio, _item.Cadastro, _img1, _img2, _tecIgnorar, False, False, True, False, _preco)
+                        End If
+                    End If
+
+                    _item.PrecoEstoque = _preco
+                    _preco = NULL
+                Else
+                    _preco.Free()
+                    _preco = NULL
+                End If
+
+                me._parsePreco = NULL
+                _imagens = New RedeAncoraProdutoImagensModel()
+                me.AdicionarImagemUrl(_imagens, _item.Cadastro.Cna, RedeAncoraProdutoImagemTipo.Real(), _seqReal, _urlReal)
+                me.AdicionarImagemUrl(_imagens, _item.Cadastro.Cna, RedeAncoraProdutoImagemTipo.Ilustrativa(), _seqIlustrativa, _urlIlustrativa)
+                me.AdicionarImagensTecnicasDeBlob(_imagens, _item.Cadastro.Cna, _tecnicas, _seqTecnica)
+                _item.Imagens = _imagens
+                _imagens = NULL
                 _ok = _item
                 _item = NULL
             Catch ex As Exception
-                If Assigned(_details) Then
-                    _details.Free()
-                    _details = NULL
+                me._parsePreco = NULL
+
+                If Assigned(_preco) Then
+                    _preco.Free()
+                    _preco = NULL
+                End If
+
+                If Assigned(_imagens) Then
+                    _imagens.Free()
+                    _imagens = NULL
                 End If
 
                 If Assigned(_item) Then
@@ -632,151 +739,9 @@ Namespace rede_ancora_produto_service
                 Throw ex
             End Try
 
-            MapearItemFullSearch = _ok
+            MapearItemFullSearchDeBlob = _ok
         End Function
 
-        Private Function MapearPrecoEstoqueFullSearch(pItemJson As TJSONObject, pCna As Integer) As RedeAncoraProdutoPrecoEstoqueModel
-            Dim _prices As TJSONObject = NULL
-            Dim _stocks As TJSONObject = NULL
-            Dim _preco As RedeAncoraProdutoPrecoEstoqueModel = NULL
-            Dim _ok As RedeAncoraProdutoPrecoEstoqueModel = NULL
-            Dim _temBloco As Boolean = False
-
-            Try
-                _prices = RedeAncoraJsonHelper.ObterFilhoJson(pItemJson, "prices")
-                _stocks = RedeAncoraJsonHelper.ObterFilhoJson(pItemJson, "stocks")
-
-                If Assigned(_prices) Then
-                    _temBloco = True
-                End If
-
-                If Assigned(_stocks) Then
-                    _temBloco = True
-                End If
-
-                If Not _temBloco Then
-                    If RedeAncoraJsonHelper.ObterTextoJson(pItemJson, "preco_tabela").Trim() <> "" Then
-                        _temBloco = True
-                    End If
-                End If
-
-                If Not _temBloco Then
-                    If RedeAncoraJsonHelper.ObterTextoJson(pItemJson, "qtd_disponivel").Trim() <> "" Then
-                        _temBloco = True
-                    End If
-                End If
-
-                If _temBloco Then
-                    _preco = New RedeAncoraProdutoPrecoEstoqueModel()
-                    _preco.Cna = pCna
-                    me.PreencherPrecoEstoqueFullSearch(_preco, pItemJson)
-
-                    If Assigned(_prices) Then
-                        me.PreencherPrecoEstoqueFullSearch(_preco, _prices)
-                    End If
-
-                    If Assigned(_stocks) Then
-                        me.PreencherPrecoEstoqueFullSearch(_preco, _stocks)
-                    End If
-
-                    _ok = _preco
-                    _preco = NULL
-                End If
-            Catch ex As Exception
-                If Assigned(_preco) Then
-                    _preco.Free()
-                    _preco = NULL
-                End If
-
-                If Assigned(_prices) Then
-                    _prices.Free()
-                    _prices = NULL
-                End If
-
-                If Assigned(_stocks) Then
-                    _stocks.Free()
-                    _stocks = NULL
-                End If
-
-                Throw ex
-            End Try
-
-            If Assigned(_prices) Then
-                _prices.Free()
-            End If
-
-            If Assigned(_stocks) Then
-                _stocks.Free()
-            End If
-
-            MapearPrecoEstoqueFullSearch = _ok
-        End Function
-
-        Private Sub PreencherPrecoEstoqueFullSearch(pPreco As RedeAncoraProdutoPrecoEstoqueModel, pJson As TJSONObject)
-            Dim _empresa As Integer = 0
-            Dim _estado As Integer = 0
-            Dim _qtdDisponivel As Integer = 0
-            Dim _qtdProjetada As Integer = 0
-            Dim _texto As String = ""
-
-            _empresa = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "empresa")
-
-            If _empresa > 0 Then
-                pPreco.CodCentroDistribuicao = _empresa
-            End If
-
-            _estado = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "estado")
-
-            If _estado > 0 Then
-                pPreco.CodEstado = _estado
-            End If
-
-            _texto = RedeAncoraJsonHelper.ObterTextoJson(pJson, "qtd_disponivel")
-
-            If _texto.Trim() <> "" Then
-                _qtdDisponivel = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "qtd_disponivel")
-                pPreco.QtdDisponivel = _qtdDisponivel
-            End If
-
-            _texto = RedeAncoraJsonHelper.ObterTextoJson(pJson, "qtd_projetada")
-
-            If _texto.Trim() <> "" Then
-                _qtdProjetada = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "qtd_projetada")
-                pPreco.QtdProjetada = _qtdProjetada
-            End If
-
-            me.PreencherDecimalPrecoSeInformado(pPreco, pJson, "preco_tabela")
-            me.PreencherDecimalPrecoSeInformado(pPreco, pJson, "st_tabela")
-            me.PreencherDecimalPrecoSeInformado(pPreco, pJson, "preco_cross_docking")
-            me.PreencherDecimalPrecoSeInformado(pPreco, pJson, "preco_compra_junto")
-        End Sub
-
-        Private Sub PreencherDecimalPrecoSeInformado(pPreco As RedeAncoraProdutoPrecoEstoqueModel, pJson As TJSONObject, pKey As String)
-            Dim _texto As String = RedeAncoraJsonHelper.ObterTextoJson(pJson, pKey)
-            Dim _valor As Double = 0
-
-            If _texto.Trim() = "" Then
-                Exit Sub
-            End If
-
-            _valor = RedeAncoraJsonHelper.ObterDecimalJson(pJson, pKey)
-
-            If pKey = "preco_tabela" Then
-                pPreco.PrecoTabela = _valor
-            End If
-
-            If pKey = "st_tabela" Then
-                pPreco.StTabela = _valor
-            End If
-
-            If pKey = "preco_cross_docking" Then
-                pPreco.PrecoCrossDocking = _valor
-            End If
-
-            If pKey = "preco_compra_junto" Then
-                pPreco.PrecoCompraJunto = _valor
-            End If
-        End Sub
 
         Function BuscarProdutoBulkSearch(pCodUsuario As Integer, pCodCentroDistribuicao As Integer, pCodEstado As Integer, pCnas As RedeAncoraProdutoCnasModel, pPagina As Integer, pTamanhoPagina As Integer) As String
             Dim _api As RedeAncoraApiClient = NULL
@@ -2092,6 +2057,1045 @@ Namespace rede_ancora_produto_service
                 CoalesceDecimal = pNovo
             End If
         End Function
+
+        Private Function FlagDeTextoJson(pTexto As String) As String
+            Dim _tok As String = LCase(pTexto.Trim())
+
+            FlagDeTextoJson = ""
+
+            If _tok <> "" Then
+                If _tok = "true" Then
+                    FlagDeTextoJson = "S"
+                Else
+                    If _tok = "1" Then
+                        FlagDeTextoJson = "S"
+                    Else
+                        If _tok = "s" Then
+                            FlagDeTextoJson = "S"
+                        Else
+                            If _tok = "sim" Then
+                                FlagDeTextoJson = "S"
+                            Else
+                                FlagDeTextoJson = "N"
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+        End Function
+
+        ' Janelas Mid 200 no blob. Cadastro e URLs nesta passagem. prices/stocks so no trecho do objeto.
+        ' details numa segunda leitura, so no que ficou vazio. Sem Exit Function: PaxExitException vaza.
+        Private Function ExtrairProdutoNoBody(pBody As String, pStart As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String, ByRef pTecnicas As String, pAplicarDetails As Boolean, pAplicarCadastro As Boolean, pCapturarPreco As Boolean, pRegistrarBlocos As Boolean, pPreco As RedeAncoraProdutoPrecoEstoqueModel) As Integer
+            Dim _bodyLen As Integer = 0
+            Dim _pos As Integer = 0
+            Dim _janela As String = ""
+            Dim _janelaLen As Integer = 0
+            Dim _i As Integer = 0
+            Dim _ch As String = ""
+            Dim _q As String = Chr(34)
+            Dim _depth As Integer = 0
+            Dim _arrDepth As Integer = 0
+            Dim _inQuotes As Boolean = False
+            Dim _escape As Boolean = False
+            Dim _esperandoChave As Boolean = False
+            Dim _lendoChave As Boolean = False
+            Dim _depoisDeChave As Boolean = False
+            Dim _lendoValor As Boolean = False
+            Dim _valorString As Boolean = False
+            Dim _chave As String = ""
+            Dim _valor As String = ""
+            Dim _chaveDepth As Integer = 0
+            Dim _chaveObjeto As String = ""
+            Dim _capturandoTecnicas As Boolean = False
+            Dim _tecnicasArrAlvo As Integer = 0
+            Dim _tecInicio As Integer = 0
+            Dim _tecFim As Integer = 0
+            Dim _spanTipo As Integer = 0
+            Dim _spanInicio As Integer = 0
+            Dim _spanFim As Integer = 0
+            Dim _spanTeto As Integer = 0
+            Dim _fim As Integer = 0
+            Dim _result As Integer = 0
+            Dim _detInicio As Integer = 0
+            Dim _detFim As Integer = 0
+            Dim _abs As Integer = 0
+            Dim _ignorar As Integer = 0
+            Dim _img1 As String = ""
+            Dim _img2 As String = ""
+            Dim _tecIgnorar As String = ""
+
+            me._parseAplicarCadastro = pAplicarCadastro
+            me._parseCapturarPreco = pCapturarPreco
+            me._parseRegistrarBlocos = pRegistrarBlocos
+            me._parsePreco = pPreco
+
+            If pStart >= 1 Then
+                _bodyLen = Len(pBody)
+                If pStart <= _bodyLen Then
+                    _pos = pStart
+                    While _pos <= _bodyLen
+                        If _fim = 0 Then
+                            _janela = me.CopiarJanelaAscii(pBody, _pos, 200)
+                            _janelaLen = Len(_janela)
+                            If _janelaLen <= 0 Then
+                                _fim = -1
+                            Else
+                                _i = 1
+                                _tecInicio = 0
+                                _tecFim = 0
+                                _spanTipo = 0
+                                _spanInicio = 0
+                                _spanFim = 0
+                                _spanTeto = 0
+                                While _i <= _janelaLen
+                                    If _fim = 0 Then
+                                        _ch = Mid(_janela, _i, 1)
+                                        _abs = _pos + _i - 1
+                                        me.ConsumirCharFullSearch(_ch, _q, _depth, _arrDepth, _inQuotes, _escape, _esperandoChave, _lendoChave, _depoisDeChave, _lendoValor, _valorString, _chave, _valor, _chaveDepth, pCadastro, pImagemReal, pImagemIlustrativa, pTecnicas, _capturandoTecnicas, _tecnicasArrAlvo, _janela, _i, _tecInicio, _tecFim, _spanTipo, _spanInicio, _spanFim, _spanTeto, _chaveObjeto, _abs, _detInicio, _detFim)
+                                        If _depth = 0 Then
+                                            If Not _inQuotes Then
+                                                If _ch = "}" Then
+                                                    _fim = _pos + _i - 1
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                    _i = _i + 1
+                                Wend
+                                me.FlushSpanChaveValor(_janela, _spanTipo, _spanInicio, _spanFim, _spanTeto, _chave, _valor)
+                                me.FlushSpanTecnicas(_janela, _tecInicio, _tecFim, pTecnicas)
+                                If _fim = 0 Then
+                                    _pos = _pos + _janelaLen
+                                End If
+                            End If
+                        Else
+                            _pos = _bodyLen + 1
+                        End If
+                    Wend
+                End If
+            End If
+
+            If _fim > 0 Then
+                _result = _fim
+            End If
+
+            If pAplicarDetails Then
+                If _detInicio > 0 Then
+                    If _detFim >= _detInicio Then
+                        _img1 = ""
+                        _img2 = ""
+                        _tecIgnorar = ""
+                        _ignorar = me.ExtrairProdutoNoBody(pBody, _detInicio, pCadastro, _img1, _img2, _tecIgnorar, False, True, False, False, NULL)
+                    End If
+                End If
+            End If
+
+            ExtrairProdutoNoBody = _result
+        End Function
+
+        Private Sub ConsumirCharFullSearch(pCh As String, pQ As String, ByRef pDepth As Integer, ByRef pArrDepth As Integer, ByRef pInQuotes As Boolean, ByRef pEscape As Boolean, ByRef pEsperandoChave As Boolean, ByRef pLendoChave As Boolean, ByRef pDepoisDeChave As Boolean, ByRef pLendoValor As Boolean, ByRef pValorString As Boolean, ByRef pChave As String, ByRef pValor As String, ByRef pChaveDepth As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String, ByRef pTecnicas As String, ByRef pCapturandoTecnicas As Boolean, ByRef pTecnicasArrAlvo As Integer, pJanela As String, pIndex As Integer, ByRef pTecInicio As Integer, ByRef pTecFim As Integer, ByRef pSpanTipo As Integer, ByRef pSpanInicio As Integer, ByRef pSpanFim As Integer, ByRef pSpanTeto As Integer, ByRef pChaveObjeto As String, pAbs As Integer, ByRef pDetInicio As Integer, ByRef pDetFim As Integer)
+            Dim _ehBranco As Boolean = False
+            Dim _tetoValor As Integer = 0
+            Dim _queroTecnicas As Boolean = False
+            Dim _queroChave As Boolean = False
+            Dim _queroValor As Boolean = False
+            Dim _naRaizCampo As Boolean = False
+
+            If pCapturandoTecnicas Then
+                _queroTecnicas = True
+            End If
+
+            If pChaveDepth = 1 Then
+                _naRaizCampo = True
+            End If
+
+            If pEscape Then
+                If pLendoChave Then
+                    If _naRaizCampo Then
+                        _queroChave = True
+                    End If
+                Else
+                    If pLendoValor Then
+                        If pValorString Then
+                            If _naRaizCampo Then
+                                _queroValor = True
+                                _tetoValor = me.TetoValorTextoJson(pChave)
+                            End If
+                        End If
+                    End If
+                End If
+            Else
+                If pInQuotes Then
+                    If pCh <> pQ Then
+                        If pCh <> "\" Then
+                            If pLendoChave Then
+                                If _naRaizCampo Then
+                                    _queroChave = True
+                                End If
+                            Else
+                                If pLendoValor Then
+                                    If pValorString Then
+                                        If _naRaizCampo Then
+                                            _queroValor = True
+                                            _tetoValor = me.TetoValorTextoJson(pChave)
+                                        End If
+                                    End If
+                                End If
+                            End If
+                        Else
+                            If pLendoValor Then
+                                If pValorString Then
+                                    If _naRaizCampo Then
+                                        _queroValor = True
+                                        _tetoValor = me.TetoValorTextoJson(pChave)
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                Else
+                    _ehBranco = me.EhBrancoJsonChar(pCh)
+
+                    If Not _ehBranco Then
+                        If pLendoValor Then
+                            If Not pValorString Then
+                                If _naRaizCampo Then
+                                    If pCh <> "{" Then
+                                        If pCh <> "}" Then
+                                            If pCh <> "[" Then
+                                                If pCh <> "]" Then
+                                                    If pCh <> ":" Then
+                                                        If pCh <> "," Then
+                                                            If pCh <> pQ Then
+                                                                _queroValor = True
+                                                                _tetoValor = 40
+                                                            End If
+                                                        End If
+                                                    End If
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+
+            me.AtualizarSpanTecnicas(_queroTecnicas, pIndex, pJanela, pTecInicio, pTecFim, pTecnicas)
+
+            If _queroChave Then
+                me.AtualizarSpanChaveValor(True, 1, 40, pIndex, pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+            Else
+                If _queroValor Then
+                    me.AtualizarSpanChaveValor(True, 2, _tetoValor, pIndex, pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+                Else
+                    me.AtualizarSpanChaveValor(False, 0, 0, pIndex, pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+                End If
+            End If
+
+            If pEscape Then
+                pEscape = False
+            Else
+                If pInQuotes Then
+                    If pCh = "\" Then
+                        pEscape = True
+                    Else
+                        If pCh = pQ Then
+                            pInQuotes = False
+                            If pLendoChave Then
+                                pLendoChave = False
+                                pDepoisDeChave = True
+                            Else
+                                If pLendoValor Then
+                                    If pValorString Then
+                                        pLendoValor = False
+                                        me.AplicarCampoFullSearch(pChaveDepth, pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                Else
+                    If pCh = pQ Then
+                        pInQuotes = True
+                        If pEsperandoChave Then
+                            pLendoChave = True
+                            pChave = ""
+                            pChaveDepth = pDepth
+                            pEsperandoChave = False
+                        Else
+                            If pLendoValor Then
+                                pValorString = True
+                                pValor = ""
+                            End If
+                        End If
+                    Else
+                        If pCh = "{" Then
+                            If pDepth = 1 Then
+                                If pLendoValor Then
+                                    If pChaveDepth = 1 Then
+                                        pChaveObjeto = pChave
+
+                                        If pChave = "details" Then
+                                            If pDetInicio <= 0 Then
+                                                pDetInicio = pAbs
+                                            End If
+                                        End If
+
+                                        me.MarcarInicioBlocoPreco(pChave, pAbs)
+                                    End If
+                                End If
+                            End If
+                            pDepth = pDepth + 1
+                            pEsperandoChave = True
+                            If pLendoValor Then
+                                pLendoValor = False
+                            End If
+                        Else
+                            If pCh = "}" Then
+                                If pLendoValor Then
+                                    me.AplicarCampoFullSearch(pChaveDepth, pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
+                                    pLendoValor = False
+                                End If
+                                pDepth = pDepth - 1
+                                If pDepth = 1 Then
+                                    If pChaveObjeto = "details" Then
+                                        If pDetFim <= 0 Then
+                                            pDetFim = pAbs
+                                        End If
+                                    End If
+                                    me.MarcarFimBlocoPreco(pChaveObjeto, pAbs)
+                                End If
+                                If pDepth <= 1 Then
+                                    pChaveObjeto = ""
+                                End If
+                                pEsperandoChave = False
+                            Else
+                                If pCh = "[" Then
+                                    If pLendoValor Then
+                                        If pChaveDepth = 1 Then
+                                            If pChave = "imagensTecnicas" Then
+                                                If pTecnicas = "" Then
+                                                    If Not pCapturandoTecnicas Then
+                                                        pCapturandoTecnicas = True
+                                                        pTecnicas = "["
+                                                        pTecnicasArrAlvo = pArrDepth
+                                                    End If
+                                                End If
+                                            End If
+                                        End If
+                                        pLendoValor = False
+                                    End If
+                                    pArrDepth = pArrDepth + 1
+                                Else
+                                    If pCh = "]" Then
+                                        If pArrDepth > 0 Then
+                                            pArrDepth = pArrDepth - 1
+                                        End If
+                                        If pCapturandoTecnicas Then
+                                            If pArrDepth = pTecnicasArrAlvo Then
+                                                pCapturandoTecnicas = False
+                                            End If
+                                        End If
+                                    Else
+                                        If pCh = ":" Then
+                                            If pDepoisDeChave Then
+                                                pDepoisDeChave = False
+                                                pLendoValor = True
+                                                pValor = ""
+                                                pValorString = False
+                                            End If
+                                        Else
+                                            If pCh = "," Then
+                                                If pLendoValor Then
+                                                    me.AplicarCampoFullSearch(pChaveDepth, pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
+                                                    pLendoValor = False
+                                                End If
+                                                If pArrDepth = 0 Then
+                                                    pEsperandoChave = True
+                                                Else
+                                                    pEsperandoChave = False
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+        End Sub
+
+        Private Sub MarcarInicioBlocoPreco(pChave As String, pAbs As Integer)
+            If me._parseRegistrarBlocos Then
+                If pChave = "prices" Then
+                    If me._parsePricesInicio <= 0 Then
+                        me._parsePricesInicio = pAbs
+                        me._parseTemPreco = True
+                    End If
+                End If
+
+                If pChave = "stocks" Then
+                    If me._parseStocksInicio <= 0 Then
+                        me._parseStocksInicio = pAbs
+                        me._parseTemPreco = True
+                    End If
+                End If
+            End If
+        End Sub
+
+        Private Sub MarcarFimBlocoPreco(pChaveObjeto As String, pAbs As Integer)
+            If me._parseRegistrarBlocos Then
+                If pChaveObjeto = "prices" Then
+                    If me._parsePricesFim <= 0 Then
+                        me._parsePricesFim = pAbs
+                    End If
+                End If
+
+                If pChaveObjeto = "stocks" Then
+                    If me._parseStocksFim <= 0 Then
+                        me._parseStocksFim = pAbs
+                    End If
+                End If
+            End If
+        End Sub
+
+        Private Sub AplicarCampoFullSearch(pChaveDepth As Integer, pCadastro As RedeAncoraProdutoModel, pChave As String, pValor As String, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String)
+            Dim _tok As String = ""
+
+            If pChaveDepth = 1 Then
+                _tok = pValor.Trim()
+                If LCase(_tok) <> "null" Then
+                    If _tok <> "" Then
+                        If me._parseAplicarCadastro Then
+                            If Assigned(pCadastro) Then
+                                me.AplicarCadastroFullSearch(pCadastro, pChave, _tok, pImagemReal, pImagemIlustrativa)
+                            End If
+                        End If
+
+                        If me._parseCapturarPreco Then
+                            If Assigned(me._parsePreco) Then
+                                me.AplicarPrecoRaizFullSearch(pChave, _tok)
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+        End Sub
+
+        Private Sub AplicarCadastroFullSearch(pCadastro As RedeAncoraProdutoModel, pChave As String, pValor As String, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String)
+            If pChave = "cna" Then
+                pCadastro.Cna = me.CoalesceInteiro(pCadastro.Cna, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "catalogo_id" Then
+                pCadastro.CatalogoId = me.CoalesceInteiro(pCadastro.CatalogoId, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "csa" Then
+                pCadastro.Csa = me.CoalesceTexto(pCadastro.Csa, pValor)
+            End If
+            If pChave = "cnl" Then
+                pCadastro.Cnl = me.CoalesceTexto(pCadastro.Cnl, pValor)
+            End If
+            If pChave = "codigoReferencia" Then
+                pCadastro.CodigoReferencia = me.CoalesceTexto(pCadastro.CodigoReferencia, pValor)
+            End If
+            If pChave = "code" Then
+                pCadastro.CodigoReferencia = me.CoalesceTexto(pCadastro.CodigoReferencia, pValor)
+            End If
+            If pChave = "code_edi" Then
+                pCadastro.CodeEdi = me.CoalesceTexto(pCadastro.CodeEdi, pValor)
+            End If
+            If pChave = "code_manufacturer" Then
+                pCadastro.CodeManufacturer = me.CoalesceTexto(pCadastro.CodeManufacturer, pValor)
+            End If
+            If pChave = "nomeProduto" Then
+                pCadastro.NomeProduto = me.CoalesceTexto(pCadastro.NomeProduto, pValor)
+            End If
+            If pChave = "description" Then
+                pCadastro.NomeProduto = me.CoalesceTexto(pCadastro.NomeProduto, pValor)
+            End If
+            If pChave = "nome" Then
+                pCadastro.NomeErp = me.CoalesceTexto(pCadastro.NomeErp, pValor)
+            End If
+            If pChave = "name" Then
+                pCadastro.NomeErp = me.CoalesceTexto(pCadastro.NomeErp, pValor)
+            End If
+            If pChave = "informacoesAdicionais" Then
+                pCadastro.InformacoesAdicionais = me.CoalesceTexto(pCadastro.InformacoesAdicionais, pValor)
+            End If
+            If pChave = "informacoesComplementares" Then
+                pCadastro.InformacoesComplementares = me.CoalesceTexto(pCadastro.InformacoesComplementares, pValor)
+            End If
+            If pChave = "additional_description" Then
+                pCadastro.AdditionalDescription = me.CoalesceTexto(pCadastro.AdditionalDescription, pValor)
+            End If
+            If pChave = "pontoCriticoAtencao" Then
+                pCadastro.PontoCriticoAtencao = me.CoalesceTexto(pCadastro.PontoCriticoAtencao, pValor)
+            End If
+            If pChave = "dimensoes" Then
+                pCadastro.Dimensoes = me.CoalesceTexto(pCadastro.Dimensoes, pValor)
+            End If
+            If pChave = "marcaId" Then
+                pCadastro.CodMarca = me.CoalesceInteiro(pCadastro.CodMarca, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "brand_id" Then
+                pCadastro.CodMarcaErp = me.CoalesceInteiro(pCadastro.CodMarcaErp, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "marca" Then
+                pCadastro.NomeMarca = me.CoalesceTexto(pCadastro.NomeMarca, pValor)
+            End If
+            If pChave = "brand" Then
+                pCadastro.NomeMarca = me.CoalesceTexto(pCadastro.NomeMarca, pValor)
+            End If
+            If pChave = "line" Then
+                pCadastro.CodLinha = me.CoalesceInteiro(pCadastro.CodLinha, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "line_id" Then
+                pCadastro.CodLinha = me.CoalesceInteiro(pCadastro.CodLinha, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "line_name" Then
+                pCadastro.NomeLinha = me.CoalesceTexto(pCadastro.NomeLinha, pValor)
+            End If
+            If pChave = "family" Then
+                pCadastro.CodFamilia = me.CoalesceInteiro(pCadastro.CodFamilia, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "family_id" Then
+                pCadastro.CodFamilia = me.CoalesceInteiro(pCadastro.CodFamilia, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "family_name" Then
+                pCadastro.NomeFamilia = me.CoalesceTexto(pCadastro.NomeFamilia, pValor)
+            End If
+            If pChave = "manufacturer_id" Then
+                pCadastro.CodFabricante = me.CoalesceInteiro(pCadastro.CodFabricante, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "fabricante" Then
+                pCadastro.CodFabricante = me.CoalesceInteiro(pCadastro.CodFabricante, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "ean" Then
+                pCadastro.Ean = me.CoalesceTexto(pCadastro.Ean, pValor)
+            End If
+            If pChave = "gtin" Then
+                pCadastro.Gtin = me.CoalesceTexto(pCadastro.Gtin, pValor)
+            End If
+            If pChave = "ncm" Then
+                pCadastro.Ncm = me.CoalesceTexto(pCadastro.Ncm, pValor)
+            End If
+            If pChave = "cest" Then
+                pCadastro.Cest = me.CoalesceTexto(pCadastro.Cest, pValor)
+            End If
+            If pChave = "origem" Then
+                pCadastro.Origem = me.CoalesceTexto(pCadastro.Origem, pValor)
+            End If
+            If pChave = "origem_label" Then
+                pCadastro.OrigemLabel = me.CoalesceTexto(pCadastro.OrigemLabel, pValor)
+            End If
+            If pChave = "anp" Then
+                pCadastro.Anp = me.CoalesceInteiro(pCadastro.Anp, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "anp_label" Then
+                pCadastro.AnpLabel = me.CoalesceTexto(pCadastro.AnpLabel, pValor)
+            End If
+            If pChave = "peso_liquido" Then
+                pCadastro.PesoLiquido = me.CoalesceDecimal(pCadastro.PesoLiquido, Parser.StringToDouble(pValor))
+            End If
+            If pChave = "net_weight" Then
+                pCadastro.PesoLiquido = me.CoalesceDecimal(pCadastro.PesoLiquido, Parser.StringToDouble(pValor))
+            End If
+            If pChave = "peso_bruto" Then
+                pCadastro.PesoBruto = me.CoalesceDecimal(pCadastro.PesoBruto, Parser.StringToDouble(pValor))
+            End If
+            If pChave = "gross_weight" Then
+                pCadastro.PesoBruto = me.CoalesceDecimal(pCadastro.PesoBruto, Parser.StringToDouble(pValor))
+            End If
+            If pChave = "volume" Then
+                pCadastro.Volume = me.CoalesceDecimal(pCadastro.Volume, Parser.StringToDouble(pValor))
+            End If
+            If pChave = "liters" Then
+                pCadastro.Litros = me.CoalesceDecimal(pCadastro.Litros, Parser.StringToDouble(pValor))
+            End If
+            If pChave = "tamanho" Then
+                pCadastro.Tamanho = me.CoalesceTexto(pCadastro.Tamanho, pValor)
+            End If
+            If pChave = "material" Then
+                pCadastro.Material = me.CoalesceTexto(pCadastro.Material, pValor)
+            End If
+            If pChave = "tipo" Then
+                pCadastro.Tipo = me.CoalesceInteiro(pCadastro.Tipo, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "medida_venda" Then
+                pCadastro.MedidaVenda = me.CoalesceTexto(pCadastro.MedidaVenda, pValor)
+            End If
+            If pChave = "garantia_dias" Then
+                pCadastro.GarantiaDias = me.CoalesceInteiro(pCadastro.GarantiaDias, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "warranty" Then
+                pCadastro.GarantiaDias = me.CoalesceInteiro(pCadastro.GarantiaDias, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "fracao_fabrica" Then
+                pCadastro.FracaoFabrica = me.CoalesceInteiro(pCadastro.FracaoFabrica, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "fracao_loja" Then
+                pCadastro.FracaoLoja = me.CoalesceInteiro(pCadastro.FracaoLoja, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "status" Then
+                pCadastro.Status = me.CoalesceInteiro(pCadastro.Status, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "erp_handle" Then
+                pCadastro.ErpHandle = me.CoalesceInteiro(pCadastro.ErpHandle, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "handle" Then
+                pCadastro.ErpHandle = me.CoalesceInteiro(pCadastro.ErpHandle, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "leadtime" Then
+                pCadastro.Leadtime = me.CoalesceInteiro(pCadastro.Leadtime, me.TextoParaInteiroToken(pValor))
+            End If
+            If pChave = "on_demand_label" Then
+                pCadastro.OnDemandLabel = me.CoalesceTexto(pCadastro.OnDemandLabel, pValor)
+            End If
+            If pChave = "motivo_descontinuado" Then
+                pCadastro.MotivoDescontinuado = me.CoalesceTexto(pCadastro.MotivoDescontinuado, pValor)
+            End If
+            If pChave = "imagemReal" Then
+                If pImagemReal = "" Then
+                    pImagemReal = pValor
+                End If
+            End If
+            If pChave = "imagemIlustrativa" Then
+                If pImagemIlustrativa = "" Then
+                    pImagemIlustrativa = pValor
+                End If
+            End If
+            If pChave = "ativo" Then
+                If pCadastro.Ativo = "" Then
+                    pCadastro.Ativo = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+            If pChave = "descontinuado" Then
+                If pCadastro.Descontinuado = "" Then
+                    pCadastro.Descontinuado = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+            If pChave = "bloqueado" Then
+                If pCadastro.Bloqueado = "" Then
+                    pCadastro.Bloqueado = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+            If pChave = "confiavel" Then
+                If pCadastro.Confiavel = "" Then
+                    pCadastro.Confiavel = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+            If pChave = "sugerido" Then
+                If pCadastro.Sugerido = "" Then
+                    pCadastro.Sugerido = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+            If pChave = "lancamento" Then
+                If pCadastro.Lancamento = "" Then
+                    pCadastro.Lancamento = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+            If pChave = "on_demand" Then
+                If pCadastro.OnDemand = "" Then
+                    pCadastro.OnDemand = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+            If pChave = "parcialmente_similar" Then
+                If pCadastro.ParcialmenteSimilar = "" Then
+                    pCadastro.ParcialmenteSimilar = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+            If pChave = "has_restrictions" Then
+                If pCadastro.HasRestrictions = "" Then
+                    pCadastro.HasRestrictions = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+            If pChave = "prazo_especial" Then
+                If pCadastro.PrazoEspecial = "" Then
+                    pCadastro.PrazoEspecial = me.FlagDeTextoJson(pValor)
+                End If
+            End If
+        End Sub
+
+        Private Sub AplicarPrecoRaizFullSearch(pChave As String, pValor As String)
+            Dim _n As Integer = 0
+
+            If pChave = "empresa" Then
+                _n = me.TextoParaInteiroToken(pValor)
+                If _n > 0 Then
+                    me._parsePreco.CodCentroDistribuicao = _n
+                End If
+            End If
+            If pChave = "estado" Then
+                _n = me.TextoParaInteiroToken(pValor)
+                If _n > 0 Then
+                    me._parsePreco.CodEstado = _n
+                End If
+            End If
+            If pChave = "qtd_disponivel" Then
+                me._parsePreco.QtdDisponivel = me.TextoParaInteiroToken(pValor)
+                me._parseTemPreco = True
+            End If
+            If pChave = "qtd_projetada" Then
+                me._parsePreco.QtdProjetada = me.TextoParaInteiroToken(pValor)
+            End If
+            If pChave = "preco_tabela" Then
+                me._parsePreco.PrecoTabela = Parser.StringToDouble(pValor)
+                me._parseTemPreco = True
+            End If
+            If pChave = "st_tabela" Then
+                me._parsePreco.StTabela = Parser.StringToDouble(pValor)
+            End If
+            If pChave = "preco_cross_docking" Then
+                me._parsePreco.PrecoCrossDocking = Parser.StringToDouble(pValor)
+            End If
+            If pChave = "preco_compra_junto" Then
+                me._parsePreco.PrecoCompraJunto = Parser.StringToDouble(pValor)
+            End If
+        End Sub
+
+        Private Function TextoParaInteiroToken(pRaw As String) As Integer
+            Dim _text As String = pRaw.Trim()
+            Dim _len As Integer = Len(_text)
+            Dim _i As Integer = 1
+            Dim _sign As Integer = 1
+            Dim _n As Integer = 0
+            Dim _d As Integer = 0
+            Dim _ch As String = ""
+            Dim _seguir As Boolean = True
+            Dim _digits As String = "0123456789"
+            Dim _j As Integer = 0
+
+            If _len > 0 Then
+                _ch = Mid(_text, 1, 1)
+                If _ch = "-" Then
+                    _sign = -1
+                    _i = 2
+                Else
+                    If _ch = "+" Then
+                        _i = 2
+                    End If
+                End If
+            Else
+                _seguir = False
+            End If
+
+            While _seguir
+                If _i > _len Then
+                    _seguir = False
+                Else
+                    _ch = Mid(_text, _i, 1)
+                    _d = -1
+                    For _j = 1 To 10
+                        If Mid(_digits, _j, 1) = _ch Then
+                            _d = _j - 1
+                        End If
+                    Next
+                    If _d < 0 Then
+                        _seguir = False
+                    Else
+                        _n = (_n * 10) + _d
+                        _i = _i + 1
+                    End If
+                End If
+            Wend
+
+            TextoParaInteiroToken = _sign * _n
+        End Function
+
+        Private Function TetoValorTextoJson(pChave As String) As Integer
+            If Len(pChave) > 0 Then
+                TetoValorTextoJson = 2000
+            Else
+                TetoValorTextoJson = 40
+            End If
+        End Function
+
+        Private Function EhBrancoJsonChar(pCh As String) As Boolean
+            Dim _result As Boolean = False
+
+            If pCh = " " Then
+                _result = True
+            Else
+                If pCh = Chr(9) Then
+                    _result = True
+                Else
+                    If pCh = Chr(10) Then
+                        _result = True
+                    Else
+                        If pCh = Chr(13) Then
+                            _result = True
+                        End If
+                    End If
+                End If
+            End If
+            EhBrancoJsonChar = _result
+        End Function
+
+        Private Sub AnexarTrechoLimitado(ByRef pDest As String, pJanela As String, pInicio As Integer, pFim As Integer, pTeto As Integer)
+            Dim _lenDest As Integer = 0
+            Dim _n As Integer = 0
+            Dim _restante As Integer = 0
+
+            If pInicio >= 1 Then
+                If pFim >= pInicio Then
+                    _lenDest = Len(pDest)
+
+                    If _lenDest < pTeto Then
+                        _n = pFim - pInicio + 1
+                        _restante = pTeto - _lenDest
+
+                        If _n > _restante Then
+                            _n = _restante
+                        End If
+
+                        If _n > 200 Then
+                            _n = 200
+                        End If
+
+                        If _n > 0 Then
+                            pDest = pDest & Mid(pJanela, pInicio, _n)
+                        End If
+                    End If
+                End If
+            End If
+        End Sub
+
+        Private Sub FlushSpanChaveValor(pJanela As String, ByRef pSpanTipo As Integer, ByRef pSpanInicio As Integer, ByRef pSpanFim As Integer, ByRef pSpanTeto As Integer, ByRef pChave As String, ByRef pValor As String)
+            If pSpanTipo = 1 Then
+                me.AnexarTrechoLimitado(pChave, pJanela, pSpanInicio, pSpanFim, pSpanTeto)
+            End If
+
+            If pSpanTipo = 2 Then
+                me.AnexarTrechoLimitado(pValor, pJanela, pSpanInicio, pSpanFim, pSpanTeto)
+            End If
+
+            pSpanTipo = 0
+            pSpanInicio = 0
+            pSpanFim = 0
+            pSpanTeto = 0
+        End Sub
+
+        Private Sub FlushSpanTecnicas(pJanela As String, ByRef pTecInicio As Integer, ByRef pTecFim As Integer, ByRef pTecnicas As String)
+            If pTecInicio >= 1 Then
+                If pTecFim >= pTecInicio Then
+                    me.AnexarTrechoLimitado(pTecnicas, pJanela, pTecInicio, pTecFim, 40000)
+                End If
+            End If
+
+            pTecInicio = 0
+            pTecFim = 0
+        End Sub
+
+        Private Sub AtualizarSpanChaveValor(pQuer As Boolean, pTipo As Integer, pTeto As Integer, pIndex As Integer, pJanela As String, ByRef pSpanTipo As Integer, ByRef pSpanInicio As Integer, ByRef pSpanFim As Integer, ByRef pSpanTeto As Integer, ByRef pChave As String, ByRef pValor As String)
+            Dim _contiguo As Boolean = False
+
+            If pQuer Then
+                If pSpanTipo = pTipo Then
+                    If pSpanTeto = pTeto Then
+                        If pSpanFim + 1 = pIndex Then
+                            _contiguo = True
+                        End If
+                    End If
+                End If
+
+                If _contiguo Then
+                    pSpanFim = pIndex
+                Else
+                    me.FlushSpanChaveValor(pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+                    pSpanTipo = pTipo
+                    pSpanInicio = pIndex
+                    pSpanFim = pIndex
+                    pSpanTeto = pTeto
+                End If
+            Else
+                If pSpanTipo <> 0 Then
+                    me.FlushSpanChaveValor(pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+                End If
+            End If
+        End Sub
+
+        Private Sub AtualizarSpanTecnicas(pQuer As Boolean, pIndex As Integer, pJanela As String, ByRef pTecInicio As Integer, ByRef pTecFim As Integer, ByRef pTecnicas As String)
+            Dim _contiguo As Boolean = False
+
+            If pQuer Then
+                If pTecInicio >= 1 Then
+                    If pTecFim + 1 = pIndex Then
+                        _contiguo = True
+                    End If
+                End If
+
+                If _contiguo Then
+                    pTecFim = pIndex
+                Else
+                    me.FlushSpanTecnicas(pJanela, pTecInicio, pTecFim, pTecnicas)
+                    pTecInicio = pIndex
+                    pTecFim = pIndex
+                End If
+            Else
+                If pTecInicio >= 1 Then
+                    me.FlushSpanTecnicas(pJanela, pTecInicio, pTecFim, pTecnicas)
+                End If
+            End If
+        End Sub
+
+        Private Function CopiarJanelaAscii(pSrc As String, pStart As Integer, pLen As Integer) As String
+            Dim _bodyLen As Integer = 0
+            Dim _n As Integer = 0
+            Dim _result As String = ""
+
+            If pStart >= 1 Then
+                If pLen > 0 Then
+                    _bodyLen = Len(pSrc)
+                    If pStart <= _bodyLen Then
+                        _n = pLen
+                        If _n > 200 Then
+                            _n = 200
+                        End If
+                        If (pStart + _n - 1) > _bodyLen Then
+                            _n = _bodyLen - pStart + 1
+                        End If
+                        If _n > 0 Then
+                            _result = Mid(pSrc, pStart, _n)
+                        End If
+                    End If
+                End If
+            End If
+            CopiarJanelaAscii = _result
+        End Function
+
+        Private Function PosicaoAbreObjetoNaJanela(pJanela As String) As Integer
+            Dim _len As Integer = Len(pJanela)
+            Dim _i As Integer = 1
+            Dim _ch As String = ""
+            Dim _idx As Integer = 0
+            Dim _result As Integer = 0
+
+            While _i <= _len
+                If _idx = 0 Then
+                    _ch = Mid(pJanela, _i, 1)
+                    If _ch = " " Then
+                        _i = _i + 1
+                    Else
+                        If _ch = "," Then
+                            _i = _i + 1
+                        Else
+                            If _ch = Chr(9) Then
+                                _i = _i + 1
+                            Else
+                                If _ch = Chr(10) Then
+                                    _i = _i + 1
+                                Else
+                                    If _ch = Chr(13) Then
+                                        _i = _i + 1
+                                    Else
+                                        _idx = _i
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                Else
+                    _i = _len + 1
+                End If
+            Wend
+
+            If _idx > 0 Then
+                _ch = Mid(pJanela, _idx, 1)
+                If _ch = "]" Then
+                    _result = -1
+                Else
+                    If _ch = "{" Then
+                        _result = _idx
+                    Else
+                        _result = -2
+                    End If
+                End If
+            End If
+            PosicaoAbreObjetoNaJanela = _result
+        End Function
+
+        Private Function AvancarFimObjetoProduto(pBody As String, pStart As Integer) As Integer
+            Dim _bodyLen As Integer = 0
+            Dim _pos As Integer = 0
+            Dim _janela As String = ""
+            Dim _janelaLen As Integer = 0
+            Dim _i As Integer = 0
+            Dim _ch As String = ""
+            Dim _q As String = Chr(34)
+            Dim _depth As Integer = 0
+            Dim _inQuotes As Boolean = False
+            Dim _escape As Boolean = False
+            Dim _fim As Integer = 0
+            Dim _result As Integer = 0
+
+            If pStart >= 1 Then
+                _bodyLen = Len(pBody)
+                If pStart <= _bodyLen Then
+                    _pos = pStart
+                    While _pos <= _bodyLen
+                        If _fim = 0 Then
+                            _janela = me.CopiarJanelaAscii(pBody, _pos, 200)
+                            _janelaLen = Len(_janela)
+                            If _janelaLen <= 0 Then
+                                _fim = -1
+                            Else
+                                _i = 1
+                                While _i <= _janelaLen
+                                    If _fim = 0 Then
+                                        _ch = Mid(_janela, _i, 1)
+                                        If _escape Then
+                                            _escape = False
+                                        Else
+                                            If _inQuotes Then
+                                                If _ch = "\" Then
+                                                    _escape = True
+                                                Else
+                                                    If _ch = _q Then
+                                                        _inQuotes = False
+                                                    End If
+                                                End If
+                                            Else
+                                                If _ch = _q Then
+                                                    _inQuotes = True
+                                                Else
+                                                    If _ch = "{" Then
+                                                        _depth = _depth + 1
+                                                    Else
+                                                        If _ch = "}" Then
+                                                            _depth = _depth - 1
+                                                            If _depth = 0 Then
+                                                                _fim = _pos + _i - 1
+                                                            End If
+                                                        End If
+                                                    End If
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                    _i = _i + 1
+                                Wend
+                                If _fim = 0 Then
+                                    _pos = _pos + _janelaLen
+                                End If
+                            End If
+                        Else
+                            _pos = _bodyLen + 1
+                        End If
+                    Wend
+                End If
+            End If
+
+            If _fim > 0 Then
+                _result = _fim
+            End If
+            AvancarFimObjetoProduto = _result
+        End Function
+
 
         Private Sub PreencherCadastroDeObjetoJson(pJson As TJSONObject, pCadastro As RedeAncoraProdutoModel)
             pCadastro.Cna = me.CoalesceInteiro(pCadastro.Cna, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "cna"))

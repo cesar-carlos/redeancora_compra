@@ -567,13 +567,10 @@ Namespace rede_ancora_produto_sincronizacao_service
 
         Private Sub ProcessarChunk(pOpcoes As RedeAncoraProdutoSincronizacaoOpcoesModel, pChunk As RedeAncoraProdutoCnasModel, pModo As String, pNumeroChunk As Integer, pTotalChunks As Integer, pResultado As RedeAncoraProdutoSincronizacaoResultadoModel)
             Dim _body As String = ""
-            Dim _json As TJSONObject = NULL
-            Dim _data As TJSONArray = NULL
             Dim _cnasEncontrados As RedeAncoraProdutoCnasModel = New RedeAncoraProdutoCnasModel()
             Dim _chunkApi As RedeAncoraProdutoCnasModel = NULL
             Dim _tx As Transaction = NULL
             Dim _somenteNovos As Boolean = RedeAncoraProdutoSincronizacaoModo.IsSomenteNovos(pModo)
-            Dim _itemJson As TJSONObject = NULL
 
             Try
                 pChunk.ValidarTodos()
@@ -589,14 +586,12 @@ Namespace rede_ancora_produto_sincronizacao_service
 
                 _body = me._produtoService.BuscarProdutoBulkSearch(pOpcoes.CodUsuario, pOpcoes.CodCentroDistribuicao, pOpcoes.CodEstado, _chunkApi, 1, _chunkApi.Length)
                 pResultado.QtdChunksApi = pResultado.QtdChunksApi + 1
-                _json = New TJSONObject(_body)
-                _data = RedeAncoraJsonHelper.ObterDataArray(_json)
 
                 _tx = Transaction.Instance()
                 _tx.OffAutoCommit()
                 _tx.StartTransaction("Integracao.RedeAncoraProdutoVinculo Sync chunk " + pNumeroChunk.ToString())
 
-                me.PersistirItensProdutoApi(_data, _somenteNovos, pResultado, False, _cnasEncontrados)
+                me.PersistirChunkDeBlob(_body, _somenteNovos, pResultado, _cnasEncontrados)
 
                 If RedeAncoraProdutoSincronizacaoModo.IsCompleta(pModo) Then
                     me.ProcessarCnasAusentes(_chunkApi, _cnasEncontrados, pOpcoes.DesativarAusentes, pResultado, False)
@@ -611,21 +606,7 @@ Namespace rede_ancora_produto_sincronizacao_service
                 _chunkApi = NULL
                 _cnasEncontrados.Free()
                 _cnasEncontrados = NULL
-
-                If Assigned(_data) Then
-                    _data.Free()
-                    _data = NULL
-                End If
-
-                If Assigned(_json) Then
-                    _json.Free()
-                    _json = NULL
-                End If
             Catch ex As Exception
-                If Assigned(_itemJson) Then
-                    _itemJson.Free()
-                End If
-
                 If Assigned(_tx) Then
                     _tx.Rollback()
                     _tx.OnAutoCommit()
@@ -637,14 +618,6 @@ Namespace rede_ancora_produto_sincronizacao_service
 
                 If Assigned(_cnasEncontrados) Then
                     _cnasEncontrados.Free()
-                End If
-
-                If Assigned(_data) Then
-                    _data.Free()
-                End If
-
-                If Assigned(_json) Then
-                    _json.Free()
                 End If
 
                 Throw ex
@@ -740,7 +713,7 @@ Namespace rede_ancora_produto_sincronizacao_service
                                     End If
 
                                     Try
-                                        _objFim = me.AvancarFimObjetoEExtrair(pBody, _objStart, _cadastro, _urlReal, _urlIlustrativa, _tecnicasBlob)
+                                        _objFim = me.AvancarFimObjetoEExtrair(pBody, _objStart, _cadastro, _urlReal, _urlIlustrativa, _tecnicasBlob, True)
                                         _itemOk = True
 
                                         If _qtd = 0 Then
@@ -1021,10 +994,118 @@ Namespace rede_ancora_produto_sincronizacao_service
             pCadastro.PrazoEspecial = me.CoalesceFlagFatia(pCadastro.PrazoEspecial, pFatia, "prazo_especial")
         End Sub
 
+        ' Mid so na janela ja copiada (<= 200). Nao concatena caractere a caractere.
+        Private Sub AnexarTrechoLimitado(ByRef pDest As String, pJanela As String, pInicio As Integer, pFim As Integer, pTeto As Integer)
+            Dim _lenDest As Integer = 0
+            Dim _n As Integer = 0
+            Dim _restante As Integer = 0
+
+            If pInicio >= 1 Then
+                If pFim >= pInicio Then
+                    _lenDest = Len(pDest)
+
+                    If _lenDest < pTeto Then
+                        _n = pFim - pInicio + 1
+                        _restante = pTeto - _lenDest
+
+                        If _n > _restante Then
+                            _n = _restante
+                        End If
+
+                        If _n > 200 Then
+                            _n = 200
+                        End If
+
+                        If _n > 0 Then
+                            pDest = pDest & Mid(pJanela, pInicio, _n)
+                        End If
+                    End If
+                End If
+            End If
+        End Sub
+
+        Private Sub FlushSpanChaveValor(pJanela As String, ByRef pSpanTipo As Integer, ByRef pSpanInicio As Integer, ByRef pSpanFim As Integer, ByRef pSpanTeto As Integer, ByRef pChave As String, ByRef pValor As String)
+            If pSpanTipo = 1 Then
+                me.AnexarTrechoLimitado(pChave, pJanela, pSpanInicio, pSpanFim, pSpanTeto)
+            End If
+
+            If pSpanTipo = 2 Then
+                me.AnexarTrechoLimitado(pValor, pJanela, pSpanInicio, pSpanFim, pSpanTeto)
+            End If
+
+            pSpanTipo = 0
+            pSpanInicio = 0
+            pSpanFim = 0
+            pSpanTeto = 0
+        End Sub
+
+        Private Sub FlushSpanTecnicas(pJanela As String, ByRef pTecInicio As Integer, ByRef pTecFim As Integer, ByRef pTecnicas As String)
+            If pTecInicio >= 1 Then
+                If pTecFim >= pTecInicio Then
+                    me.AnexarTrechoLimitado(pTecnicas, pJanela, pTecInicio, pTecFim, 8000)
+                End If
+            End If
+
+            pTecInicio = 0
+            pTecFim = 0
+        End Sub
+
+        Private Sub AtualizarSpanChaveValor(pQuer As Boolean, pTipo As Integer, pTeto As Integer, pIndex As Integer, pJanela As String, ByRef pSpanTipo As Integer, ByRef pSpanInicio As Integer, ByRef pSpanFim As Integer, ByRef pSpanTeto As Integer, ByRef pChave As String, ByRef pValor As String)
+            Dim _contiguo As Boolean = False
+
+            If pQuer Then
+                If pSpanTipo = pTipo Then
+                    If pSpanTeto = pTeto Then
+                        If pSpanFim + 1 = pIndex Then
+                            _contiguo = True
+                        End If
+                    End If
+                End If
+
+                If _contiguo Then
+                    pSpanFim = pIndex
+                Else
+                    me.FlushSpanChaveValor(pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+                    pSpanTipo = pTipo
+                    pSpanInicio = pIndex
+                    pSpanFim = pIndex
+                    pSpanTeto = pTeto
+                End If
+            Else
+                If pSpanTipo <> 0 Then
+                    me.FlushSpanChaveValor(pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+                End If
+            End If
+        End Sub
+
+        Private Sub AtualizarSpanTecnicas(pQuer As Boolean, pIndex As Integer, pJanela As String, ByRef pTecInicio As Integer, ByRef pTecFim As Integer, ByRef pTecnicas As String)
+            Dim _contiguo As Boolean = False
+
+            If pQuer Then
+                If pTecInicio >= 1 Then
+                    If pTecFim + 1 = pIndex Then
+                        _contiguo = True
+                    End If
+                End If
+
+                If _contiguo Then
+                    pTecFim = pIndex
+                Else
+                    me.FlushSpanTecnicas(pJanela, pTecInicio, pTecFim, pTecnicas)
+                    pTecInicio = pIndex
+                    pTecFim = pIndex
+                End If
+            Else
+                If pTecInicio >= 1 Then
+                    me.FlushSpanTecnicas(pJanela, pTecInicio, pTecFim, pTecnicas)
+                End If
+            End If
+        End Sub
+
         ' Janelas Mid 200 no blob (padrao marcas). Tokenizer no slice ASCII.
         ' Sem Exit Function/Exit While: PaxExitException vaza para o Catch do caller.
-        ' Campos so no objeto raiz (depth=1). Similares/imagens aninhados nao viram CNA.
-        Private Function AvancarFimObjetoEExtrair(pBody As String, pStart As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String, ByRef pTecnicasBlob As String) As Integer
+        ' Campos da raiz neste passo. details entra numa segunda leitura, so no que ficou vazio.
+        Private Function AvancarFimObjetoEExtrair(pBody As String, pStart As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String, ByRef pTecnicasBlob As String, pAplicarDetailsDepois As Boolean) As Integer
             Dim _bodyLen As Integer = 0
             Dim _pos As Integer = 0
             Dim _janela As String = ""
@@ -1044,10 +1125,21 @@ Namespace rede_ancora_produto_sincronizacao_service
             Dim _chave As String = ""
             Dim _valor As String = ""
             Dim _chaveDepth As Integer = 0
+            Dim _chaveObjeto As String = ""
             Dim _capturandoTecnicas As Boolean = False
             Dim _tecnicasArrAlvo As Integer = 0
+            Dim _tecInicio As Integer = 0
+            Dim _tecFim As Integer = 0
+            Dim _spanTipo As Integer = 0
+            Dim _spanInicio As Integer = 0
+            Dim _spanFim As Integer = 0
+            Dim _spanTeto As Integer = 0
             Dim _fim As Integer = 0
             Dim _result As Integer = 0
+            Dim _detInicio As Integer = 0
+            Dim _detFim As Integer = 0
+            Dim _abs As Integer = 0
+            Dim _ignorar As Integer = 0
 
             If pStart >= 1 Then
                 _bodyLen = Len(pBody)
@@ -1061,10 +1153,17 @@ Namespace rede_ancora_produto_sincronizacao_service
                                 _fim = -1
                             Else
                                 _i = 1
+                                _tecInicio = 0
+                                _tecFim = 0
+                                _spanTipo = 0
+                                _spanInicio = 0
+                                _spanFim = 0
+                                _spanTeto = 0
                                 While _i <= _janelaLen
                                     If _fim = 0 Then
                                         _ch = Mid(_janela, _i, 1)
-                                        me.ConsumirCharJsonObjeto(_ch, _q, _depth, _arrDepth, _inQuotes, _escape, _esperandoChave, _lendoChave, _depoisDeChave, _lendoValor, _valorString, _chave, _valor, _chaveDepth, pCadastro, pImagemReal, pImagemIlustrativa, pTecnicasBlob, _capturandoTecnicas, _tecnicasArrAlvo)
+                                        _abs = _pos + _i - 1
+                                        me.ConsumirCharJsonObjeto(_ch, _q, _depth, _arrDepth, _inQuotes, _escape, _esperandoChave, _lendoChave, _depoisDeChave, _lendoValor, _valorString, _chave, _valor, _chaveDepth, pCadastro, pImagemReal, pImagemIlustrativa, pTecnicasBlob, _capturandoTecnicas, _tecnicasArrAlvo, _janela, _i, _tecInicio, _tecFim, _spanTipo, _spanInicio, _spanFim, _spanTeto, _chaveObjeto, _abs, _detInicio, _detFim)
                                         If _depth = 0 Then
                                             If Not _inQuotes Then
                                                 If _ch = "}" Then
@@ -1075,6 +1174,8 @@ Namespace rede_ancora_produto_sincronizacao_service
                                     End If
                                     _i = _i + 1
                                 Wend
+                                me.FlushSpanChaveValor(_janela, _spanTipo, _spanInicio, _spanFim, _spanTeto, _chave, _valor)
+                                me.FlushSpanTecnicas(_janela, _tecInicio, _tecFim, pTecnicasBlob)
                                 If _fim = 0 Then
                                     _pos = _pos + _janelaLen
                                 End If
@@ -1089,34 +1190,112 @@ Namespace rede_ancora_produto_sincronizacao_service
             If _fim > 0 Then
                 _result = _fim
             End If
+
+            If pAplicarDetailsDepois Then
+                If _detInicio > 0 Then
+                    If _detFim >= _detInicio Then
+                        _ignorar = me.AvancarFimObjetoEExtrair(pBody, _detInicio, pCadastro, pImagemReal, pImagemIlustrativa, pTecnicasBlob, False)
+                    End If
+                End If
+            End If
+
             AvancarFimObjetoEExtrair = _result
         End Function
 
-        Private Sub ConsumirCharJsonObjeto(pCh As String, pQ As String, ByRef pDepth As Integer, ByRef pArrDepth As Integer, ByRef pInQuotes As Boolean, ByRef pEscape As Boolean, ByRef pEsperandoChave As Boolean, ByRef pLendoChave As Boolean, ByRef pDepoisDeChave As Boolean, ByRef pLendoValor As Boolean, ByRef pValorString As Boolean, ByRef pChave As String, ByRef pValor As String, ByRef pChaveDepth As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String, ByRef pTecnicasBlob As String, ByRef pCapturandoTecnicas As Boolean, ByRef pTecnicasArrAlvo As Integer)
+        Private Sub ConsumirCharJsonObjeto(pCh As String, pQ As String, ByRef pDepth As Integer, ByRef pArrDepth As Integer, ByRef pInQuotes As Boolean, ByRef pEscape As Boolean, ByRef pEsperandoChave As Boolean, ByRef pLendoChave As Boolean, ByRef pDepoisDeChave As Boolean, ByRef pLendoValor As Boolean, ByRef pValorString As Boolean, ByRef pChave As String, ByRef pValor As String, ByRef pChaveDepth As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String, ByRef pTecnicasBlob As String, ByRef pCapturandoTecnicas As Boolean, ByRef pTecnicasArrAlvo As Integer, pJanela As String, pIndex As Integer, ByRef pTecInicio As Integer, ByRef pTecFim As Integer, ByRef pSpanTipo As Integer, ByRef pSpanInicio As Integer, ByRef pSpanFim As Integer, ByRef pSpanTeto As Integer, ByRef pChaveObjeto As String, pAbs As Integer, ByRef pDetInicio As Integer, ByRef pDetFim As Integer)
             Dim _ehBranco As Boolean = False
             Dim _tetoValor As Integer = 0
+            Dim _queroTecnicas As Boolean = False
+            Dim _queroChave As Boolean = False
+            Dim _queroValor As Boolean = False
+            Dim _naRaizCampo As Boolean = False
 
             If pCapturandoTecnicas Then
-                If Len(pTecnicasBlob) < 8000 Then
-                    pTecnicasBlob = pTecnicasBlob & pCh
-                End If
+                _queroTecnicas = True
+            End If
+
+            If pChaveDepth = 1 Then
+                _naRaizCampo = True
             End If
 
             If pEscape Then
                 If pLendoChave Then
-                    If Len(pChave) < 40 Then
-                        pChave = pChave & pCh
+                    If _naRaizCampo Then
+                        _queroChave = True
                     End If
                 Else
                     If pLendoValor Then
                         If pValorString Then
-                            _tetoValor = me.TetoValorTextoJson(pChave)
-                            If Len(pValor) < _tetoValor Then
-                                pValor = pValor & pCh
+                            If _naRaizCampo Then
+                                _queroValor = True
+                                _tetoValor = me.TetoValorTextoJson(pChave)
                             End If
                         End If
                     End If
                 End If
+            Else
+                If pInQuotes Then
+                    If pCh <> "\" Then
+                        If pCh <> pQ Then
+                            If pLendoChave Then
+                                If _naRaizCampo Then
+                                    _queroChave = True
+                                End If
+                            Else
+                                If pLendoValor Then
+                                    If pValorString Then
+                                        If _naRaizCampo Then
+                                            _queroValor = True
+                                            _tetoValor = me.TetoValorTextoJson(pChave)
+                                        End If
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                Else
+                    _ehBranco = me.EhBrancoJsonChar(pCh)
+
+                    If Not _ehBranco Then
+                        If pLendoValor Then
+                            If Not pValorString Then
+                                If _naRaizCampo Then
+                                    If pCh <> "{" Then
+                                        If pCh <> "}" Then
+                                            If pCh <> "[" Then
+                                                If pCh <> "]" Then
+                                                    If pCh <> ":" Then
+                                                        If pCh <> "," Then
+                                                            If pCh <> pQ Then
+                                                                _queroValor = True
+                                                                _tetoValor = 40
+                                                            End If
+                                                        End If
+                                                    End If
+                                                End If
+                                            End If
+                                        End If
+                                    End If
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+
+            me.AtualizarSpanTecnicas(_queroTecnicas, pIndex, pJanela, pTecInicio, pTecFim, pTecnicasBlob)
+
+            If _queroChave Then
+                me.AtualizarSpanChaveValor(True, 1, 40, pIndex, pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+            Else
+                If _queroValor Then
+                    me.AtualizarSpanChaveValor(True, 2, _tetoValor, pIndex, pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+                Else
+                    me.AtualizarSpanChaveValor(False, 0, 0, pIndex, pJanela, pSpanTipo, pSpanInicio, pSpanFim, pSpanTeto, pChave, pValor)
+                End If
+            End If
+
+            If pEscape Then
                 pEscape = False
             Else
                 If pInQuotes Then
@@ -1132,31 +1311,13 @@ Namespace rede_ancora_produto_sincronizacao_service
                                 If pLendoValor Then
                                     If pValorString Then
                                         pLendoValor = False
-                                        If pChaveDepth = 1 Then
-                                            me.AplicarCampoRaizProduto(pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
-                                        End If
-                                    End If
-                                End If
-                            End If
-                        Else
-                            If pLendoChave Then
-                                If Len(pChave) < 40 Then
-                                    pChave = pChave & pCh
-                                End If
-                            Else
-                                If pLendoValor Then
-                                    If pValorString Then
-                                        _tetoValor = me.TetoValorTextoJson(pChave)
-                                        If Len(pValor) < _tetoValor Then
-                                            pValor = pValor & pCh
-                                        End If
+                                        me.AplicarSeRaizOuDetails(pChaveDepth, pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
                                     End If
                                 End If
                             End If
                         End If
                     End If
                 Else
-                    _ehBranco = me.EhBrancoJsonChar(pCh)
                     If pCh = pQ Then
                         pInQuotes = True
                         If pEsperandoChave Then
@@ -1172,6 +1333,19 @@ Namespace rede_ancora_produto_sincronizacao_service
                         End If
                     Else
                         If pCh = "{" Then
+                            If pDepth = 1 Then
+                                If pLendoValor Then
+                                    If pChaveDepth = 1 Then
+                                        pChaveObjeto = pChave
+
+                                        If pChave = "details" Then
+                                            If pDetInicio <= 0 Then
+                                                pDetInicio = pAbs
+                                            End If
+                                        End If
+                                    End If
+                                End If
+                            End If
                             pDepth = pDepth + 1
                             pEsperandoChave = True
                             If pLendoValor Then
@@ -1180,22 +1354,32 @@ Namespace rede_ancora_produto_sincronizacao_service
                         Else
                             If pCh = "}" Then
                                 If pLendoValor Then
-                                    If pChaveDepth = 1 Then
-                                        me.AplicarCampoRaizProduto(pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
-                                    End If
+                                    me.AplicarSeRaizOuDetails(pChaveDepth, pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
                                     pLendoValor = False
                                 End If
                                 pDepth = pDepth - 1
+                                If pDepth = 1 Then
+                                    If pChaveObjeto = "details" Then
+                                        If pDetFim <= 0 Then
+                                            pDetFim = pAbs
+                                        End If
+                                    End If
+                                End If
+                                If pDepth <= 1 Then
+                                    pChaveObjeto = ""
+                                End If
                                 pEsperandoChave = False
                             Else
                                 If pCh = "[" Then
                                     If pLendoValor Then
                                         If pChaveDepth = 1 Then
                                             If pChave = "imagensTecnicas" Then
-                                                If Not pCapturandoTecnicas Then
-                                                    pCapturandoTecnicas = True
-                                                    pTecnicasBlob = "["
-                                                    pTecnicasArrAlvo = pArrDepth
+                                                If pTecnicasBlob = "" Then
+                                                    If Not pCapturandoTecnicas Then
+                                                        pCapturandoTecnicas = True
+                                                        pTecnicasBlob = "["
+                                                        pTecnicasArrAlvo = pArrDepth
+                                                    End If
                                                 End If
                                             End If
                                         End If
@@ -1223,25 +1407,13 @@ Namespace rede_ancora_produto_sincronizacao_service
                                         Else
                                             If pCh = "," Then
                                                 If pLendoValor Then
-                                                    If pChaveDepth = 1 Then
-                                                        me.AplicarCampoRaizProduto(pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
-                                                    End If
+                                                    me.AplicarSeRaizOuDetails(pChaveDepth, pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
                                                     pLendoValor = False
                                                 End If
                                                 If pArrDepth = 0 Then
                                                     pEsperandoChave = True
                                                 Else
                                                     pEsperandoChave = False
-                                                End If
-                                            Else
-                                                If Not _ehBranco Then
-                                                    If pLendoValor Then
-                                                        If Not pValorString Then
-                                                            If Len(pValor) < 40 Then
-                                                                pValor = pValor & pCh
-                                                            End If
-                                                        End If
-                                                    End If
                                                 End If
                                             End If
                                         End If
@@ -1287,6 +1459,18 @@ Namespace rede_ancora_produto_sincronizacao_service
             End If
             EhBrancoJsonChar = _result
         End Function
+
+        Private Sub AplicarSeRaizOuDetails(pChaveDepth As Integer, pCadastro As RedeAncoraProdutoModel, pChave As String, pValor As String, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String)
+            Dim _aplicar As Boolean = False
+
+            If pChaveDepth = 1 Then
+                _aplicar = True
+            End If
+
+            If _aplicar Then
+                me.AplicarCampoRaizProduto(pCadastro, pChave, pValor, pImagemReal, pImagemIlustrativa)
+            End If
+        End Sub
 
         Private Sub AplicarCampoRaizProduto(pCadastro As RedeAncoraProdutoModel, pChave As String, pValor As String, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String)
             Dim _tok As String = ""
@@ -2498,68 +2682,132 @@ Namespace rede_ancora_produto_sincronizacao_service
             Wend
         End Function
 
-        ' Bulk-search ainda usa TJSONArray. Catalogo completo nao chama este metodo.
-        Private Sub PersistirItensProdutoApi(pData As TJSONArray, pSomenteNovos As Boolean, pResultado As RedeAncoraProdutoSincronizacaoResultadoModel, pUsarTransacaoInterna As Boolean, pCnasEncontrados As RedeAncoraProdutoCnasModel)
-            Dim _tx As Transaction = NULL
-            Dim _i As Integer
-            Dim _itemJson As TJSONObject = NULL
-            Dim _cna As Integer
-            Dim _upsert As Integer
+        ' Bulk-search: mesmo tokenizer da carga por familia. Sem TJSONObject no body do chunk.
+        Private Sub PersistirChunkDeBlob(pBody As String, pSomenteNovos As Boolean, pResultado As RedeAncoraProdutoSincronizacaoResultadoModel, pCnasEncontrados As RedeAncoraProdutoCnasModel)
+            Dim _arrayStart As Integer = 0
+            Dim _bodyLen As Integer = 0
+            Dim _pos As Integer = 0
+            Dim _janela As String = ""
+            Dim _idxAbre As Integer = 0
+            Dim _objStart As Integer = 0
+            Dim _objFim As Integer = 0
+            Dim _acabou As Boolean = False
+            Dim _cadastro As RedeAncoraProdutoModel = NULL
+            Dim _urlReal As String = ""
+            Dim _urlIlustrativa As String = ""
+            Dim _tecnicasBlob As String = ""
+            Dim _cna As Integer = 0
+            Dim _upsert As Integer = 0
+            Dim _seguir As Boolean = False
 
-            If Not Assigned(pData) Then
-                Exit Sub
+            _arrayStart = me.PosicaoArrayDataAscii(pBody)
+
+            If _arrayStart <= 0 Then
+                Throw New System.Exception("Resposta /products/bulk-search sem array data")
             End If
 
             Try
-                If pUsarTransacaoInterna Then
-                    _tx = Transaction.Instance()
-                    _tx.OffAutoCommit()
-                    _tx.StartTransaction("Integracao.RedeAncoraProdutoVinculo Sync itens")
-                End If
+            _bodyLen = Len(pBody)
+            _pos = _arrayStart + 1
 
-                For _i = 0 To pData.Length() - 1
-                    _itemJson = pData.GetJSONObject(_i)
-                    _cna = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_itemJson, "cna")
+            While _pos <= _bodyLen
+                If _acabou Then
+                    _pos = _bodyLen + 1
+                Else
+                    _janela = me.CopiarJanelaAscii(pBody, _pos, 200)
 
-                    If pSomenteNovos And _cna > 0 And me.CnaJaCadastrado(_cna) Then
-                        pResultado.QtdIgnorados = pResultado.QtdIgnorados + 1
+                    If _janela = "" Then
+                        _acabou = True
                     Else
-                        _upsert = me._produtoService.UpsertProdutoAncoraDeApiComTransacao(_itemJson, RedeAncoraProdutoVinculoOrigem.Sincronizacao(), False)
-                        me.RegistrarResultadoUpsert(_upsert, pResultado)
+                        _idxAbre = me.PosicaoAbreObjetoNaJanela(_janela)
 
-                        If _upsert = 1 And _cna > 0 Then
-                            If Assigned(me._cnasExistentes) Then
-                                me._cnasExistentes.PushDistinct(_cna)
+                        If _idxAbre < 0 Then
+                            _acabou = True
+                        Else
+                            If _idxAbre = 0 Then
+                                _pos = _pos + Len(_janela)
+                            Else
+                                _objStart = _pos + _idxAbre - 1
+                                _urlReal = ""
+                                _urlIlustrativa = ""
+                                _tecnicasBlob = ""
+                                _cna = 0
+                                _seguir = False
+
+                                If Assigned(_cadastro) Then
+                                    _cadastro.Free()
+                                    _cadastro = NULL
+                                End If
+
+                                _cadastro = New RedeAncoraProdutoModel()
+                                _cadastro.Ativo = ""
+                                _objFim = me.AvancarFimObjetoEExtrair(pBody, _objStart, _cadastro, _urlReal, _urlIlustrativa, _tecnicasBlob, True)
+                                _cna = _cadastro.Cna
+
+                                If _cna <= 0 Then
+                                    _cna = me.ExtrairCnaDoObjeto(pBody, _objStart, _objFim)
+                                    _cadastro.Cna = _cna
+                                End If
+
+                                If _cna > 0 Then
+                                    _seguir = True
+
+                                    If pSomenteNovos Then
+                                        If me.CnaJaCadastrado(_cna) Then
+                                            pResultado.QtdIgnorados = pResultado.QtdIgnorados + 1
+                                            _seguir = False
+                                        End If
+                                    End If
+                                End If
+
+                                If _seguir Then
+                                    If _cadastro.NomeProduto.Trim() = "" Then
+                                        _cadastro.NomeProduto = _cadastro.NomeErp
+                                    End If
+
+                                    If _cadastro.Ativo.Trim() = "" Then
+                                        _cadastro.Ativo = "S"
+                                    End If
+
+                                    _upsert = me._produtoService.UpsertCadastroProdutoEVinculo(_cadastro, RedeAncoraProdutoVinculoOrigem.Sincronizacao(), False)
+                                    me.RegistrarResultadoUpsert(_upsert, pResultado)
+                                    me._produtoService.PersistirImagensProdutoDeCampos(_cna, _urlReal, _urlIlustrativa, _tecnicasBlob, False)
+
+                                    If _upsert = 1 Then
+                                        If Assigned(me._cnasExistentes) Then
+                                            me._cnasExistentes.PushDistinct(_cna)
+                                        End If
+                                    End If
+                                End If
+
+                                If _cna > 0 Then
+                                    If Assigned(pCnasEncontrados) Then
+                                        pCnasEncontrados.PushDistinct(_cna)
+                                    End If
+                                End If
+
+                                _cadastro.Free()
+                                _cadastro = NULL
+
+                                If _objFim <= 0 Then
+                                    _acabou = True
+                                Else
+                                    _pos = _objFim + 1
+                                End If
                             End If
                         End If
-
-                        If _cna > 0 Then
-                            me._produtoService.PersistirImagensProdutoDeApiSemTransacao(_itemJson, _cna)
-                        End If
                     End If
-
-                    If Assigned(pCnasEncontrados) Then
-                        me.RegistrarCnaEncontrado(_itemJson, pCnasEncontrados)
-                    End If
-
-                    _itemJson.Free()
-                    _itemJson = NULL
-                Next
-
-                If pUsarTransacaoInterna Then
-                    _tx.OnAutoCommit()
-                    _tx.Commit()
                 End If
+            Wend
+
+            If Assigned(_cadastro) Then
+                _cadastro.Free()
+                _cadastro = NULL
+            End If
             Catch ex As Exception
-                If Assigned(_itemJson) Then
-                    _itemJson.Free()
-                End If
-
-                If pUsarTransacaoInterna Then
-                    If Assigned(_tx) Then
-                        _tx.Rollback()
-                        _tx.OnAutoCommit()
-                    End If
+                If Assigned(_cadastro) Then
+                    _cadastro.Free()
+                    _cadastro = NULL
                 End If
 
                 Throw ex
@@ -2632,14 +2880,6 @@ Namespace rede_ancora_produto_sincronizacao_service
 
             CnaJaCadastrado = me._cnasExistentes.Contem(pCna)
         End Function
-
-        Private Sub RegistrarCnaEncontrado(pItemJson As TJSONObject, pCnasEncontrados As RedeAncoraProdutoCnasModel)
-            Dim _cna As Integer = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "cna")
-
-            If _cna > 0 Then
-                pCnasEncontrados.PushDistinct(_cna)
-            End If
-        End Sub
 
         Private Sub ProcessarCnasAusentesSomenteNovos(pChunk As RedeAncoraProdutoCnasModel, pCnasEncontrados As RedeAncoraProdutoCnasModel, pResultado As RedeAncoraProdutoSincronizacaoResultadoModel)
             Dim _i As Integer
