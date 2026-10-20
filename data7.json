@@ -49,7 +49,7 @@
   },
   "virtualFolders": [
     {
-      "nome": "Unidades (157)",
+      "nome": "Unidades (163)",
       "id": "{CD7C6A58-EF96-48CD-B183-B18B17A89E46}",
       "pastaId": "",
       "aberta": "Sim"
@@ -314,6 +314,12 @@
       "ordemAbertura": 0,
       "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
     },
+    "rede_ancora_input_consultar_similares": {
+      "nome": "rede_ancora_input_consultar_similares",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10013-0013-4013-8013-000000000013}"
+    },
     "rede_ancora_input_criar_transportador": {
       "nome": "rede_ancora_input_criar_transportador",
       "aberto": false,
@@ -454,7 +460,7 @@
     },
     "rede_ancora_json_helper": {
       "nome": "rede_ancora_json_helper",
-      "aberto": true,
+      "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10010-0010-4010-8010-000000000010}"
     },
@@ -626,14 +632,14 @@
       "ordemAbertura": 0,
       "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
     },
-    "rede_ancora_produto_similar_repository": {
-      "nome": "rede_ancora_produto_similar_repository",
+    "rede_ancora_produto_repository": {
+      "nome": "rede_ancora_produto_repository",
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
     },
-    "rede_ancora_produto_repository": {
-      "nome": "rede_ancora_produto_repository",
+    "rede_ancora_produto_similar_repository": {
+      "nome": "rede_ancora_produto_similar_repository",
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10003-0003-4003-8003-000000000003}"
@@ -956,6 +962,12 @@
       "ordemAbertura": 0,
       "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
     },
+    "rede_ancora_produto_imagem_sincronizacao_resultado_model": {
+      "nome": "rede_ancora_produto_imagem_sincronizacao_resultado_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
     "rede_ancora_produto_imagem_tipo": {
       "nome": "rede_ancora_produto_imagem_tipo",
       "aberto": false,
@@ -992,6 +1004,12 @@
       "ordemAbertura": 0,
       "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
     },
+    "rede_ancora_produto_similares_model": {
+      "nome": "rede_ancora_produto_similares_model",
+      "aberto": false,
+      "ordemAbertura": 0,
+      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
+    },
     "rede_ancora_produto_similar_model": {
       "nome": "rede_ancora_produto_similar_model",
       "aberto": false,
@@ -1000,12 +1018,6 @@
     },
     "rede_ancora_produto_similar_sincronizacao_resultado_model": {
       "nome": "rede_ancora_produto_similar_sincronizacao_resultado_model",
-      "aberto": false,
-      "ordemAbertura": 0,
-      "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
-    },
-    "rede_ancora_produto_similares_model": {
-      "nome": "rede_ancora_produto_similares_model",
       "aberto": false,
       "ordemAbertura": 0,
       "pastaId": "{E1A10012-0012-4012-8012-000000000012}"
