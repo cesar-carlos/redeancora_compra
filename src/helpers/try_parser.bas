@@ -10,15 +10,17 @@ Namespace try_parser
         Private Shared Function DigitValue(pCh As String) As Integer
             Dim _digits As String = "0123456789"
             Dim _i As Integer
-
-            DigitValue = -1
+            Dim _result As Integer = -1
 
             For _i = 1 To 10
-                If Mid(_digits, _i, 1) = pCh Then
-                    DigitValue = _i - 1
-                    Exit Function
+                If _result < 0 Then
+                    If Mid(_digits, _i, 1) = pCh Then
+                        _result = _i - 1
+                    End If
                 End If
             Next
+
+            DigitValue = _result
         End Function
 
         ' Parser manual de numero decimal (sem Cdbl). Aceita "." ou "," como
@@ -33,53 +35,76 @@ Namespace try_parser
             Dim _fracDiv As Double = 1
             Dim _digit As Integer = 0
             Dim _ch As String = ""
+            Dim _seguir As Boolean = True
+            Dim _frac As Boolean = False
 
             ParseDoubleRaw = 0
 
-            If _text = "" Then
-                Exit Function
+            If _len <= 0 Then
+                _seguir = False
             End If
 
-            _ch = Mid(_text, 1, 1)
+            If _seguir Then
+                _ch = Mid(_text, 1, 1)
 
-            If _ch = "-" Then
-                _sign = -1
-                _i = 2
-            ElseIf _ch = "+" Then
-                _i = 2
-            End If
-
-            While _i <= _len
-                _ch = Mid(_text, _i, 1)
-                _digit = DigitValue(_ch)
-
-                If _digit < 0 Then
-                    Exit While
+                If _ch = "-" Then
+                    _sign = -1
+                    _i = 2
+                Else
+                    If _ch = "+" Then
+                        _i = 2
+                    End If
                 End If
+            End If
 
-                _intPart = (_intPart * 10) + _digit
-                _i = _i + 1
+            While _seguir
+                If _i > _len Then
+                    _seguir = False
+                Else
+                    _ch = Mid(_text, _i, 1)
+                    _digit = DigitValue(_ch)
+
+                    If _digit < 0 Then
+                        _seguir = False
+                    Else
+                        _intPart = (_intPart * 10) + _digit
+                        _i = _i + 1
+                    End If
+                End If
             Wend
 
             If _i <= _len Then
                 _ch = Mid(_text, _i, 1)
 
-                If _ch = "." Or _ch = "," Then
-                    _i = _i + 1
+                If _ch = "." Then
+                    _frac = True
+                Else
+                    If _ch = "," Then
+                        _frac = True
+                    End If
+                End If
+            End If
 
-                    While _i <= _len
+            If _frac Then
+                _i = _i + 1
+                _seguir = True
+
+                While _seguir
+                    If _i > _len Then
+                        _seguir = False
+                    Else
                         _ch = Mid(_text, _i, 1)
                         _digit = DigitValue(_ch)
 
                         If _digit < 0 Then
-                            Exit While
+                            _seguir = False
+                        Else
+                            _fracDiv = _fracDiv * 10
+                            _fracPart = _fracPart + (_digit / _fracDiv)
+                            _i = _i + 1
                         End If
-
-                        _fracDiv = _fracDiv * 10
-                        _fracPart = _fracPart + (_digit / _fracDiv)
-                        _i = _i + 1
-                    Wend
-                End If
+                    End If
+                Wend
             End If
 
             ParseDoubleRaw = _sign * (_intPart + _fracPart)
@@ -102,19 +127,102 @@ Namespace try_parser
             End Try
         End Function
 
+        ' Sem TryStrToInt e sem Exit: os dois viram PaxExitException ou Integer overflow
+        ' quando o parse roda dentro do Try do full-search.
         Shared Function StringToInteger(value As String) As Integer
             Dim _text As String = value.Trim()
-            Dim _parsed As Integer = 0
+            Dim _len As Integer = Len(_text)
+            Dim _i As Integer = 1
+            Dim _sign As Integer = 1
+            Dim _n As Integer = 0
+            Dim _d As Integer = 0
+            Dim _ch As String = ""
+            Dim _seguir As Boolean = True
+            Dim _ok As Boolean = True
+            Dim _tem As Boolean = False
 
             StringToInteger = 0
 
-            If _text = "" Then
-                Exit Function
+            If _len <= 0 Then
+                _seguir = False
+                _ok = False
             End If
 
-            If TryStrToInt(_text, _parsed) Then
-                StringToInteger = _parsed
+            If _seguir Then
+                _ch = Mid(_text, 1, 1)
+
+                If _ch = "-" Then
+                    _sign = -1
+                    _i = 2
+                Else
+                    If _ch = "+" Then
+                        _i = 2
+                    End If
+                End If
             End If
+
+            If _i > _len Then
+                _ok = False
+                _seguir = False
+            End If
+
+            While _seguir
+                If _i > _len Then
+                    _seguir = False
+                Else
+                    _ch = Mid(_text, _i, 1)
+                    _d = DigitValue(_ch)
+
+                    If _d < 0 Then
+                        _ok = False
+                        _seguir = False
+                    Else
+                        If PodeAcumularDigito(_n, _d) Then
+                            _n = (_n * 10) + _d
+                            _tem = True
+                            _i = _i + 1
+                        Else
+                            _ok = False
+                            _n = 0
+                            _seguir = False
+                        End If
+                    End If
+                End If
+            Wend
+
+            If _ok Then
+                If _tem Then
+                    If _sign < 0 Then
+                        StringToInteger = 0 - _n
+                    Else
+                        StringToInteger = _n
+                    End If
+                End If
+            End If
+        End Function
+
+        ' True se (pAtual * 10) + pDigito cabe em Integer. Evita EIntOverflow
+        ' ("Integer overflow"), que o Catch do Data7 deixa escapar e aborta o sync.
+        Shared Function PodeAcumularDigito(pAtual As Integer, pDigito As Integer) As Boolean
+            Dim _ok As Boolean = False
+
+            If pDigito >= 0 Then
+                If pDigito <= 9 Then
+                    If pAtual >= 0 Then
+                        If pAtual < 214748364 Then
+                            _ok = True
+                        Else
+                            If pAtual = 214748364 Then
+                                If pDigito <= 7 Then
+                                    _ok = True
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+
+            PodeAcumularDigito = _ok
         End Function
 
         Shared Function IntegerToString(value As Integer) As String

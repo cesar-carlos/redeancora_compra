@@ -566,8 +566,14 @@ Namespace rede_ancora_empresa_service
                     If _d < 0 Then
                         _i = _len + 1
                     Else
-                        _n = (_n * 10) + _d
-                        _i = _i + 1
+                        If Parser.PodeAcumularDigito(_n, _d) Then
+                            _n = (_n * 10) + _d
+                            _i = _i + 1
+                        Else
+                            _n = 0
+                            _tem = False
+                            _i = _len + 1
+                        End If
                     End If
                 Else
                     _ch = Mid(pObj, _i, 1)
@@ -849,6 +855,10 @@ Namespace rede_ancora_empresa_service
                 If _d < 0 Then
                     Exit While
                 End If
+                If Not Parser.PodeAcumularDigito(_n, _d) Then
+                    _n = 0
+                    Exit While
+                End If
                 _n = (_n * 10) + _d
                 _i = _i + 1
             Wend
@@ -1040,6 +1050,10 @@ Namespace rede_ancora_empresa_service
                     End If
                 Next
                 If _d < 0 Then
+                    Exit While
+                End If
+                If Not Parser.PodeAcumularDigito(_n, _d) Then
+                    _n = 0
                     Exit While
                 End If
                 _n = (_n * 10) + _d

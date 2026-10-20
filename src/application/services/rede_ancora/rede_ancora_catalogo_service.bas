@@ -841,6 +841,10 @@ Namespace rede_ancora_catalogo_service
                 If _d < 0 Then
                     Exit While
                 End If
+                If Not Parser.PodeAcumularDigito(_n, _d) Then
+                    _n = 0
+                    Exit While
+                End If
                 _n = (_n * 10) + _d
                 _i = _i + 1
             Wend

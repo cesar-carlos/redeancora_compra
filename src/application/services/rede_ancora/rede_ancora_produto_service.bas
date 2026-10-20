@@ -2798,8 +2798,13 @@ Namespace rede_ancora_produto_service
                     If _d < 0 Then
                         _seguir = False
                     Else
-                        _n = (_n * 10) + _d
-                        _i = _i + 1
+                        If Parser.PodeAcumularDigito(_n, _d) Then
+                            _n = (_n * 10) + _d
+                            _i = _i + 1
+                        Else
+                            _n = 0
+                            _seguir = False
+                        End If
                     End If
                 End If
             Wend
@@ -4027,9 +4032,15 @@ Namespace rede_ancora_produto_service
                         End If
                     End If
                 Else
-                    _tem = True
-                    _n = (_n * 10) + _d
-                    _i = _i + 1
+                    If Parser.PodeAcumularDigito(_n, _d) Then
+                        _tem = True
+                        _n = (_n * 10) + _d
+                        _i = _i + 1
+                    Else
+                        _tem = False
+                        _n = 0
+                        _i = Len(_fatia) + 1
+                    End If
                 End If
             Wend
 

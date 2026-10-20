@@ -329,7 +329,7 @@ Namespace rede_ancora_produto_sincronizacao_service
                                 Throw New System.Exception("Erro ao persistir pagina full-search familia=" & Parser.IntegerToString(_codFamilia) & " pagina=" & Parser.IntegerToString(_pagina) & ": " & me.MensagemExcecaoSegura(exPersistir))
                             End Try
 
-                            _ultimaPagina = RedeAncoraJsonHelper.ObterInteiroNoSufixo(_body, "last_page")
+                            _ultimaPagina = me.LerUltimaPagina(_body)
                             If _ultimaPagina <= 0 Then
                                 If _qtdItens < _tamanhoPagina Then
                                     _ultimaPagina = _pagina
@@ -624,6 +624,187 @@ Namespace rede_ancora_produto_sincronizacao_service
             End Try
         End Sub
 
+        ' last_page no fim do JSON, janela de 200. Sem Exit e sem o helper: Exit vira PaxExitException no Try da carga.
+        Private Function LerUltimaPagina(pBody As String) As Integer
+            Dim _bodyLen As Integer = 0
+            Dim _janelaMax As Integer = 200
+            Dim _pos As Integer = 0
+            Dim _passos As Integer = 0
+            Dim _janela As String = ""
+            Dim _n As Integer = 0
+            Dim _result As Integer = 0
+            Dim _seguir As Boolean = True
+
+            LerUltimaPagina = 0
+            _bodyLen = Len(pBody)
+
+            If _bodyLen <= 0 Then
+                _seguir = False
+            End If
+
+            If _seguir Then
+                If _bodyLen <= _janelaMax Then
+                    _pos = 1
+                Else
+                    _pos = _bodyLen - _janelaMax + 1
+                End If
+            End If
+
+            While _seguir
+                If _passos > 20 Then
+                    _seguir = False
+                Else
+                    If _pos < 1 Then
+                        _seguir = False
+                    Else
+                        _passos = _passos + 1
+                        _janela = me.CopiarJanelaAscii(pBody, _pos, _janelaMax)
+                        _n = me.InteiroDaChaveNaJanela(_janela, "last_page")
+
+                        If _n > 0 Then
+                            _result = _n
+                            _seguir = False
+                        Else
+                            If _pos <= 1 Then
+                                _seguir = False
+                            Else
+                                _pos = _pos - (_janelaMax - 20)
+
+                                If _pos < 1 Then
+                                    _pos = 1
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            Wend
+
+            LerUltimaPagina = _result
+        End Function
+
+        Private Function InteiroDaChaveNaJanela(pJanela As String, pChave As String) As Integer
+            Dim _len As Integer = Len(pJanela)
+            Dim _keyLen As Integer = Len(pChave)
+            Dim _q As String = Chr(34)
+            Dim _i As Integer = 1
+            Dim _j As Integer = 0
+            Dim _igual As Boolean = False
+            Dim _achou As Boolean = False
+            Dim _seguir As Boolean = True
+            Dim _n As Integer = 0
+            Dim _d As Integer = 0
+            Dim _ch As String = ""
+            Dim _digits As String = "0123456789"
+            Dim _tem As Boolean = False
+
+            InteiroDaChaveNaJanela = 0
+
+            If _len <= 0 Then
+                _seguir = False
+            End If
+
+            If _keyLen <= 0 Then
+                _seguir = False
+            End If
+
+            While _seguir
+                If _i > (_len - _keyLen - 2) Then
+                    _seguir = False
+                Else
+                    If Mid(pJanela, _i, 1) = _q Then
+                        _igual = True
+                        _j = 1
+
+                        While _j <= _keyLen
+                            If _igual Then
+                                If Mid(pJanela, _i + _j, 1) <> Mid(pChave, _j, 1) Then
+                                    _igual = False
+                                End If
+                            End If
+                            _j = _j + 1
+                        Wend
+
+                        If _igual Then
+                            If Mid(pJanela, _i + _keyLen + 1, 1) = _q Then
+                                If Mid(pJanela, _i + _keyLen + 2, 1) = ":" Then
+                                    _achou = True
+                                    _i = _i + _keyLen + 3
+                                    _seguir = False
+                                End If
+                            End If
+                        End If
+                    End If
+
+                    If _seguir Then
+                        _i = _i + 1
+                    End If
+                End If
+            Wend
+
+            _seguir = _achou
+
+            While _seguir
+                If _i > _len Then
+                    _seguir = False
+                Else
+                    _ch = Mid(pJanela, _i, 1)
+
+                    If _ch = " " Then
+                        _i = _i + 1
+                    Else
+                        _seguir = False
+                    End If
+                End If
+            Wend
+
+            If _achou Then
+                If _i <= _len Then
+                    If Mid(pJanela, _i, 1) = _q Then
+                        _i = _i + 1
+                    End If
+                End If
+            End If
+
+            _seguir = _achou
+
+            While _seguir
+                If _i > _len Then
+                    _seguir = False
+                Else
+                    _ch = Mid(pJanela, _i, 1)
+                    _d = -1
+                    _j = 1
+
+                    While _j <= 10
+                        If _d < 0 Then
+                            If Mid(_digits, _j, 1) = _ch Then
+                                _d = _j - 1
+                            End If
+                        End If
+                        _j = _j + 1
+                    Wend
+
+                    If _d < 0 Then
+                        _seguir = False
+                    Else
+                        If Parser.PodeAcumularDigito(_n, _d) Then
+                            _n = (_n * 10) + _d
+                            _tem = True
+                            _i = _i + 1
+                        Else
+                            _n = 0
+                            _tem = False
+                            _seguir = False
+                        End If
+                    End If
+                End If
+            Wend
+
+            If _tem Then
+                InteiroDaChaveNaJanela = _n
+            End If
+        End Function
+
         ' Full-search: nunca TJSONObject no body. Marcas 370KB sobreviveram com Mid 200 no blob
         ' + ASCII na fatia. Mid 800 / Mid 1-char no OleStr da pagina = Invalid pointer.
         Private Function PersistirProdutosFullSearchDeBlob(pBody As String, pSomenteNovos As Boolean, pResultado As RedeAncoraProdutoSincronizacaoResultadoModel, pCodFamilia As Integer) As Integer
@@ -714,6 +895,9 @@ Namespace rede_ancora_produto_sincronizacao_service
 
                                     Try
                                         _objFim = me.AvancarFimObjetoEExtrair(pBody, _objStart, _cadastro, _urlReal, _urlIlustrativa, _tecnicasBlob, True)
+                                        If _cadastro.Cna <= 0 Then
+                                            _cadastro.Cna = me.ExtrairCnaDoObjeto(pBody, _objStart, _objFim)
+                                        End If
                                         _itemOk = True
 
                                         If _qtd = 0 Then
@@ -731,9 +915,6 @@ Namespace rede_ancora_produto_sincronizacao_service
                                     End Try
 
                                     If _itemOk Then
-                                        If _cadastro.Cna <= 0 Then
-                                            _cadastro.Cna = me.ExtrairCnaDoObjeto(pBody, _objStart, _objFim)
-                                        End If
                                         If _cadastro.Cna <= 0 Then
                                             mod_logger.Info("sync-full: item ignorado cna<=0 objStart=" & Parser.IntegerToString(_objStart) & " objFim=" & Parser.IntegerToString(_objFim))
                                             pResultado.QtdIgnorados = pResultado.QtdIgnorados + 1
@@ -1975,9 +2156,15 @@ Namespace rede_ancora_produto_sincronizacao_service
                                             If _d < 0 Then
                                                 _seguirDig = False
                                             Else
-                                                _n = (_n * 10) + _d
-                                                _temDigito = True
-                                                _i = _i + 1
+                                                If Parser.PodeAcumularDigito(_n, _d) Then
+                                                    _n = (_n * 10) + _d
+                                                    _temDigito = True
+                                                    _i = _i + 1
+                                                Else
+                                                    _n = 0
+                                                    _temDigito = False
+                                                    _seguirDig = False
+                                                End If
                                             End If
                                         End If
                                     Wend
@@ -2290,6 +2477,10 @@ Namespace rede_ancora_produto_sincronizacao_service
                     End If
                 Next
                 If _d < 0 Then
+                    Exit While
+                End If
+                If Not Parser.PodeAcumularDigito(_n, _d) Then
+                    _n = 0
                     Exit While
                 End If
                 _n = (_n * 10) + _d
