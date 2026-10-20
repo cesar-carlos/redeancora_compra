@@ -106,8 +106,8 @@ flowchart LR
 |------|--------|------------|---------------------------|
 | 1 — Auth | ✅ | `rede_ancora_autenticacao_service` | `PingRedeAncora`, `SalvarChaveApiRedeAncora`, `SincronizarRedeAncoraUsuarioApi`, `InicializarRedeAncora` (+ catálogo). JWT/login **não** implementado (produção usa só `X-API-KEY`) |
 | 2 — Profile | ✅ | `rede_ancora_empresa_service` | `SincronizarRedeAncoraPerfil`, `ValidarRedeAncoraPodeOperar`, `ListarRedeAncoraCentrosDistribuicao` |
-| 3 — Modalidades / catálogo | ✅ | `rede_ancora_modalidade_service`, `rede_ancora_catalogo_service` | `SincronizarRedeAncoraModalidades`, `SincronizarRedeAncoraCatalogo`, `ListarRedeAncoraMarcas/Linhas/Familias` |
-| 4 — Produtos | ✅ | `rede_ancora_produto_service` | `ConsultarRedeAncoraProdutoCondicoes`, `ConsultarRedeAncoraProdutoPrecosEstoques`, `BuscarRedeAncoraProdutoFullSearch` (resultado tipado), `BuscarRedeAncoraProdutoBulkSearch`, `ConsultarRedeAncoraProdutoCentrosComEstoque`, `BuscarRedeAncoraProdutos`, `ConsultarRedeAncoraProdutoSimilares`, `BuscarRedeAncoraProdutosPorLote`, `ConsultarRedeAncoraProdutoPrecosEstoquesTodosCds` + cadastro/vínculo CNA. Bulk, produtos, similares, lote e warehouses seguem JSON bruto |
+| 3 — Modalidades / catálogo | ✅ | `rede_ancora_modalidade_service`, `rede_ancora_catalogo_service` | `SincronizarRedeAncoraModalidades`, `SincronizarRedeAncoraCatalogo`, `SincronizarRedeAncoraMarcas`, `SincronizarRedeAncoraLinhas`, `SincronizarRedeAncoraFamilias`, `ListarRedeAncoraMarcas/Linhas/Familias`. Linha e família não têm mais `CodLinhaData7` / `CodFamiliaData7` |
+| 4 — Produtos | ✅ | `rede_ancora_produto_service`, `rede_ancora_produto_sincronizacao_service` | Consultas pontuais (`ConsultarRedeAncoraProdutoCondicoes`, `ConsultarRedeAncoraProdutoPrecosEstoques`, `BuscarRedeAncoraProdutoFullSearch`, `BuscarRedeAncoraProdutoBulkSearch`, `ConsultarRedeAncoraProdutoCentrosComEstoque`, `BuscarRedeAncoraProdutos`, `ConsultarRedeAncoraProdutoSimilares`, `BuscarRedeAncoraProdutosPorLote`, `ConsultarRedeAncoraProdutoPrecosEstoquesTodosCds`) + cadastro/vínculo CNA. Cargas gravadas: `SincronizarRedeAncoraCadastroProdutosCompleto`, `SincronizarRedeAncoraPrecosEstoquesCompleto`, `SincronizarRedeAncoraSimilaresCompleto`, `SincronizarRedeAncoraImagensCompleto`. Consulta pontual de bulk, produtos, similares, lote e warehouses segue JSON bruto |
 | 5 — Carrinho | ✅ | `rede_ancora_carrinho_service` | `AbrirRedeAncoraCarrinho`, `AdicionarItensRedeAncoraCarrinho`, `AtualizarItem*`, `RemoverItem*`, `DeletarRedeAncoraCarrinho`, `ReordenarRedeAncoraCarrinho` |
 | 6 — Checkout | ✅ | `rede_ancora_checkout_service` | `RevisarRedeAncoraCarrinho`, `ConsultarRedeAncoraPagamentos`, `AplicarRedeAncoraCondicaoPagamento`, `ListarRedeAncoraTransportadores`, `ConsultarRedeAncoraEntregasLogistica`, `ConsultarRedeAncoraTransportador`, `CriarRedeAncoraTransportador`, `AtualizarRedeAncoraTransportador`, `ExcluirRedeAncoraTransportador`, `ListarRedeAncoraTiposVeiculo` |
 | 7 — Pedido | ✅ | `rede_ancora_checkout_service` | `ConfirmarRedeAncoraPedido`, `ListarRedeAncoraPedidosLocal` |
@@ -122,9 +122,12 @@ flowchart LR
 | `RedeAncoraAutenticacao` | **Manual** — `ChaveApi` por `CodUsuario` (`SalvarChaveApiRedeAncora`); demais campos preenchidos via `GET /profile` |
 | `RedeAncoraEmpresa`, `RedeAncoraCentroDistribuicao` | Automático via `GET /profile` |
 | `RedeAncoraModalidade`, marcas/linhas/famílias | Automático via sync de modalidades e catálogo |
-| `RedeAncoraProduto` | Cadastro Âncora (PK `Cna`); sync `GET /products/full-search?fields=details` |
-| `RedeAncoraProdutoVinculo` | Vínculo ERP (`CodProduto` opcional) + espelho legado de catálogo (PK `Cna`); dual-write no sync |
-| `RedeAncoraProdutoImagem` | URLs de imagem por `Cna` (PK `Cna + Item + TipoImagem`); sync via `bulk-search` / `full-search` |
+| `RedeAncoraProduto` | Cadastro Âncora (PK `Cna`); sync `GET /products/full-search?fields=details`. `DataAtualizacao` = última leitura na API, mesmo sem mudança de campo |
+| `RedeAncoraProdutoVinculo` | Vínculo ERP (`CodProduto` opcional) + espelho legado de catálogo (PK `Cna`); dual-write no sync. `DataAtualizacao` segue a mesma regra do cadastro |
+| `RedeAncoraProdutoImagem` | URLs de imagem por `Cna` (PK `Cna + Item + TipoImagem`); sync via `bulk-search` / `full-search`. Não guarda centro de distribuição |
+| `RedeAncoraProdutoPrecoEstoque` | Preço e estoque por CD (PK `Cna + CodCentroDistribuicao`); carga `POST /products/prices-stocks` |
+| `RedeAncoraProdutoSimilar` | Similares por CD (PK `Cna + CodCentroDistribuicao + CnaSimilar`); carga `POST /products/similares` |
+| `RedeAncoraLinha`, `RedeAncoraFamilia` | Catálogo `CodLinha`/`Nome` e `CodFamilia`/`Nome`. Migration remove `CodLinhaData7` e `CodFamiliaData7` |
 | `RedeAncoraCarrinho`, `RedeAncoraCarrinhoItem` | Automático a cada operação de carrinho (cabeçalho + itens na mesma transação) |
 | `RedeAncoraPedido` | Automático após `POST .../order` |
 
@@ -188,7 +191,7 @@ Regras:
 
 | Item | Status |
 |------|--------|
-| Tela/UI de compra no ERP | ⏳ não implementada (`Principal.bas` só executa migrations; testes via `rede_ancora_dev_harness`) |
+| Tela/UI de compra no ERP | ⏳ não implementada. O `Principal.bas` atual é o teste local: migrations, `CenarioSincronizacao` e as três cargas (preço, similares, imagens) |
 | Log dedicado de request/response para homologação | ✅ `RedeAncoraApiClient` + `mod_logger` (nível HTTP; corpos truncados em 2000 chars) |
 | Retry automático em 404/429 de carrinho | ✅ 404 carrinho com fallback `GET /checkout`; 429/500 no `api_client` |
 | Validar produto antes de cada `POST .../items` | ✅ `ValidarProdutoParaCarrinho` (desligável via config) |
@@ -504,6 +507,8 @@ Content-Type: application/json
 }
 ```
 
+> **No projeto:** `RedeAncoraProdutoService.ConsultarPrecosEstoques` → `UsuarioService.ConsultarRedeAncoraProdutoPrecosEstoques`. Devolve `RedeAncoraProdutoPrecosEstoqueModel` e **não grava**. A carga que persiste em `Integracao.RedeAncoraProdutoPrecoEstoque` está no [passo 4.6](#passo-46--cargas-completas-gravadas-no-banco).
+
 ---
 
 ### Passo 4.3 — Busca de produto por código ou CNA `[Essencial]`
@@ -538,7 +543,7 @@ Content-Type: application/json
 }
 ```
 
-> **No projeto:** `RedeAncoraProdutoService.BuscarProdutoBulkSearch` → `UsuarioService.BuscarRedeAncoraProdutoBulkSearch`. O array `cnas` é enviado como **strings** (`["849766"]`), igual em `prices-stocks`.
+> **No projeto:** `RedeAncoraProdutoService.BuscarProdutoBulkSearch` → `UsuarioService.BuscarRedeAncoraProdutoBulkSearch`. O array `cnas` é enviado como **strings** (`["849766"]`), igual em `prices-stocks`. A consulta pontual devolve JSON bruto. Imagens desse payload entram na carga do [passo 4.6](#passo-46--cargas-completas-gravadas-no-banco).
 
 ---
 
@@ -557,6 +562,8 @@ Não existe endpoint separado de imagem na API. As URLs vêm no JSON de `GET /pr
 **Sync automático:** durante `SincronizarRedeAncoraProdutos*` (após upsert de metadados, na mesma transação do chunk).
 
 **Sync dedicado (lista de CNAs):** `UsuarioService.SincronizarRedeAncoraImagensProdutos(codCentro, codEstado, cnas, tamanhoChunk)` → `POST /products/bulk-search` em chunks.
+
+**Sync completo:** `UsuarioService.SincronizarRedeAncoraImagensCompleto(tamanhoChunk)` percorre os CNAs de `RedeAncoraProduto`. Usa o centro preferencial com estado; se não houver, o primeiro centro com estado. `tamanhoChunk` 0 usa o bloco padrão (100).
 
 **Consulta local:** `UsuarioService.ListarRedeAncoraImagensProduto(cna)`.
 
@@ -593,7 +600,27 @@ Content-Type: application/json
 | `POST /products/bulk` | `BuscarProdutosPorLote` | `BuscarRedeAncoraProdutosPorLote` |
 | `POST /products/prices-stocks-warehouses` | `ConsultarPrecosEstoquesTodosCds` | `ConsultarRedeAncoraProdutoPrecosEstoquesTodosCds` |
 
-> Retorno pass-through (`String` JSON bruto). `POST /products/bulk` exige ao menos uma lista: `cna_list`, `code_list` ou `gtin_list`.
+> Retorno pass-through (`String` JSON bruto). `POST /products/bulk` exige ao menos uma lista: `cna_list`, `code_list` ou `gtin_list`. A consulta pontual de similares não grava. A carga que persiste em `Integracao.RedeAncoraProdutoSimilar` está no [passo 4.6](#passo-46--cargas-completas-gravadas-no-banco).
+
+---
+
+### Passo 4.6 — Cargas completas gravadas no banco
+
+Depois do cadastro em `RedeAncoraProduto`, três cargas percorrem os CNAs locais em blocos. `tamanhoChunk` menor ou igual a zero usa o bloco padrão de 100 (`RedeAncoraApiConfig.TamanhoChunkSincronizacaoProdutos`). Erro de um bloco não interrompe os demais: o resultado traz `QtdChunksComErro`, `Erros` e `MensagemResumo`. Quem recebe o modelo chama `Free`.
+
+Pré-requisito: CNAs já gravados e centros do profile (`InicializarRedeAncora` ou `SincronizarRedeAncoraCadastroProdutosCompleto`).
+
+| Carga | Endpoint | Facade | Tabela | Escopo |
+|-------|----------|--------|--------|--------|
+| Preço e estoque | `POST /products/prices-stocks` | `SincronizarRedeAncoraPrecosEstoquesCompleto` | `RedeAncoraProdutoPrecoEstoque` | Todos os centros gravados. Upsert por `(Cna, CodCentroDistribuicao)`. CNA ausente na resposta do bloco não apaga a linha local |
+| Similares | `POST /products/similares` | `SincronizarRedeAncoraSimilaresCompleto` | `RedeAncoraProdutoSimilar` | Centros com `CodEstado` maior que zero. CNA presente na resposta tem as linhas daquele centro substituídas (lista vazia apaga). CNA ausente não é alterado |
+| Imagens | `POST /products/bulk-search` | `SincronizarRedeAncoraImagensCompleto` | `RedeAncoraProdutoImagem` | Um centro: o preferencial com estado; senão o primeiro com estado. A tabela não guarda o centro |
+
+`DataAtualizacao` nessas três tabelas é o instante da gravação da linha.
+
+Em `RedeAncoraProduto` e `RedeAncoraProdutoVinculo`, `DataAtualizacao` é a última vez que o sync leu o CNA na API. Insert e update gravam o instante. Se nenhum campo mudou, o upsert marca só o timestamp.
+
+O `Principal.bas` de teste local chama as três cargas com `0` depois de `CenarioSincronizacao` e `DefinirBaixarCatalogoCompleto(True)`.
 
 ---
 
@@ -1355,13 +1382,15 @@ Legenda: `[x]` feito no código · `[ ]` pendente ou parcial
 - [x] `GET /modalities` em cache (`RedeAncoraModalidade`)
 - [x] `GET /products/brands`, `/lines`, `/families` em cache
 - [x] `GET /products/conditions/{cna}`
-- [x] `POST /products/prices-stocks` (cnas como strings)
-- [x] `GET /products/full-search` — busca pontual em `RedeAncoraProdutoFullSearchResultadoModel` (`page` / `page_size`); carga por família segue corpo cru e parse em janela
+- [x] `POST /products/prices-stocks` (cnas como strings). Consulta pontual não grava; carga completa grava em `RedeAncoraProdutoPrecoEstoque` (`SincronizarRedeAncoraPrecosEstoquesCompleto`)
+- [x] `GET /products/full-search` — busca pontual em `RedeAncoraProdutoFullSearchResultadoModel` (`page` / `page_size`); carga por família segue corpo cru e parse em janela. `DataAtualizacao` de `RedeAncoraProduto` e `RedeAncoraProdutoVinculo` marca a última leitura na API
 - [x] `POST /products/bulk-search`
 - [x] `POST /products/warehouses/{cna}`
-- [x] `GET /products`, `POST /products/similares`, `POST /products/bulk`, `POST /products/prices-stocks-warehouses`
+- [x] `GET /products`, `POST /products/similares`, `POST /products/bulk`, `POST /products/prices-stocks-warehouses` (consulta pontual em JSON)
+- [x] Carga completa de similares em `RedeAncoraProdutoSimilar` (`SincronizarRedeAncoraSimilaresCompleto`)
 - [x] Cadastro local de produtos Âncora e vínculo ERP (`RedeAncoraProdutoVinculo`, PK `Cna`)
-- [x] Imagens de produto por CNA (`RedeAncoraProdutoImagem`; sync automático + `SincronizarRedeAncoraImagensProdutos`)
+- [x] Imagens de produto por CNA (`RedeAncoraProdutoImagem`; sync automático, `SincronizarRedeAncoraImagensProdutos` e `SincronizarRedeAncoraImagensCompleto`)
+- [x] Catálogo de linha e família sem `CodLinhaData7` / `CodFamiliaData7`
 - [x] Consulta de produto obrigatória antes de cada inclusão no carrinho (`ValidarProdutoParaCarrinho`)
 
 ### Carrinho (Fase 5)
@@ -1392,13 +1421,13 @@ Legenda: `[x]` feito no código · `[ ]` pendente ou parcial
 
 ## Homologação manual (dev harness)
 
-O plugin em produção executa apenas migrations (`AppBoot.Run()` em `Principal.bas`). Testes contra a API real usam [`rede_ancora_dev_harness`](../src/application/bootstrap/rede_ancora_dev_harness.bas).
+O `Principal.bas` atual é o teste local: `AppBoot.Run()`, em seguida `CenarioSincronizacao` com `DefinirBaixarCatalogoCompleto(True)`, e as cargas `SincronizarRedeAncoraPrecosEstoquesCompleto(0)`, `SincronizarRedeAncoraSimilaresCompleto(0)` e `SincronizarRedeAncoraImagensCompleto(0)`. Para um build sem chamada à API, deixe só `AppBoot.Run()`. Os demais cenários ficam no [`rede_ancora_dev_harness`](../src/application/bootstrap/rede_ancora_dev_harness.bas).
 
 ### Pré-requisitos
 
 1. Gravar `ChaveApi` para o `CodUsuario` (`SalvarChaveApiRedeAncora`) ou passar via `DefinirChaveApi` no harness (não commitar chave no repositório).
 2. Recompilar o projeto (`Ctrl+Shift+B`).
-3. Descomentar o bloco de exemplo em `Principal.bas` ou invocar o harness de outro ponto de teste.
+3. O bloco de teste em `Principal.bas` já chama o cadastro completo e as três cargas. Para outro cenário, troque `DefinirCenario` ou invoque o harness de outro ponto.
 
 ### Roteiro recomendado
 
@@ -1411,7 +1440,15 @@ O plugin em produção executa apenas migrations (`AppBoot.Run()` em `Principal.
 | 5 | `CenarioNovos()` | Sales, ScheduledOrder, Agenda, Haulers (leitura) + produtos complementares novos |
 | 6 | `CenarioCompleto()` | Sequência 1→5 |
 
-**Cadastro completo de produtos** (carga total; a API não tem delta): `UsuarioService.SincronizarRedeAncoraCadastroProdutosCompleto` — ordem: marcas → linhas → famílias → `GET /products/full-search` paginado por família (`empresa` = CD, `fields=details`). Upsert em `Integracao.RedeAncoraProduto` (fonte do cadastro) com **dual-write** do espelho legado em `RedeAncoraProdutoVinculo` (`CodigoAncora`, `DescricaoAncora`, `CodMarca`, `CodLinha`, `CodFamilia`). Imagens (`RedeAncoraProdutoImagem`) só se as URLs vierem no blob (parse em janela, sem `TJSONObject`); payload `fields=details` pode omiti-las — nesse caso as imagens locais não são apagadas. **Não** chama `DELETE /checkout`. Exige CDs já gravados (`InicializarRedeAncora`). Harness: `CenarioSincronizacao()` + `DefinirBaixarCatalogoCompleto(True)`. Periódico: `RedeAncoraCadastroProdutosListener` (`StartListener`; intervalo padrão 4 h; não inicia sozinho).
+**Cadastro completo de produtos** (carga total; a API não tem delta): `UsuarioService.SincronizarRedeAncoraCadastroProdutosCompleto` — ordem: marcas → linhas → famílias → `GET /products/full-search` paginado por família (`empresa` = CD, `fields=details`). Upsert em `Integracao.RedeAncoraProduto` (fonte do cadastro) com **dual-write** do espelho legado em `RedeAncoraProdutoVinculo` (`CodigoAncora`, `DescricaoAncora`, `CodMarca`, `CodLinha`, `CodFamilia`). `DataAtualizacao` das duas tabelas é atualizada em toda leitura, mesmo quando os campos não mudam. Imagens (`RedeAncoraProdutoImagem`) só se as URLs vierem no blob (parse em janela, sem `TJSONObject`); payload `fields=details` pode omiti-las — nesse caso as imagens locais não são apagadas. **Não** chama `DELETE /checkout`. Exige CDs já gravados (`InicializarRedeAncora`). Harness: `CenarioSincronizacao()` + `DefinirBaixarCatalogoCompleto(True)`. Periódico: `RedeAncoraCadastroProdutosListener` (`StartListener`; intervalo padrão 4 h; não inicia sozinho).
+
+**Depois do cadastro**, o `Principal.bas` de teste chama, com bloco 100 (`0`):
+
+| Ordem | Facade | Tabela |
+|-------|--------|--------|
+| 1 | `SincronizarRedeAncoraPrecosEstoquesCompleto` | `RedeAncoraProdutoPrecoEstoque` |
+| 2 | `SincronizarRedeAncoraSimilaresCompleto` | `RedeAncoraProdutoSimilar` |
+| 3 | `SincronizarRedeAncoraImagensCompleto` | `RedeAncoraProdutoImagem` |
 
 Para fechar pedido real: staging + `DefinirConfirmarPedido(True)` no harness (incompatível com `DefinirDeletarCarrinhoAoFinal(True)`).
 
@@ -1443,7 +1480,7 @@ Para limpeza automática em ambiente de teste isolado (API key exclusiva): `Defi
 | Review + payments | Totais e `item_id` corretos nos logs |
 | Carrinho de teste | Itens desta sessão removidos no passo 13 **somente** com `DefinirDeletarCarrinhoAoFinal(True)`; carrinho pré-existente **não** é apagado |
 | Produção sem sujeira | `DeletarCarrinhoAoFinal=False` (padrão); `ConfirmarPedido=False`; **nunca** `DELETE /checkout/{cartId}` |
-| `Principal.bas` em produção | Só migrations, sem chamadas API automáticas |
+| `Principal.bas` de teste | Cadastro completo e as três cargas (preço, similares, imagens). Build sem API: só `AppBoot.Run()` |
 
 ### Ajustes finos comuns
 

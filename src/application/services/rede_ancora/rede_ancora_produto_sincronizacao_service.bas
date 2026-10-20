@@ -28,6 +28,7 @@ Namespace rede_ancora_produto_sincronizacao_service
         Private _vinculoRepository As RedeAncoraProdutoVinculoRepository
         Private _catalogoService As RedeAncoraCatalogoService
         Private _progressoRepository As RedeAncoraProdutoSyncProgressoRepository
+        Private _detalheSobrescreve As Boolean
         Private _cnasExistentes As RedeAncoraProdutoCnasModel
 
         Sub New()
@@ -60,6 +61,7 @@ Namespace rede_ancora_produto_sincronizacao_service
             End If
 
             me._progressoRepository = New RedeAncoraProdutoSyncProgressoRepository()
+            me._detalheSobrescreve = False
         End Sub
 
         Function Sincronizar(pOpcoes As RedeAncoraProdutoSincronizacaoOpcoesModel) As RedeAncoraProdutoSincronizacaoResultadoModel
@@ -1123,7 +1125,7 @@ Namespace rede_ancora_produto_sincronizacao_service
             pCadastro.AdditionalDescription = me.CoalesceTextoFatia(pCadastro.AdditionalDescription, pFatia, "additional_description", 500)
             pCadastro.PontoCriticoAtencao = me.CoalesceTextoFatia(pCadastro.PontoCriticoAtencao, pFatia, "pontoCriticoAtencao", 255)
             pCadastro.Dimensoes = me.CoalesceTextoFatia(pCadastro.Dimensoes, pFatia, "dimensoes", 255)
-            pCadastro.CodMarca = me.CoalesceInteiroFatia(pCadastro.CodMarca, pFatia, "marcaId")
+            pCadastro.CodMarca = me.CoalesceInteiroFatia(pCadastro.CodMarca, pFatia, "brand_id")
             pCadastro.CodMarcaErp = me.CoalesceInteiroFatia(pCadastro.CodMarcaErp, pFatia, "brand_id")
             pCadastro.NomeMarca = me.CoalesceTextoFatia(pCadastro.NomeMarca, pFatia, "marca", 120)
             pCadastro.NomeMarca = me.CoalesceTextoFatia(pCadastro.NomeMarca, pFatia, "brand", 120)
@@ -1285,7 +1287,7 @@ Namespace rede_ancora_produto_sincronizacao_service
 
         ' Janelas Mid 200 no blob (padrao marcas). Tokenizer no slice ASCII.
         ' Sem Exit Function/Exit While: PaxExitException vaza para o Catch do caller.
-        ' Campos da raiz neste passo. details entra numa segunda leitura, so no que ficou vazio.
+        ' Raiz primeiro. details depois sobrescreve marca, linha e familia.
         Private Function AvancarFimObjetoEExtrair(pBody As String, pStart As Integer, pCadastro As RedeAncoraProdutoModel, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String, ByRef pTecnicasBlob As String, pAplicarDetailsDepois As Boolean) As Integer
             Dim _bodyLen As Integer = 0
             Dim _pos As Integer = 0
@@ -1321,6 +1323,10 @@ Namespace rede_ancora_produto_sincronizacao_service
             Dim _detFim As Integer = 0
             Dim _abs As Integer = 0
             Dim _ignorar As Integer = 0
+
+            If pAplicarDetailsDepois Then
+                me._detalheSobrescreve = False
+            End If
 
             If pStart >= 1 Then
                 _bodyLen = Len(pBody)
@@ -1374,9 +1380,9 @@ Namespace rede_ancora_produto_sincronizacao_service
 
             If pAplicarDetailsDepois Then
                 If _detInicio > 0 Then
-                    If _detFim >= _detInicio Then
-                        _ignorar = me.AvancarFimObjetoEExtrair(pBody, _detInicio, pCadastro, pImagemReal, pImagemIlustrativa, pTecnicasBlob, False)
-                    End If
+                    me._detalheSobrescreve = True
+                    _ignorar = me.AvancarFimObjetoEExtrair(pBody, _detInicio, pCadastro, pImagemReal, pImagemIlustrativa, pTecnicasBlob, False)
+                    me._detalheSobrescreve = False
                 End If
             End If
 
@@ -1697,7 +1703,41 @@ Namespace rede_ancora_produto_sincronizacao_service
             TextoSeVazio = _result
         End Function
 
+        Private Function InteiroDetalhe(pAtual As Integer, pValor As Integer) As Integer
+            Dim _result As Integer = pAtual
+
+            If pValor > 0 Then
+                If me._detalheSobrescreve Then
+                    _result = pValor
+                Else
+                    If pAtual <= 0 Then
+                        _result = pValor
+                    End If
+                End If
+            End If
+
+            InteiroDetalhe = _result
+        End Function
+
+        Private Function TextoDetalhe(pAtual As String, pValor As String) As String
+            Dim _result As String = pAtual
+
+            If pValor.Trim() <> "" Then
+                If me._detalheSobrescreve Then
+                    _result = pValor
+                Else
+                    If pAtual.Trim() = "" Then
+                        _result = pValor
+                    End If
+                End If
+            End If
+
+            TextoDetalhe = _result
+        End Function
+
         Private Sub AplicarCampoRaizProdutoRestante(pCadastro As RedeAncoraProdutoModel, pChave As String, pValor As String, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String)
+            Dim _cod As Integer = 0
+
             If pChave = "codigoReferencia" Then
                 pCadastro.CodigoReferencia = me.TextoSeVazio(pCadastro.CodigoReferencia, pValor)
             End If
@@ -1737,47 +1777,45 @@ Namespace rede_ancora_produto_sincronizacao_service
             If pChave = "dimensoes" Then
                 pCadastro.Dimensoes = me.TextoSeVazio(pCadastro.Dimensoes, pValor)
             End If
-            If pChave = "marcaId" Then
-                If pCadastro.CodMarca <= 0 Then
-                    pCadastro.CodMarca = Parser.StringToInteger(pValor)
-                End If
-            End If
             If pChave = "brand_id" Then
-                If pCadastro.CodMarcaErp <= 0 Then
-                    pCadastro.CodMarcaErp = Parser.StringToInteger(pValor)
+                _cod = Parser.StringToInteger(pValor)
+                If _cod > 0 Then
+                    If me._detalheSobrescreve Then
+                        pCadastro.CodMarca = _cod
+                        pCadastro.CodMarcaErp = _cod
+                    Else
+                        If pCadastro.CodMarca <= 0 Then
+                            pCadastro.CodMarca = _cod
+                        End If
+                        If pCadastro.CodMarcaErp <= 0 Then
+                            pCadastro.CodMarcaErp = _cod
+                        End If
+                    End If
                 End If
             End If
             If pChave = "marca" Then
-                pCadastro.NomeMarca = me.TextoSeVazio(pCadastro.NomeMarca, pValor)
+                pCadastro.NomeMarca = me.TextoDetalhe(pCadastro.NomeMarca, pValor)
             End If
             If pChave = "brand" Then
-                pCadastro.NomeMarca = me.TextoSeVazio(pCadastro.NomeMarca, pValor)
+                pCadastro.NomeMarca = me.TextoDetalhe(pCadastro.NomeMarca, pValor)
             End If
             If pChave = "line" Then
-                If pCadastro.CodLinha <= 0 Then
-                    pCadastro.CodLinha = Parser.StringToInteger(pValor)
-                End If
+                pCadastro.CodLinha = me.InteiroDetalhe(pCadastro.CodLinha, Parser.StringToInteger(pValor))
             End If
             If pChave = "line_id" Then
-                If pCadastro.CodLinha <= 0 Then
-                    pCadastro.CodLinha = Parser.StringToInteger(pValor)
-                End If
+                pCadastro.CodLinha = me.InteiroDetalhe(pCadastro.CodLinha, Parser.StringToInteger(pValor))
             End If
             If pChave = "line_name" Then
-                pCadastro.NomeLinha = me.TextoSeVazio(pCadastro.NomeLinha, pValor)
+                pCadastro.NomeLinha = me.TextoDetalhe(pCadastro.NomeLinha, pValor)
             End If
             If pChave = "family" Then
-                If pCadastro.CodFamilia <= 0 Then
-                    pCadastro.CodFamilia = Parser.StringToInteger(pValor)
-                End If
+                pCadastro.CodFamilia = me.InteiroDetalhe(pCadastro.CodFamilia, Parser.StringToInteger(pValor))
             End If
             If pChave = "family_id" Then
-                If pCadastro.CodFamilia <= 0 Then
-                    pCadastro.CodFamilia = Parser.StringToInteger(pValor)
-                End If
+                pCadastro.CodFamilia = me.InteiroDetalhe(pCadastro.CodFamilia, Parser.StringToInteger(pValor))
             End If
             If pChave = "family_name" Then
-                pCadastro.NomeFamilia = me.TextoSeVazio(pCadastro.NomeFamilia, pValor)
+                pCadastro.NomeFamilia = me.TextoDetalhe(pCadastro.NomeFamilia, pValor)
             End If
             If pChave = "manufacturer_id" Then
                 If pCadastro.CodFabricante <= 0 Then

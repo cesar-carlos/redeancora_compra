@@ -1,14 +1,8 @@
 # Estrutura do projeto `redeancora_compra`
 
-
-
 Guia de organização do código-fonte Data7 Basic e das responsabilidades de cada camada.
 
-
-
 ## Visão geral
-
-
 
 ```
 
@@ -63,11 +57,7 @@ src/
 
 ```
 
-
-
 Pastas compartilhadas fora de `src/`:
-
-
 
 | Pasta | Uso |
 
@@ -79,11 +69,7 @@ Pastas compartilhadas fora de `src/`:
 
 | `data7.json` | Descritor do projeto (pastas virtuais + metadados) |
 
-
-
 ## Camadas e dependências
-
-
 
 ```mermaid
 
@@ -111,11 +97,7 @@ flowchart TB
 
 ```
 
-
-
 **Regras:**
-
-
 
 - `helpers/` não importa `model/` nem `application/`
 
@@ -129,19 +111,11 @@ flowchart TB
 
 - `presentation/` concentra UI; telas ficam em `presentation/forms/`
 
-
-
 ## Módulos por camada
-
-
 
 ### Application
 
-
-
 #### `application/bootstrap/`
-
-
 
 | Módulo | Responsabilidade |
 
@@ -157,11 +131,7 @@ flowchart TB
 | `rede_ancora_api_novos_bootstrap` | Sales, ScheduledOrder, Agenda, Haulers e produtos complementares (teste manual) |
 | `rede_ancora_dev_harness` | Orquestrador de cenários de homologação |
 
-
-
 #### `application/services/usuario/`
-
-
 
 | Módulo | Responsabilidade |
 
@@ -169,68 +139,60 @@ flowchart TB
 
 | `usuario_service` | Facade de casos de uso: usuário Data7 + toda a integração Rede Âncora (`UsuarioService`) |
 
-
-
 #### `application/services/rede_ancora/`
 
-
-
-| Módulo | Responsabilidade |
-|--------|------------------|
-| `rede_ancora_api_config` | URLs base (`/api/api/integration/v1`), staging, flags (log HTTP, validação produto) |
-| `rede_ancora_http_client` | Monta `HttpClient` com header `X-API-KEY` |
-| `rede_ancora_api_client` | HTTP autenticado: 401 exige chave válida, retry 429/500, log de corpos |
-| `rede_ancora_json_helper` | Parsing seguro de JSON (tipos mistos da API) |
-| `rede_ancora_url_helper` | URL encoding de query params (`full-search`, carrinho) |
-| `rede_ancora_autenticacao_service` | Ping, gravação de chave API, sync usuário via profile |
-| `rede_ancora_empresa_service` | `GET /profile`, bloqueio, permissões, CDs |
-| `rede_ancora_modalidade_service` | `GET /modalities` + cache local |
-| `rede_ancora_catalogo_service` | Marcas, linhas e famílias (`/products/brands`, …) |
-| `rede_ancora_produto_service` | Consultas de produto, bulk-search, warehouses, vínculo CNA, sync de imagens; `GET /products`, similares, bulk, prices-stocks-warehouses |
-| `rede_ancora_produto_sincronizacao_service` | Sync em lote de CNAs; **cadastro completo** (`SincronizarCadastroProdutosCompleto`: marcas/linhas/famílias + full-search por família, upsert em `RedeAncoraProduto` + espelho em `RedeAncoraProdutoVinculo`, sem `DELETE /checkout`) |
-| `rede_ancora_produto_sincronizacao_modo` | Constantes de modo de sync (`COMPLETA`, `NOVOS`) |
-| `rede_ancora_carrinho_service` | Carrinho (`/checkout`, itens, bulk); `POST /sales/orders/{id}/reorder` |
-| `rede_ancora_checkout_service` | Review, pagamentos, logística, `POST .../order`; CRUD de transportadores (`/logistics/haulers`) |
-| `rede_ancora_sales_service` | Pedidos e pendências da API (`/sales/orders`, `/sales/pendencies`) — pass-through JSON |
-| `rede_ancora_pedido_programado_service` | Pedidos programados (`/scheduled-order`) — pass-through JSON |
-| `rede_ancora_agenda_compras_service` | Agenda de compras (`GET /sale-offers/brands`) — pass-through JSON |
-| `rede_ancora_produto_vinculo_origem` | Constantes de origem do cadastro (manual, busca, …) |
+| Módulo                                      | Responsabilidade                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rede_ancora_api_config`                    | URLs base (`/api/api/integration/v1`), staging, flags (log HTTP, validação produto)                                                                                                                                                                                                                               |
+| `rede_ancora_http_client`                   | Monta `HttpClient` com header `X-API-KEY`                                                                                                                                                                                                                                                                         |
+| `rede_ancora_api_client`                    | HTTP autenticado: 401 exige chave válida, retry 429/500, log de corpos                                                                                                                                                                                                                                            |
+| `rede_ancora_json_helper`                   | Parsing seguro de JSON (tipos mistos da API)                                                                                                                                                                                                                                                                      |
+| `rede_ancora_url_helper`                    | URL encoding de query params (`full-search`, carrinho)                                                                                                                                                                                                                                                            |
+| `rede_ancora_autenticacao_service`          | Ping, gravação de chave API, sync usuário via profile                                                                                                                                                                                                                                                             |
+| `rede_ancora_empresa_service`               | `GET /profile`, bloqueio, permissões, CDs                                                                                                                                                                                                                                                                         |
+| `rede_ancora_modalidade_service`            | `GET /modalities` + cache local                                                                                                                                                                                                                                                                                   |
+| `rede_ancora_catalogo_service`              | Marcas, linhas e famílias (`/products/brands`, …)                                                                                                                                                                                                                                                                 |
+| `rede_ancora_produto_service`               | Consultas de produto; cargas completas de preço/estoque (`POST /products/prices-stocks`), similares (`POST /products/similares`) e imagens (`POST /products/bulk-search`); `GET /products`, bulk, warehouses, vínculo CNA                                                                                         |
+| `rede_ancora_produto_sincronizacao_service` | Sync em lote de CNAs; **cadastro completo** (`SincronizarCadastroProdutosCompleto`: marcas/linhas/famílias + full-search por família, upsert em `RedeAncoraProduto` + espelho em `RedeAncoraProdutoVinculo`). `DataAtualizacao` marca a última leitura na API, mesmo sem mudança de campo. Sem `DELETE /checkout` |
+| `rede_ancora_produto_sincronizacao_modo`    | Constantes de modo de sync (`COMPLETA`, `NOVOS`)                                                                                                                                                                                                                                                                  |
+| `rede_ancora_carrinho_service`              | Carrinho (`/checkout`, itens, bulk); `POST /sales/orders/{id}/reorder`                                                                                                                                                                                                                                            |
+| `rede_ancora_checkout_service`              | Review, pagamentos, logística, `POST .../order`; CRUD de transportadores (`/logistics/haulers`)                                                                                                                                                                                                                   |
+| `rede_ancora_sales_service`                 | Pedidos e pendências da API (`/sales/orders`, `/sales/pendencies`) — pass-through JSON                                                                                                                                                                                                                            |
+| `rede_ancora_pedido_programado_service`     | Pedidos programados (`/scheduled-order`) — pass-through JSON                                                                                                                                                                                                                                                      |
+| `rede_ancora_agenda_compras_service`        | Agenda de compras (`GET /sale-offers/brands`) — pass-through JSON                                                                                                                                                                                                                                                 |
+| `rede_ancora_produto_vinculo_origem`        | Constantes de origem do cadastro (manual, busca, …)                                                                                                                                                                                                                                                               |
 
 #### `application/services/rede_ancora/dto/`
 
 DTOs de contrato dos métodos de serviço com mais de 3 parâmetros. Convenção: `RedeAncoraInput<NomeFuncionalidade>` / `RedeAncoraOutput<NomeFuncionalidade>` em arquivos `rede_ancora_input_*.bas` / `rede_ancora_output_*.bas`. Não assumem posse de objetos referenciados (caller continua responsável pelo `Free`).
 
-| Módulo | Responsabilidade |
-|--------|------------------|
-| `rede_ancora_input_consultar_pagamentos` | Input de `ConsultarPagamentos` |
-| `rede_ancora_output_consultar_pagamentos` | Output de `ConsultarPagamentos` |
-| `rede_ancora_input_aplicar_condicao_pagamento` | Input de `AplicarCondicaoPagamento` |
-| `rede_ancora_output_aplicar_condicao_pagamento` | Output de `AplicarCondicaoPagamento` |
-| `rede_ancora_input_consultar_detalhe_condicao_pagamento` | Input de `ConsultarDetalheCondicaoPagamento` |
-| `rede_ancora_output_consultar_detalhe_condicao_pagamento` | Output de `ConsultarDetalheCondicaoPagamento` |
-| `rede_ancora_input_confirmar_pedido` | Input de `ConfirmarPedido` |
-| `rede_ancora_output_confirmar_pedido` | Output de `ConfirmarPedido` |
-| `rede_ancora_input_buscar_produtos` | Input de `BuscarProdutos` |
-| `rede_ancora_input_consultar_similares` | Input de `ConsultarSimilares` |
-| `rede_ancora_input_buscar_produtos_por_lote` | Input de `BuscarProdutosPorLote` |
-| `rede_ancora_input_consultar_precos_estoques_cds` | Input de `ConsultarPrecosEstoquesTodosCds` |
-| `rede_ancora_input_listar_pedidos_api` | Input de `ListarPedidosApi` |
-| `rede_ancora_input_listar_itens_pedido_api` | Input de `ListarItensPedidoApi` |
-| `rede_ancora_input_listar_pendencias_api` | Input de `ListarPendenciasApi` |
-| `rede_ancora_input_listar_pendencias_por_pedido_api` | Input de `ListarPendenciasPorPedidoApi` |
-| `rede_ancora_input_listar_pedidos_programados` | Input de `ListarPedidosProgramados` |
-| `rede_ancora_input_listar_produtos_pedido_programado` | Input de `ListarProdutosPedidoProgramado` |
+| Módulo                                                    | Responsabilidade                                      |
+| --------------------------------------------------------- | ----------------------------------------------------- |
+| `rede_ancora_input_consultar_pagamentos`                  | Input de `ConsultarPagamentos`                        |
+| `rede_ancora_output_consultar_pagamentos`                 | Output de `ConsultarPagamentos`                       |
+| `rede_ancora_input_aplicar_condicao_pagamento`            | Input de `AplicarCondicaoPagamento`                   |
+| `rede_ancora_output_aplicar_condicao_pagamento`           | Output de `AplicarCondicaoPagamento`                  |
+| `rede_ancora_input_consultar_detalhe_condicao_pagamento`  | Input de `ConsultarDetalheCondicaoPagamento`          |
+| `rede_ancora_output_consultar_detalhe_condicao_pagamento` | Output de `ConsultarDetalheCondicaoPagamento`         |
+| `rede_ancora_input_confirmar_pedido`                      | Input de `ConfirmarPedido`                            |
+| `rede_ancora_output_confirmar_pedido`                     | Output de `ConfirmarPedido`                           |
+| `rede_ancora_input_buscar_produtos`                       | Input de `BuscarProdutos`                             |
+| `rede_ancora_input_consultar_similares`                   | Input de `ConsultarSimilares`                         |
+| `rede_ancora_input_buscar_produtos_por_lote`              | Input de `BuscarProdutosPorLote`                      |
+| `rede_ancora_input_consultar_precos_estoques_cds`         | Input de `ConsultarPrecosEstoquesTodosCds`            |
+| `rede_ancora_input_listar_pedidos_api`                    | Input de `ListarPedidosApi`                           |
+| `rede_ancora_input_listar_itens_pedido_api`               | Input de `ListarItensPedidoApi`                       |
+| `rede_ancora_input_listar_pendencias_api`                 | Input de `ListarPendenciasApi`                        |
+| `rede_ancora_input_listar_pendencias_por_pedido_api`      | Input de `ListarPendenciasPorPedidoApi`               |
+| `rede_ancora_input_listar_pedidos_programados`            | Input de `ListarPedidosProgramados`                   |
+| `rede_ancora_input_listar_produtos_pedido_programado`     | Input de `ListarProdutosPedidoProgramado`             |
 | `rede_ancora_input_solicitar_relatorio_pedido_programado` | Input de `SolicitarRelatorioProdutosPedidoProgramado` |
-| `rede_ancora_input_criar_transportador` | Input de `CriarTransportador` |
-| `rede_ancora_input_atualizar_transportador` | Input de `AtualizarTransportador` |
+| `rede_ancora_input_criar_transportador`                   | Input de `CriarTransportador`                         |
+| `rede_ancora_input_atualizar_transportador`               | Input de `AtualizarTransportador`                     |
 
 > Mapeamento endpoint → método: ver [Integração B2B — status de implementação](./integracao-carrinho-pedido.md#status-de-implementação-no-projeto-redeancora_compra).
 
-
-
 ### Domain / Value Objects
-
-
 
 | Módulo | Classe | Validação |
 
@@ -242,11 +204,7 @@ DTOs de contrato dos métodos de serviço com mais de 3 parâmetros. Convenção
 
 | `cnpj_vo` | `Cnpj` | Dígitos + mod 11 + formatação |
 
-
-
 Padrão de uso nos models:
-
-
 
 ```basic
 
@@ -256,15 +214,9 @@ _model.SetCpfResponsavel(pCpf)         ' Cpf.Create — opcional
 
 ```
 
-
-
 ### Infrastructure
 
-
-
 #### `infrastructure/database/` — acesso a dados
-
-
 
 | Módulo | Responsabilidade |
 
@@ -283,17 +235,15 @@ _model.SetCpfResponsavel(pCpf)         ' Cpf.Create — opcional
 | `rede_ancora_catalogo_repository` | Marcas, linhas e famílias |
 | `rede_ancora_produto_repository` | Cadastro Âncora (`Integracao.RedeAncoraProduto`, PK `Cna`) |
 | `rede_ancora_produto_vinculo_repository` | Vínculo ERP + espelho legado de catálogo (PK `Cna`) |
-| `rede_ancora_produto_imagem_repository` | URLs de imagem por CNA (`SubstituirPorCna`) |
+| `rede_ancora_produto_imagem_repository` | URLs de imagem por CNA (mescla por CNA) |
+| `rede_ancora_produto_preco_estoque_repository` | Upsert de preço/estoque por `(Cna, CodCentroDistribuicao)` |
+| `rede_ancora_produto_similar_repository` | Substitui similares de um CNA em um CD |
 | `rede_ancora_carrinho_repository` | Cabeçalho `Integracao.RedeAncoraCarrinho` (`PK CodCarrinho`, `IdCarrinho` UUID) |
 | `rede_ancora_carrinho_item_repository` | Itens `Integracao.RedeAncoraCarrinhoItem` (`PK CodCarrinho + Item`) |
 | `rede_ancora_pedido_repository` | Pedidos confirmados (`IdPedidoApi`) |
 | `integracao_schema` | Constantes do esquema `Integracao` e nomes qualificados |
 
-
-
 #### `infrastructure/http/` — cliente HTTP
-
-
 
 | Módulo | Responsabilidade |
 
@@ -305,11 +255,7 @@ _model.SetCpfResponsavel(pCpf)         ' Cpf.Create — opcional
 
 | `http_response` | `HttpResponse` — status, body, headers da resposta |
 
-
-
 #### `infrastructure/events/` — eventos periódicos
-
-
 
 | Módulo | Responsabilidade |
 
@@ -317,23 +263,21 @@ _model.SetCpfResponsavel(pCpf)         ' Cpf.Create — opcional
 
 | `base_listener` | Listener periódico com `Forms.Timer` (Template Method: `OnListener`/`OnListenerError`). Feature de cadastro: `RedeAncoraCadastroProdutosListener` em `application/bootstrap/` |
 
-
-
 ### Helpers
 
 `src/helpers/` — utilitários puros, um por responsabilidade (SRP); nenhum importa `model/` ou `application/`.
 
-| Módulo | Classe | Responsabilidade |
-|--------|--------|------------------|
-| `try_parser` | `Parser` | Parsing seguro String→Integer/Double/Date sem `Cdbl`/`CInt` (evita `EVariantTypeCastError`) |
-| `string_helper` | `StringHelper` | Manipulação de strings (substring, split, padding, extração de dígitos) |
-| `regex_helper` | `Regex` | Wrapper de `VBScript.RegExp` (COM) |
-| `file_helper` | `FileHelper` | Diretórios/arquivos padrão do Data7 (`FileData`, `FileError`, `tmp`) |
-| `date_helper` | `DateHelper` | Formatação de data/hora corrente |
-| `crypto_helper` | `CryptoHelper` | Wrapper de `Data7.Criptografar`/`Descriptografar` |
-| `uid_helper` | `UidHelper` | Geração de identificadores criptografados (`BuildUid`, `BuildTimeUid`) |
-| `barcode_helper` | `BarCodeHelper` | Heurística de código de barras vs. código interno |
-| `diag_stack` | `DiagStack` | Breadcrumb de erro. **Kill switch único:** `_habilitado` no topo de `diag_stack.bas` (`False` = produção). |
+| Módulo           | Classe          | Responsabilidade                                                                                           |
+| ---------------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
+| `try_parser`     | `Parser`        | Parsing seguro String→Integer/Double/Date sem `Cdbl`/`CInt` (evita `EVariantTypeCastError`)                |
+| `string_helper`  | `StringHelper`  | Manipulação de strings (substring, split, padding, extração de dígitos)                                    |
+| `regex_helper`   | `Regex`         | Wrapper de `VBScript.RegExp` (COM)                                                                         |
+| `file_helper`    | `FileHelper`    | Diretórios/arquivos padrão do Data7 (`FileData`, `FileError`, `tmp`)                                       |
+| `date_helper`    | `DateHelper`    | Formatação de data/hora corrente                                                                           |
+| `crypto_helper`  | `CryptoHelper`  | Wrapper de `Data7.Criptografar`/`Descriptografar`                                                          |
+| `uid_helper`     | `UidHelper`     | Geração de identificadores criptografados (`BuildUid`, `BuildTimeUid`)                                     |
+| `barcode_helper` | `BarCodeHelper` | Heurística de código de barras vs. código interno                                                          |
+| `diag_stack`     | `DiagStack`     | Breadcrumb de erro. **Kill switch único:** `_habilitado` no topo de `diag_stack.bas` (`False` = produção). |
 
 ### DiagStack — localizar AV / NULL
 
@@ -374,29 +318,23 @@ End Try
 
 ### Model
 
-
-
 #### `model/rede_ancora/` — integração B2B
 
 Models agrupados por domínio (cada par `*_model` / `*_models` quando aplicável):
 
-| Grupo | Exemplos | Persistência |
-|-------|----------|--------------|
-| Auth / empresa | `RedeAncoraAutenticacaoModel`, `RedeAncoraEmpresaModel`, `RedeAncoraCentroDistribuicaoModel` | Tabelas `Integracao` |
-| Catálogo | `RedeAncoraMarcaModel`, `RedeAncoraLinhaModel`, `RedeAncoraFamiliaModel`, `RedeAncoraModalidadeModel` | Tabelas `Integracao` |
-| Produto | `RedeAncoraProdutoModel`, `RedeAncoraProdutoVinculoModel`, `RedeAncoraProdutoImagemModel`, `RedeAncoraProdutoPrecoEstoqueModel`, `RedeAncoraProdutoCnasModel`, `RedeAncoraProdutoCodigosModel`, `RedeAncoraProdutoFullSearchFiltroModel`, `RedeAncoraProdutoFullSearchItemModel`, `RedeAncoraProdutoFullSearchItensModel`, `RedeAncoraProdutoFullSearchResultadoModel` | Cadastro e vínculo/imagens em banco; preços, filtro e resultado de full-search só em memória |
-| Carrinho | `RedeAncoraCarrinhoModel`, `RedeAncoraCarrinhoItemModel`, `*SolicitacaoModel`, `*ItensIdsModel` | Carrinho/item em banco |
-| Checkout | `RedeAncoraCheckoutRevisaoModel`, `RedeAncoraCheckoutPagamentosModel`, `*Entrega*Model` | Só em memória (resposta API) |
-| Pedido | `RedeAncoraPedidoModel`, `RedeAncoraPedidosModel` | `RedeAncoraPedido` após confirmar |
-| Logística | `RedeAncoraLogisticaTransportadorModel` | Só em memória |
+| Grupo          | Exemplos                                                                                                                                                                                                                                                                                                                                                                                                                                | Persistência                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Auth / empresa | `RedeAncoraAutenticacaoModel`, `RedeAncoraEmpresaModel`, `RedeAncoraCentroDistribuicaoModel`                                                                                                                                                                                                                                                                                                                                            | Tabelas `Integracao`                                                                                            |
+| Catálogo       | `RedeAncoraMarcaModel`, `RedeAncoraLinhaModel`, `RedeAncoraFamiliaModel`, `RedeAncoraModalidadeModel`                                                                                                                                                                                                                                                                                                                                   | Tabelas `Integracao`                                                                                            |
+| Produto        | `RedeAncoraProdutoModel`, `RedeAncoraProdutoVinculoModel`, `RedeAncoraProdutoImagemModel`, `RedeAncoraProdutoPrecoEstoqueModel`, `RedeAncoraProdutoSimilarModel`, `RedeAncoraProdutoCnasModel`, `RedeAncoraProdutoCodigosModel`, `RedeAncoraProdutoFullSearchFiltroModel`, `RedeAncoraProdutoFullSearchItemModel`, `RedeAncoraProdutoFullSearchItensModel`, `RedeAncoraProdutoFullSearchResultadoModel`, `*SincronizacaoResultadoModel` | Cadastro, vínculo, imagens, preço/estoque e similares em banco; filtro e resultado de full-search só em memória |
+| Carrinho       | `RedeAncoraCarrinhoModel`, `RedeAncoraCarrinhoItemModel`, `*SolicitacaoModel`, `*ItensIdsModel`                                                                                                                                                                                                                                                                                                                                         | Carrinho/item em banco                                                                                          |
+| Checkout       | `RedeAncoraCheckoutRevisaoModel`, `RedeAncoraCheckoutPagamentosModel`, `*Entrega*Model`                                                                                                                                                                                                                                                                                                                                                 | Só em memória (resposta API)                                                                                    |
+| Pedido         | `RedeAncoraPedidoModel`, `RedeAncoraPedidosModel`                                                                                                                                                                                                                                                                                                                                                                                       | `RedeAncoraPedido` após confirmar                                                                               |
+| Logística      | `RedeAncoraLogisticaTransportadorModel`                                                                                                                                                                                                                                                                                                                                                                                                 | Só em memória                                                                                                   |
 
 Os campos dos models persistidos seguem o mesmo nome das colunas do banco (português).
 
-
-
 #### `model/usuario/` — usuário Data7
-
-
 
 | Arquivo | Classe | Descrição |
 
@@ -406,11 +344,7 @@ Os campos dos models persistidos seguem o mesmo nome das colunas do banco (portu
 
 | `usuarios_model` | `UsuariosModel` | Coleção de `UsuarioModel` |
 
-
-
 ### Migrations
-
-
 
 | Pasta | Conteúdo |
 
@@ -422,49 +356,36 @@ Os campos dos models persistidos seguem o mesmo nome das colunas do banco (portu
 
 Tabelas criadas em `Integracao`:
 
-| Tabela | Uso |
-|--------|-----|
-| `RedeAncoraAutenticacao` | `ChaveApi` manual por `CodUsuario`; `Email`, `IdUsuarioApi`, `NomeUsuario`, `CodSeller` via profile |
-| `RedeAncoraEmpresa` | Profile do franqueado (`GET /profile`), `CodEmpresaAncora` (API `company.id`), `IdCarrinhoAtual` (cache local por `CodUsuario` de integração — **não** prova de cart exclusivo na API) |
-| `RedeAncoraCentroDistribuicao` | CDs (`warehouses`) por usuário |
-| `RedeAncoraModalidade` | Cache de `GET /modalities` |
-| `RedeAncoraMarca`, `RedeAncoraLinha`, `RedeAncoraFamilia` | Catálogo de apoio para filtros e cadastro (códigos lógicos; sem FK SQL, como as demais tabelas `Integracao`) |
-| `RedeAncoraProduto` | Cadastro Âncora. Carga em massa: `GET /products/full-search?fields=details` por família. Consulta pontual: `RedeAncoraProdutoFullSearchResultadoModel`. **PK `Cna`**; FKs lógicas `CodMarca`/`CodMarcaErp` → Marca, `CodLinha` → Linha, `CodFamilia` → Família |
-| `RedeAncoraProdutoVinculo` | Vínculo ERP (`CodProduto`) + **espelho legado** de catálogo (`CodigoAncora`, `DescricaoAncora`, `CodMarca`…). Dual-write no sync |
-| `RedeAncoraProdutoImagem` | Imagens por CNA: **PK `(Cna, Item, TipoImagem)`**; `Item` VARCHAR(5) (`00001`…); `Url`, `DataAtualizacao` |
-| `RedeAncoraCarrinho` | Cabeçalho (`PK CodCarrinho`, `IdCarrinho` UUID da API, totais). **Sem `CodUsuario`** — o cart na API é da chave/franqueado (compartilhado); `IdCarrinhoAtual` é só cache local |
-| `RedeAncoraCarrinhoItem` | Linhas (`PK CodCarrinho + Item`). `Item` = sequencial local (`00001`…); `IdItemApi` = `item_id` da API. Demais campos: CNA, CD, condição de pagamento, produto, modalidade, quantidade, preços. **Auditoria ERP (quem lançou, não dono do cart):** `CodUsuario`, `NomeUsuario` (30), `DataLancamento` (DATE), `HoraLancamento` (8), `EstacaoTrabalho` — preenchidos em `AdicionarItens` para `IdItemApi` novo; sem lançamento ERP → `0`/`""`/`1900-01-01` |
-| `RedeAncoraPedido` | Pedidos confirmados (`IdPedidoApi`, `IdCarrinho`, totais) |
-
-
+| Tabela                                                    | Uso                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RedeAncoraAutenticacao`                                  | `ChaveApi` manual por `CodUsuario`; `Email`, `IdUsuarioApi`, `NomeUsuario`, `CodSeller` via profile                                                                                                                                                                                                                                                                                                                                                       |
+| `RedeAncoraEmpresa`                                       | Profile do franqueado (`GET /profile`), `CodEmpresaAncora` (API `company.id`), `IdCarrinhoAtual` (cache local por `CodUsuario` de integração — **não** prova de cart exclusivo na API)                                                                                                                                                                                                                                                                    |
+| `RedeAncoraCentroDistribuicao`                            | CDs (`warehouses`) por usuário                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `RedeAncoraModalidade`                                    | Cache de `GET /modalities`                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `RedeAncoraMarca`, `RedeAncoraLinha`, `RedeAncoraFamilia` | Catálogo de apoio (códigos lógicos; sem FK SQL). Linha: `CodLinha`, `Nome`. Família: `CodFamilia`, `Nome`. A migration remove `CodLinhaData7` e `CodFamiliaData7` (e os índices únicos desses campos)                                                                                                                                                                                                                                                     |
+| `RedeAncoraProduto`                                       | Cadastro Âncora. Carga em massa: `GET /products/full-search?fields=details` por família. **PK `Cna`**. `DataAtualizacao` = última vez que o sync leu o CNA na API (também quando os campos não mudam)                                                                                                                                                                                                                                                     |
+| `RedeAncoraProdutoVinculo`                                | Vínculo ERP (`CodProduto`) + espelho legado de catálogo. Dual-write no sync. `DataAtualizacao` segue a mesma regra do cadastro                                                                                                                                                                                                                                                                                                                            |
+| `RedeAncoraProdutoImagem`                                 | Imagens por CNA: **PK `(Cna, Item, TipoImagem)`**; `Item` VARCHAR(5) (`00001`…); `Url`, `DataAtualizacao`. A tabela não guarda centro de distribuição                                                                                                                                                                                                                                                                                                     |
+| `RedeAncoraProdutoPrecoEstoque`                           | Preço e estoque por CD. **PK `(Cna, CodCentroDistribuicao)`**. Carga: `POST /products/prices-stocks`. Colunas: `CodEstado`, `QtdDisponivel`, `QtdProjetada`, `PrecoTabela`, `StTabela`, `PrecoCrossDocking`, `PrecoCompraJunto`, `DataAtualizacao`                                                                                                                                                                                                        |
+| `RedeAncoraProdutoSimilar`                                | Similares por CD. **PK `(Cna, CodCentroDistribuicao, CnaSimilar)`**. Carga: `POST /products/similares`. Colunas: `CodEstado`, `CodigoReferencia`, `Nome`, `NomeMarca`, `CodMarca`, `DataAtualizacao`                                                                                                                                                                                                                                                      |
+| `RedeAncoraCarrinho`                                      | Cabeçalho (`PK CodCarrinho`, `IdCarrinho` UUID da API, totais). **Sem `CodUsuario`** — o cart na API é da chave/franqueado (compartilhado); `IdCarrinhoAtual` é só cache local                                                                                                                                                                                                                                                                            |
+| `RedeAncoraCarrinhoItem`                                  | Linhas (`PK CodCarrinho + Item`). `Item` = sequencial local (`00001`…); `IdItemApi` = `item_id` da API. Demais campos: CNA, CD, condição de pagamento, produto, modalidade, quantidade, preços. **Auditoria ERP (quem lançou, não dono do cart):** `CodUsuario`, `NomeUsuario` (30), `DataLancamento` (DATE), `HoraLancamento` (8), `EstacaoTrabalho` — preenchidos em `AdicionarItens` para `IdItemApi` novo; sem lançamento ERP → `0`/`""`/`1900-01-01` |
+| `RedeAncoraPedido`                                        | Pedidos confirmados (`IdPedidoApi`, `IdCarrinho`, totais)                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ## Configuração IDE
 
-
-
 O arquivo `data7.json` define pastas virtuais espelhando a árvore física em `src/`.
 
-
-
 Para compilar e sincronizar o `.7Proj`:
-
-
 
 1. Abra o workspace no VS Code com a extensão Data7
 
 2. `Ctrl+Shift+B` (Build) — gera/atualiza `redeancora_compra.7Proj` a partir de `src/*.bas`
 
-
-
 > A fonte de verdade é `src/` + `data7.json`. O `.7Proj` é artefato de build.
 
-
-
 ## Referências
-
-
 
 - [Integração B2B — Carrinho e Pedido](./integracao-carrinho-pedido.md) (fluxo API + status de implementação)
 - DiagStack: seção [DiagStack — localizar AV / NULL](#diagstack--localizar-av--null) neste arquivo; regra Cursor `.cursor/rules/data7-diag-stack.mdc`
 - Documentação API: https://app.redeancora.com.br/b2b/api/docs/api/integration
-

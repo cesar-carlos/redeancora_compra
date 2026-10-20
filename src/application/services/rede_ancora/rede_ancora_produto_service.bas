@@ -64,6 +64,7 @@ Namespace rede_ancora_produto_service
         Private _parseAplicarCadastro As Boolean
         Private _parseCapturarPreco As Boolean
         Private _parsePreco As RedeAncoraProdutoPrecoEstoqueModel
+        Private _parseDetalheSobrescreve As Boolean
 
         Sub New()
             MyBase.New()
@@ -81,6 +82,7 @@ Namespace rede_ancora_produto_service
             me._parseRegistrarBlocos = False
             me._parseAplicarCadastro = False
             me._parseCapturarPreco = False
+            me._parseDetalheSobrescreve = False
             me._parsePreco = NULL
         End Sub
 
@@ -2751,6 +2753,10 @@ Namespace rede_ancora_produto_service
             me._parseRegistrarBlocos = pRegistrarBlocos
             me._parsePreco = pPreco
 
+            If pAplicarDetails Then
+                me._parseDetalheSobrescreve = False
+            End If
+
             If pStart >= 1 Then
                 _bodyLen = Len(pBody)
                 If pStart <= _bodyLen Then
@@ -2803,12 +2809,12 @@ Namespace rede_ancora_produto_service
 
             If pAplicarDetails Then
                 If _detInicio > 0 Then
-                    If _detFim >= _detInicio Then
-                        _img1 = ""
-                        _img2 = ""
-                        _tecIgnorar = ""
-                        _ignorar = me.ExtrairProdutoNoBody(pBody, _detInicio, pCadastro, _img1, _img2, _tecIgnorar, False, True, False, False, NULL)
-                    End If
+                    _img1 = ""
+                    _img2 = ""
+                    _tecIgnorar = ""
+                    me._parseDetalheSobrescreve = True
+                    _ignorar = me.ExtrairProdutoNoBody(pBody, _detInicio, pCadastro, _img1, _img2, _tecIgnorar, False, True, False, False, NULL)
+                    me._parseDetalheSobrescreve = False
                 End If
             End If
 
@@ -3085,6 +3091,45 @@ Namespace rede_ancora_produto_service
             End If
         End Sub
 
+        Private Function InteiroDetalhe(pAtual As Integer, pValor As Integer) As Integer
+            Dim _result As Integer = pAtual
+
+            If pValor > 0 Then
+                If me._parseDetalheSobrescreve Then
+                    _result = pValor
+                Else
+                    If pAtual <= 0 Then
+                        _result = pValor
+                    End If
+                End If
+            End If
+
+            InteiroDetalhe = _result
+        End Function
+
+        Private Function TextoDetalhe(pAtual As String, pValor As String) As String
+            Dim _result As String = pAtual
+
+            If pValor.Trim() <> "" Then
+                If me._parseDetalheSobrescreve Then
+                    _result = pValor
+                Else
+                    If pAtual.Trim() = "" Then
+                        _result = pValor
+                    End If
+                End If
+            End If
+
+            TextoDetalhe = _result
+        End Function
+
+        Private Sub AplicarBrandId(pCadastro As RedeAncoraProdutoModel, pBrandId As Integer)
+            If pBrandId > 0 Then
+                pCadastro.CodMarca = me.InteiroDetalhe(pCadastro.CodMarca, pBrandId)
+                pCadastro.CodMarcaErp = me.InteiroDetalhe(pCadastro.CodMarcaErp, pBrandId)
+            End If
+        End Sub
+
         Private Sub AplicarCampoFullSearch(pChaveDepth As Integer, pCadastro As RedeAncoraProdutoModel, pChave As String, pValor As String, ByRef pImagemReal As String, ByRef pImagemIlustrativa As String)
             Dim _tok As String = ""
 
@@ -3160,35 +3205,32 @@ Namespace rede_ancora_produto_service
             If pChave = "dimensoes" Then
                 pCadastro.Dimensoes = me.CoalesceTexto(pCadastro.Dimensoes, pValor)
             End If
-            If pChave = "marcaId" Then
-                pCadastro.CodMarca = me.CoalesceInteiro(pCadastro.CodMarca, me.TextoParaInteiroToken(pValor))
-            End If
             If pChave = "brand_id" Then
-                pCadastro.CodMarcaErp = me.CoalesceInteiro(pCadastro.CodMarcaErp, me.TextoParaInteiroToken(pValor))
+                me.AplicarBrandId(pCadastro, me.TextoParaInteiroToken(pValor))
             End If
             If pChave = "marca" Then
-                pCadastro.NomeMarca = me.CoalesceTexto(pCadastro.NomeMarca, pValor)
+                pCadastro.NomeMarca = me.TextoDetalhe(pCadastro.NomeMarca, pValor)
             End If
             If pChave = "brand" Then
-                pCadastro.NomeMarca = me.CoalesceTexto(pCadastro.NomeMarca, pValor)
+                pCadastro.NomeMarca = me.TextoDetalhe(pCadastro.NomeMarca, pValor)
             End If
             If pChave = "line" Then
-                pCadastro.CodLinha = me.CoalesceInteiro(pCadastro.CodLinha, me.TextoParaInteiroToken(pValor))
+                pCadastro.CodLinha = me.InteiroDetalhe(pCadastro.CodLinha, me.TextoParaInteiroToken(pValor))
             End If
             If pChave = "line_id" Then
-                pCadastro.CodLinha = me.CoalesceInteiro(pCadastro.CodLinha, me.TextoParaInteiroToken(pValor))
+                pCadastro.CodLinha = me.InteiroDetalhe(pCadastro.CodLinha, me.TextoParaInteiroToken(pValor))
             End If
             If pChave = "line_name" Then
-                pCadastro.NomeLinha = me.CoalesceTexto(pCadastro.NomeLinha, pValor)
+                pCadastro.NomeLinha = me.TextoDetalhe(pCadastro.NomeLinha, pValor)
             End If
             If pChave = "family" Then
-                pCadastro.CodFamilia = me.CoalesceInteiro(pCadastro.CodFamilia, me.TextoParaInteiroToken(pValor))
+                pCadastro.CodFamilia = me.InteiroDetalhe(pCadastro.CodFamilia, me.TextoParaInteiroToken(pValor))
             End If
             If pChave = "family_id" Then
-                pCadastro.CodFamilia = me.CoalesceInteiro(pCadastro.CodFamilia, me.TextoParaInteiroToken(pValor))
+                pCadastro.CodFamilia = me.InteiroDetalhe(pCadastro.CodFamilia, me.TextoParaInteiroToken(pValor))
             End If
             If pChave = "family_name" Then
-                pCadastro.NomeFamilia = me.CoalesceTexto(pCadastro.NomeFamilia, pValor)
+                pCadastro.NomeFamilia = me.TextoDetalhe(pCadastro.NomeFamilia, pValor)
             End If
             If pChave = "manufacturer_id" Then
                 pCadastro.CodFabricante = me.CoalesceInteiro(pCadastro.CodFabricante, me.TextoParaInteiroToken(pValor))
@@ -3741,16 +3783,15 @@ Namespace rede_ancora_produto_service
             pCadastro.AdditionalDescription = me.CoalesceTexto(pCadastro.AdditionalDescription, RedeAncoraJsonHelper.ObterTextoJson(pJson, "additional_description"))
             pCadastro.PontoCriticoAtencao = me.CoalesceTexto(pCadastro.PontoCriticoAtencao, RedeAncoraJsonHelper.ObterTextoJson(pJson, "pontoCriticoAtencao"))
             pCadastro.Dimensoes = me.CoalesceTexto(pCadastro.Dimensoes, RedeAncoraJsonHelper.ObterTextoJson(pJson, "dimensoes"))
-            pCadastro.CodMarca = me.CoalesceInteiro(pCadastro.CodMarca, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "marcaId"))
-            pCadastro.CodMarcaErp = me.CoalesceInteiro(pCadastro.CodMarcaErp, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "brand_id"))
-            pCadastro.NomeMarca = me.CoalesceTexto(pCadastro.NomeMarca, RedeAncoraJsonHelper.ObterTextoJson(pJson, "marca"))
-            pCadastro.NomeMarca = me.CoalesceTexto(pCadastro.NomeMarca, RedeAncoraJsonHelper.ObterTextoJson(pJson, "brand"))
-            pCadastro.CodLinha = me.CoalesceInteiro(pCadastro.CodLinha, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "line"))
-            pCadastro.CodLinha = me.CoalesceInteiro(pCadastro.CodLinha, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "line_id"))
-            pCadastro.NomeLinha = me.CoalesceTexto(pCadastro.NomeLinha, RedeAncoraJsonHelper.ObterTextoJson(pJson, "line_name"))
-            pCadastro.CodFamilia = me.CoalesceInteiro(pCadastro.CodFamilia, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "family"))
-            pCadastro.CodFamilia = me.CoalesceInteiro(pCadastro.CodFamilia, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "family_id"))
-            pCadastro.NomeFamilia = me.CoalesceTexto(pCadastro.NomeFamilia, RedeAncoraJsonHelper.ObterTextoJson(pJson, "family_name"))
+            me.AplicarBrandId(pCadastro, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "brand_id"))
+            pCadastro.NomeMarca = me.TextoDetalhe(pCadastro.NomeMarca, RedeAncoraJsonHelper.ObterTextoJson(pJson, "marca"))
+            pCadastro.NomeMarca = me.TextoDetalhe(pCadastro.NomeMarca, RedeAncoraJsonHelper.ObterTextoJson(pJson, "brand"))
+            pCadastro.CodLinha = me.InteiroDetalhe(pCadastro.CodLinha, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "line"))
+            pCadastro.CodLinha = me.InteiroDetalhe(pCadastro.CodLinha, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "line_id"))
+            pCadastro.NomeLinha = me.TextoDetalhe(pCadastro.NomeLinha, RedeAncoraJsonHelper.ObterTextoJson(pJson, "line_name"))
+            pCadastro.CodFamilia = me.InteiroDetalhe(pCadastro.CodFamilia, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "family"))
+            pCadastro.CodFamilia = me.InteiroDetalhe(pCadastro.CodFamilia, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "family_id"))
+            pCadastro.NomeFamilia = me.TextoDetalhe(pCadastro.NomeFamilia, RedeAncoraJsonHelper.ObterTextoJson(pJson, "family_name"))
             pCadastro.CodFabricante = me.CoalesceInteiro(pCadastro.CodFabricante, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "manufacturer_id"))
             pCadastro.CodFabricante = me.CoalesceInteiro(pCadastro.CodFabricante, RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pJson, "fabricante"))
             pCadastro.Ean = me.CoalesceTexto(pCadastro.Ean, RedeAncoraJsonHelper.ObterTextoJson(pJson, "ean"))
@@ -3822,11 +3863,14 @@ Namespace rede_ancora_produto_service
             Try
                 _cadastro.Cna = pCna
                 _cadastro.Ativo = ""
+                me._parseDetalheSobrescreve = False
                 me.PreencherCadastroDeObjetoJson(pItemJson, _cadastro)
                 _details = RedeAncoraJsonHelper.ObterFilhoJson(pItemJson, "details")
 
                 If Assigned(_details) Then
+                    me._parseDetalheSobrescreve = True
                     me.PreencherCadastroDeObjetoJson(_details, _cadastro)
+                    me._parseDetalheSobrescreve = False
                     _details.Free()
                     _details = NULL
                 End If
@@ -3846,6 +3890,8 @@ Namespace rede_ancora_produto_service
                 _ok = _cadastro
                 _cadastro = NULL
             Catch ex As Exception
+                me._parseDetalheSobrescreve = False
+
                 If Assigned(_details) Then
                     _details.Free()
                 End If
@@ -3864,6 +3910,9 @@ Namespace rede_ancora_produto_service
             Dim _model As New RedeAncoraProdutoVinculoModel()
             Dim _details As TJSONObject = NULL
             Dim _cnaResolvido As Integer = pCna
+            Dim _brand As Integer = 0
+            Dim _linha As Integer = 0
+            Dim _familia As Integer = 0
 
             If _cnaResolvido <= 0 Then
                 _cnaResolvido = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "cna")
@@ -3899,13 +3948,17 @@ Namespace rede_ancora_produto_service
             End If
 
             _model.CodMarca = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "brand_id")
+            _model.CodLinha = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "line")
 
-            If _model.CodMarca <= 0 Then
-                _model.CodMarca = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "marcaId")
+            If _model.CodLinha <= 0 Then
+                _model.CodLinha = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "line_id")
             End If
 
-            _model.CodLinha = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "line_id")
-            _model.CodFamilia = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "family_id")
+            _model.CodFamilia = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "family")
+
+            If _model.CodFamilia <= 0 Then
+                _model.CodFamilia = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(pItemJson, "family_id")
+            End If
 
             If Assigned(_details) Then
                 If _model.CodigoAncora = "" Then
@@ -3924,16 +3977,30 @@ Namespace rede_ancora_produto_service
                     End If
                 End If
 
-                If _model.CodMarca <= 0 Then
-                    _model.CodMarca = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_details, "brand_id")
+                _brand = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_details, "brand_id")
+
+                If _brand > 0 Then
+                    _model.CodMarca = _brand
                 End If
 
-                If _model.CodLinha <= 0 Then
-                    _model.CodLinha = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_details, "line")
+                _linha = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_details, "line")
+
+                If _linha <= 0 Then
+                    _linha = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_details, "line_id")
                 End If
 
-                If _model.CodFamilia <= 0 Then
-                    _model.CodFamilia = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_details, "family")
+                If _linha > 0 Then
+                    _model.CodLinha = _linha
+                End If
+
+                _familia = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_details, "family")
+
+                If _familia <= 0 Then
+                    _familia = RedeAncoraJsonHelper.ObterInteiroJsonOpcional(_details, "family_id")
+                End If
+
+                If _familia > 0 Then
+                    _model.CodFamilia = _familia
                 End If
 
                 _details.Free()
