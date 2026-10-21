@@ -3472,7 +3472,11 @@ Namespace rede_ancora_produto_service
                 End If
             Wend
 
-            TextoParaInteiroToken = _sign * _n
+            If _sign < 0 Then
+                TextoParaInteiroToken = 0 - _n
+            Else
+                TextoParaInteiroToken = _n
+            End If
         End Function
 
         Private Function TetoValorTextoJson(pChave As String) As Integer

@@ -37,6 +37,7 @@ Namespace try_parser
             Dim _ch As String = ""
             Dim _seguir As Boolean = True
             Dim _frac As Boolean = False
+            Dim _casas As Integer = 0
 
             ParseDoubleRaw = 0
 
@@ -67,7 +68,11 @@ Namespace try_parser
                     If _digit < 0 Then
                         _seguir = False
                     Else
-                        _intPart = (_intPart * 10) + _digit
+                        ' 9 digitos: 10o * 10 estoura Integer se o runtime promover a conta.
+                        If _casas < 9 Then
+                            _intPart = (_intPart * 10) + _digit
+                            _casas = _casas + 1
+                        End If
                         _i = _i + 1
                     End If
                 End If
@@ -88,6 +93,7 @@ Namespace try_parser
             If _frac Then
                 _i = _i + 1
                 _seguir = True
+                _casas = 0
 
                 While _seguir
                     If _i > _len Then
@@ -99,8 +105,13 @@ Namespace try_parser
                         If _digit < 0 Then
                             _seguir = False
                         Else
-                            _fracDiv = _fracDiv * 10
-                            _fracPart = _fracPart + (_digit / _fracDiv)
+                            ' JSON manda peso como 36.100100000000005. A 10a casa
+                            ' faz escala 10^10 e estoura Integer. 6 casas bastam (RoundTo -4).
+                            If _casas < 6 Then
+                                _fracDiv = _fracDiv * 10
+                                _fracPart = _fracPart + (_digit / _fracDiv)
+                                _casas = _casas + 1
+                            End If
                             _i = _i + 1
                         End If
                     End If
